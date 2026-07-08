@@ -1,0 +1,586 @@
+import { initGame, mulberry32, CARDS } from './game-engine/state.js';
+import { applyAction, resolveRPSMoves } from './game-engine/actions.js';
+import { finalScores } from './game-engine/scoring.js';
+
+const MAT_COLOR = { '木頭': '#8b5e34', '竹子': '#4caf50', '茅草': '#d4a017', '石頭': '#78909c' };
+const EFFECT_LABEL = {
+  extra_action: '本回合 +1 行動點',
+  draw_building: '抽 1 張建築卡',
+  draw_craft: '隨機獲得 1 張工藝卡',
+  steal_2: '偷取對方 2 枚素材',
+  defend_raid: '防禦偷襲（留在手上可自動擋下）',
+  gain_2_any: '獲得任意 2 枚素材'
+};
+
+let G = null;
+let rng = null;
+let ui = {
+  screen: 'setup',
+  setup: { count: 2, names: ['', '', '', ''] },
+  nicknames: [],
+  pass: null,
+  draw: null,
+  modal: null
+};
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function nickname(idx) { return esc(ui.nicknames[idx] || ''); }
+function currentPlayer() { return G.players[G.currentPlayer]; }
+
+function matIcon(m) {
+  const color = MAT_COLOR[m] || '#999';
+  return `<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="${color}"/><text x="10" y="14" text-anchor="middle" font-size="10" fill="#fff">${m[0]}</text></svg>`;
+}
+function materialsRow(p) {
+  return CARDS.materials.map(m => `<span class="chip mat-icon">${matIcon(m)} ${m} ×${p.materials[m] || 0}</span>`).join('');
+}
+function availablePairs(p) {
+  return Object.entries(CARDS.crafts).filter(([craftId]) => {
+    if (!G.craftPool.some(c => c.id === craftId)) return false;
+    const need = CARDS.rawCardTypes.filter(t => t.craft === craftId).map(t => t.id);
+    return need.every(id => p.hand.some(c => c.kind === 'raw' && c.id === id));
+  }).map(([craftId, c]) => ({ craftId, name: c.name }));
+}
+function canBuyBuilding(p) {
+  return CARDS.materials.filter(m => (p.materials[m] || 0) >= 1).length >= 4;
+}
+function endReasonLabel(reason) {
+  if (!reason) return '（未知）';
+  if (reason === 'craft_pool_empty') return '工藝池已抽光';
+  if (reason === 'decks_exhausted') return '三個牌庫全空，且無人可再配對工藝';
+  const m = reason.match(/^player_(\d+)_building_set$/);
+  if (m) return `${G.players[+m[1]].tribeName} 集滿本族建築`;
+  return reason;
+}
+
+// ── render ──────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  let html = '';
+  if (ui.screen === 'setup') html = renderSetup();
+  else if (ui.screen === 'draw') html = renderDraw();
+  else if (ui.screen === 'pass') html = `<div class="card-box">${passInner(ui.pass.toIdx, 'revealTurn')}</div>`;
+  else if (ui.screen === 'board') html = renderBoard();
+  else if (ui.screen === 'end') html = renderEnd();
+  html += renderModal();
+  app.innerHTML = html;
+}
+
+function passInner(toIdx, continueFn) {
+  const p = G.players[toIdx];
+  return `<div class="pass-screen">
+    <div class="big">請將裝置交給</div>
+    <div class="tribe-badge tribe-${p.tribe}">${p.tribeName}</div>
+    <div class="big">${nickname(toIdx)}</div>
+    <div class="muted">其他人請勿偷看畫面</div>
+    <button class="primary" onclick="${continueFn}()">我準備好了，開始</button>
+  </div>`;
+}
+
+// ── setup / draw ──────────────────────────────────────────
+function renderSetup() {
+  const s = ui.setup;
+  return `
+    <h1>原地重生・返璞歸真</h1>
+    <div class="card-box">
+      <h2>設定玩家</h2>
+      <p>人數：</p>
+      <div class="row">
+        ${[2, 3, 4].map(n => `<button class="${s.count === n ? 'primary' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
+      </div>
+      <h3>暱稱</h3>
+      ${Array.from({ length: s.count }).map((_, i) => `
+        <div class="row"><span class="chip">P${i + 1}</span>
+        <input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)"></div>
+      `).join('')}
+      <div class="center"><button class="primary" onclick="startDraw()">開始抽族群卡</button></div>
+    </div>`;
+}
+function setCount(n) { ui.setup.count = n; render(); }
+function setName(i, val) { ui.setup.names[i] = val; }
+function startDraw() {
+  const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  G = initGame(ui.setup.count, seed);
+  rng = mulberry32(seed ^ 0x9e3779b9);
+  ui.nicknames = G.players.map((_, i) => (ui.setup.names[i] || '').trim() || `玩家${i + 1}`);
+  ui.screen = 'draw';
+  ui.draw = { revealed: 0 };
+  render();
+}
+function renderDraw() {
+  const d = ui.draw;
+  const allRevealed = d.revealed >= G.players.length;
+  return `
+    <h1>抽取族群卡</h1>
+    <div class="card-box">
+      ${G.players.map((p, i) => i < d.revealed
+        ? `<div class="row"><span class="tribe-badge tribe-${p.tribe}">${p.tribeName}</span> ${nickname(i)}</div>`
+        : `<div class="row muted">P${i + 1}（尚未抽取）</div>`).join('')}
+    </div>
+    <div class="center">
+      ${allRevealed
+        ? `<button class="primary" onclick="beginGame()">開始遊戲</button>`
+        : `<button class="primary" onclick="revealNext()">抽下一位族群卡</button>`}
+    </div>`;
+}
+function revealNext() { ui.draw.revealed++; render(); }
+function beginGame() { startPlayerTurn(0); }
+
+// ── turn flow ──────────────────────────────────────────
+function startPlayerTurn(idx) {
+  G.players[idx].actionPoints = 3;
+  ui.modal = null;
+  ui.screen = 'pass';
+  ui.pass = { toIdx: idx, next: 'board' };
+  render();
+}
+function revealTurn() { ui.screen = ui.pass.next; render(); }
+
+function finishTurnAndAdvance() {
+  if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
+    G.phase = 'ended';
+    ui.screen = 'end';
+    render();
+    return;
+  }
+  G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
+  if (G.currentPlayer === 0) G.turn++;
+
+  if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
+    const anyPair = G.players.some(pp =>
+      Object.keys(CARDS.crafts).some(craftId =>
+        G.craftPool.some(c => c.id === craftId) &&
+        CARDS.rawCardTypes.filter(t => t.craft === craftId).map(t => t.id)
+          .every(id => pp.hand.some(c => c.kind === 'raw' && c.id === id))));
+    if (!anyPair) { G.endTriggeredBy = 'decks_exhausted'; G.phase = 'ended'; }
+  }
+
+  if (G.phase === 'ended') { ui.screen = 'end'; render(); return; }
+  startPlayerTurn(G.currentPlayer);
+}
+
+function doAction(action) {
+  try {
+    applyAction(G, action, rng);
+  } catch (e) {
+    alert('動作失敗：' + e.message);
+  }
+  ui.modal = null;
+  if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance();
+  else render();
+}
+
+// ── board ──────────────────────────────────────────
+function renderBoard() {
+  const p = currentPlayer();
+  const others = G.players.filter(pl => pl.idx !== p.idx);
+  const pairs = availablePairs(p);
+  const cultureInHand = p.hand.filter(c => c.kind === 'culture');
+  const rawInHand = p.hand.filter(c => c.kind === 'raw');
+
+  return `
+    <div class="row between">
+      <h1>原地重生・返璞歸真</h1>
+      <div class="chip">第 ${G.turn + 1} 輪</div>
+    </div>
+    <div class="card-box">
+      <div class="row between">
+        <div><span class="tribe-badge tribe-${p.tribe}">${p.tribeName}</span> ${nickname(p.idx)} 的回合</div>
+        <div class="chip">剩餘行動點數：${p.actionPoints}</div>
+      </div>
+      <h3>我的素材</h3>
+      <div class="row">${materialsRow(p)}</div>
+      <h3>我的手牌</h3>
+      <div class="row">
+        ${rawInHand.map(c => `<div class="hand-card">${c.name}</div>`).join('') || '<span class="muted">（無原料卡）</span>'}
+      </div>
+      <div class="row">
+        ${cultureInHand.map(c => `
+          <div class="hand-card culture">
+            <div>${c.name}</div>
+            <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
+            <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
+          </div>`).join('') || '<span class="muted">（無文化卡）</span>'}
+      </div>
+      <h3>已擲出 / 工藝</h3>
+      <div class="row">${p.played.map(c => `<span class="chip">${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
+      <h3>建築</h3>
+      <div class="row">${p.buildings.map(b => `<span class="chip">${b.name}</span>`).join('') || '<span class="muted">（無建築）</span>'}</div>
+      <h3>服飾</h3>
+      <div class="row">${p.clothing.map(c => `<span class="chip">${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+    </div>
+
+    <div class="card-box">
+      <h3>公共區</h3>
+      <div class="row">
+        <span class="chip">原料牌庫 ${G.rawDeck.length}</span>
+        <span class="chip">文化牌庫 ${G.cultureDeck.length}</span>
+        <span class="chip">建築牌庫 ${G.buildingDeck.length}</span>
+        <span class="chip">工藝池 ${G.craftPool.length}</span>
+      </div>
+      <div class="row">
+        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip">${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="other-players">
+      ${others.map(pl => `
+        <div class="card-box">
+          <div><span class="tribe-badge tribe-${pl.tribe}">${pl.tribeName}</span> ${nickname(pl.idx)}</div>
+          <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="card-box action-menu">
+      <h3>行動</h3>
+      <button ${p.actionPoints !== 3 ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
+      <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
+      <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
+      <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡<span class="ap-cost">1</span></button>
+      <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
+      ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">擲出配對換「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
+      <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">4種素材換抽建築卡<span class="ap-cost">2</span></button>
+      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
+      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
+      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
+      <button class="danger" onclick="actionEndTurn()">結束回合</button>
+    </div>
+
+    <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
+  `;
+}
+
+// ── end screen ──────────────────────────────────────────
+function renderEnd() {
+  const scores = finalScores(G);
+  const maxTotal = Math.max(...scores.map(s => s.total));
+  return `
+    <h1>結算</h1>
+    <p class="muted">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
+    <table class="score-table">
+      <tr><th>族群</th><th>建築</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
+      ${scores.map(s => `<tr style="${s.total === maxTotal ? 'font-weight:bold;background:#f6ecd4;' : ''}">
+        <td>${s.tribe} ${nickname(s.player)}</td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
+      </tr>`).join('')}
+    </table>
+    <div class="center"><button class="primary" onclick="location.reload()">重新開始</button></div>`;
+}
+
+// ── modal system ──────────────────────────────────────────
+function closeModal() { ui.modal = null; render(); }
+function closeBtn(label) { return `<div class="row" style="margin-top:12px;"><button onclick="closeModal()">${label || '取消'}</button></div>`; }
+
+function renderModal() {
+  if (!ui.modal) return '';
+  const m = ui.modal;
+  let inner = '';
+  if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
+  else if (m.type === 'passOverlay') inner = passInner(m.toIdx, 'passOverlayContinue');
+  else if (m.type === 'rps') inner = renderRPS(m);
+  else if (m.type === 'materialPicker') inner = renderMaterialPicker(m);
+  else if (m.type === 'takeMode') inner = renderTakeMode();
+  else if (m.type === 'exchangePickGive') inner = renderExchangeGive(m);
+  else if (m.type === 'exchangePickGet') inner = renderExchangeGet();
+  else if (m.type === 'buyBuildingPicker') inner = renderBuyBuildingPicker(m);
+  else if (m.type === 'tradeOffer') inner = renderTradeOffer(m);
+  else if (m.type === 'tradeRespond') inner = renderTradeRespond(m);
+  else if (m.type === 'buyFromPlayerPick') inner = renderBuyFromPlayerPick(m);
+  else if (m.type === 'buyFromPlayerDemand') inner = renderBuyFromPlayerDemand(m);
+  return `<div class="overlay"><div class="modal">${inner}</div></div>`;
+}
+
+function chooseTargetModal(title, onPick, labelFn) {
+  const others = G.players.filter(pl => pl.idx !== G.currentPlayer);
+  ui.modal = { type: 'chooseTarget', title, options: others.map(pl => ({ idx: pl.idx, label: labelFn ? labelFn(pl) : `${pl.tribeName} ${nickname(pl.idx)}` })), onPick };
+  render();
+}
+function renderChooseTarget(m) {
+  return `<h3>${m.title}</h3>${m.options.map(o => `<button onclick="pickTarget(${o.idx})">${o.label}</button>`).join('')}${closeBtn()}`;
+}
+function pickTarget(idx) { const cb = ui.modal.onPick; ui.modal = null; cb(idx); }
+function passOverlayContinue() { const cb = ui.modal.onReveal; ui.modal = null; cb(); }
+
+// RPS
+function startRPS(attackerIdx, defenderIdx, onDone) {
+  ui.modal = { type: 'rps', phase: 'attacker', attackerIdx, defenderIdx, attackerMove: null, defenderMove: null, result: null, onDone };
+  render();
+}
+function rpsButtons() {
+  return `<div class="row center">
+    <button class="rps-btn" onclick="rpsPick(0)">🪨 石頭</button>
+    <button class="rps-btn" onclick="rpsPick(1)">📄 布</button>
+    <button class="rps-btn" onclick="rpsPick(2)">✂️ 剪刀</button>
+  </div>`;
+}
+function renderRPS(m) {
+  if (m.phase === 'attacker') return `<h3>${G.players[m.attackerIdx].tribeName} ${nickname(m.attackerIdx)} 請出拳</h3>${rpsButtons()}`;
+  if (m.phase === 'pass_to_defender') return passInner(m.defenderIdx, 'rpsRevealDefenderReady');
+  if (m.phase === 'defender') return `<h3>${G.players[m.defenderIdx].tribeName} ${nickname(m.defenderIdx)} 請出拳</h3>${rpsButtons()}`;
+  if (m.phase === 'tie') return `<h3>平手！雙方重新出拳</h3><button class="primary" onclick="rpsAfterTie()">繼續</button>`;
+  if (m.phase === 'pass_to_attacker_retry') return passInner(m.attackerIdx, 'rpsRevealAttackerReady');
+  if (m.phase === 'reveal') {
+    const label = ['🪨 石頭', '📄 布', '✂️ 剪刀'];
+    const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
+    return `<h3>結果揭曉</h3>
+      <p>${G.players[m.attackerIdx].tribeName}：${label[m.attackerMove]}　vs　${G.players[m.defenderIdx].tribeName}：${label[m.defenderMove]}</p>
+      <p><b>${G.players[winnerIdx].tribeName} 勝出！</b></p>
+      <button class="primary" onclick="rpsFinish()">繼續</button>`;
+  }
+  return '';
+}
+function rpsPick(move) {
+  const m = ui.modal;
+  if (m.phase === 'attacker') { m.attackerMove = move; m.phase = 'pass_to_defender'; }
+  else if (m.phase === 'defender') {
+    m.defenderMove = move;
+    const res = resolveRPSMoves(m.attackerMove, m.defenderMove);
+    if (res === null) m.phase = 'tie';
+    else { m.result = res; m.phase = 'reveal'; }
+  }
+  render();
+}
+function rpsRevealDefenderReady() { ui.modal.phase = 'defender'; render(); }
+function rpsAfterTie() { ui.modal.attackerMove = null; ui.modal.defenderMove = null; ui.modal.phase = 'pass_to_attacker_retry'; render(); }
+function rpsRevealAttackerReady() { ui.modal.phase = 'attacker'; render(); }
+function rpsFinish() { const m = ui.modal; const cb = m.onDone; const result = m.result; ui.modal = null; cb(result); }
+
+// generic material picker (gain_2_any)
+function materialPickerModal(title, count, onConfirm) {
+  ui.modal = { type: 'materialPicker', title, count, picks: [], onConfirm };
+  render();
+}
+function renderMaterialPicker(m) {
+  const chips = CARDS.materials.map(mat => `<button onclick="materialPick('${mat}')">${matIcon(mat)} ${mat}</button>`).join('');
+  const chosen = m.picks.join('、') || '（尚未選擇）';
+  return `<h3>${m.title}（選 ${m.count} 個，可重複）</h3><div class="row">${chips}</div><p>已選：${chosen}</p>
+    <div class="row">
+      <button onclick="materialPickUndo()">上一步</button>
+      <button class="primary" ${m.picks.length < m.count ? 'disabled' : ''} onclick="materialPickConfirm()">確認</button>
+    </div>`;
+}
+function materialPick(mat) { const m = ui.modal; if (m.picks.length < m.count) m.picks.push(mat); render(); }
+function materialPickUndo() { ui.modal.picks.pop(); render(); }
+function materialPickConfirm() { const m = ui.modal; const cb = m.onConfirm; const picks = m.picks.slice(); ui.modal = null; cb(picks); }
+
+// TAKE_MATERIALS
+function actionTakeMaterialsPrompt() { ui.modal = { type: 'takeMode' }; render(); }
+function renderTakeMode() {
+  const p = currentPlayer();
+  const produces = CARDS.tribes[p.tribe].produces;
+  return `<h3>整回合：拿素材</h3>
+    <button class="primary" onclick="takeSimple()">拿本族盛產素材各 1（${produces.join('、')}）</button>
+    <button onclick="takeExchangeStart()">用 2 枚同種盛產素材換 1 枚任意素材</button>
+    ${closeBtn()}`;
+}
+function takeSimple() { ui.modal = null; doAction({ type: 'TAKE_MATERIALS', player: G.currentPlayer }); }
+function takeExchangeStart() {
+  const p = currentPlayer();
+  const options = CARDS.tribes[p.tribe].produces.filter(m => (p.materials[m] || 0) >= 2);
+  ui.modal = { type: 'exchangePickGive', options };
+  render();
+}
+function renderExchangeGive(m) {
+  if (!m.options.length) return `<h3>沒有任何盛產素材達到 2 枚</h3>${closeBtn('返回')}`;
+  return `<h3>選擇要付出的盛產素材（2 枚換 1）</h3><div class="row">${m.options.map(x => `<button onclick="exchangeGivePick('${x}')">${matIcon(x)} ${x}</button>`).join('')}</div>${closeBtn()}`;
+}
+function exchangeGivePick(give) { ui.modal = { type: 'exchangePickGet', give }; render(); }
+function renderExchangeGet() {
+  return `<h3>選擇想要換得的素材</h3><div class="row">${CARDS.materials.map(x => `<button onclick="exchangeGetPick('${x}')">${matIcon(x)} ${x}</button>`).join('')}</div>`;
+}
+function exchangeGetPick(get) {
+  const give = ui.modal.give;
+  ui.modal = null;
+  doAction({ type: 'TAKE_MATERIALS', player: G.currentPlayer, mode: 'exchange', give, get });
+}
+
+// RAID / SWAP_BUILDING
+function actionRaid() {
+  chooseTargetModal('選擇偷襲目標', (targetIdx) => {
+    startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
+      doAction({ type: 'RAID', player: G.currentPlayer, target: targetIdx, result: attackerWins });
+    });
+  });
+}
+function actionSwapBuilding() {
+  chooseTargetModal('選擇建築互換對象', (targetIdx) => {
+    startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
+      doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target: targetIdx, result: attackerWins });
+    });
+  }, pl => `${pl.tribeName} ${nickname(pl.idx)}（建築 ${pl.buildings.length} 張）`);
+}
+function actionForceSwapRaw() {
+  chooseTargetModal('選擇強制交換對象', (targetIdx) => {
+    doAction({ type: 'FORCE_SWAP_RAW', player: G.currentPlayer, target: targetIdx });
+  });
+}
+
+// TRADE
+function actionTrade() {
+  chooseTargetModal('選擇交易對象', (targetIdx) => {
+    ui.modal = { type: 'tradeOffer', target: targetIdx, give: [], get: [] };
+    render();
+  });
+}
+function renderTradeOffer(m) {
+  const t = G.players[m.target];
+  const p = currentPlayer();
+  const giveOptions = CARDS.materials.filter(x => (p.materials[x] || 0) >= 1);
+  const giveChips = giveOptions.map(x => `<button ${m.give.length >= 2 ? 'disabled' : ''} onclick="tradeAddGive('${x}')">${matIcon(x)} ${x}</button>`).join('');
+  const getChips = CARDS.materials.map(x => `<button ${m.get.length >= 2 ? 'disabled' : ''} onclick="tradeAddGet('${x}')">${matIcon(x)} ${x}</button>`).join('');
+  const giveChosen = m.give.map((x, i) => `<button onclick="tradeRemoveGive(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  const getChosen = m.get.map((x, i) => `<button onclick="tradeRemoveGet(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  return `<h3>向 ${t.tribeName} ${nickname(m.target)} 提議交易</h3>
+    <p>你要給對方（最多 2 枚）：</p><div class="row">${giveChips}</div><p>已選：${giveChosen}</p>
+    <p>你要向對方換（最多 2 枚，對方是否持有將由對方確認）：</p><div class="row">${getChips}</div><p>已選：${getChosen}</p>
+    <div class="row"><button onclick="closeModal()">取消</button><button class="primary" onclick="tradeSubmit()">送出提案</button></div>`;
+}
+function tradeAddGive(mat) {
+  const m = ui.modal; const p = currentPlayer();
+  const used = m.give.filter(x => x === mat).length;
+  if (m.give.length < 2 && used < (p.materials[mat] || 0)) m.give.push(mat);
+  render();
+}
+function tradeRemoveGive(i) { ui.modal.give.splice(i, 1); render(); }
+function tradeAddGet(mat) { const m = ui.modal; if (m.get.length < 2) m.get.push(mat); render(); }
+function tradeRemoveGet(i) { ui.modal.get.splice(i, 1); render(); }
+function tradeSubmit() {
+  const m = ui.modal;
+  const target = m.target, give = m.give.slice(), get = m.get.slice();
+  ui.modal = { type: 'passOverlay', toIdx: target, onReveal: () => {
+    ui.modal = { type: 'tradeRespond', target, give, get };
+    render();
+  }};
+  render();
+}
+function renderTradeRespond(m) {
+  const t = G.players[m.target];
+  const p = currentPlayer();
+  return `<h3>${t.tribeName} ${nickname(m.target)}，${p.tribeName} 想跟你交易</h3>
+    <p>對方要給你：${m.give.join('、') || '（無）'}</p>
+    <p>對方想跟你換：${m.get.join('、') || '（無）'}</p>
+    <div class="row">
+      <button class="danger" onclick="tradeRespondDecide(false)">拒絕</button>
+      <button class="primary" onclick="tradeRespondDecide(true)">接受</button>
+    </div>`;
+}
+function tradeRespondDecide(accepted) {
+  const m = ui.modal;
+  const action = { type: 'TRADE', player: G.currentPlayer, target: m.target, give: m.give, get: m.get, accepted };
+  ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => { doAction(action); } };
+  render();
+}
+
+// BUY_FROM_PLAYER
+function actionBuyFromPlayer() {
+  chooseTargetModal('選擇購買對象', (targetIdx) => {
+    ui.modal = { type: 'passOverlay', toIdx: targetIdx, onReveal: () => {
+      ui.modal = { type: 'buyFromPlayerPick', target: targetIdx };
+      render();
+    }};
+    render();
+  });
+}
+function renderBuyFromPlayerPick(m) {
+  const t = G.players[m.target];
+  const sellable = t.hand.filter(c => c.kind === 'raw' || c.kind === 'clothing');
+  if (!sellable.length) return `<h3>${t.tribeName} 手上沒有原料卡或服飾卡可賣</h3><button class="primary" onclick="buyFromPlayerNoCard()">返回買方</button>`;
+  const list = sellable.map((c, i) => `<button onclick="buyFromPlayerPickCard(${i})">${c.name}</button>`).join('');
+  return `<h3>${t.tribeName} ${nickname(m.target)}，選擇要賣出的卡片</h3><div class="row">${list}</div>`;
+}
+function buyFromPlayerNoCard() {
+  const target = ui.modal.target;
+  ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => {
+    doAction({ type: 'BUY_FROM_PLAYER', player: G.currentPlayer, target, pay: [] });
+  }};
+  render();
+}
+function buyFromPlayerPickCard(i) {
+  const t = G.players[ui.modal.target];
+  const sellable = t.hand.filter(c => c.kind === 'raw' || c.kind === 'clothing');
+  const card = sellable[i];
+  ui.modal = { type: 'buyFromPlayerDemand', target: ui.modal.target, card, pay: [] };
+  render();
+}
+function renderBuyFromPlayerDemand(m) {
+  const chips = CARDS.materials.map(x => `<button ${m.pay.length >= 2 ? 'disabled' : ''} onclick="buyFromPlayerAddPay('${x}')">${matIcon(x)} ${x}</button>`).join('');
+  const chosen = m.pay.map((x, i) => `<button onclick="buyFromPlayerRemovePay(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  return `<h3>要求買方支付（最多 2 枚）</h3><p>你要賣：${m.card.name}</p><div class="row">${chips}</div><p>已選：${chosen}</p>
+    <button class="primary" onclick="buyFromPlayerSubmitDemand()">送出要求</button>`;
+}
+function buyFromPlayerAddPay(mat) { const m = ui.modal; if (m.pay.length < 2) m.pay.push(mat); render(); }
+function buyFromPlayerRemovePay(i) { ui.modal.pay.splice(i, 1); render(); }
+function buyFromPlayerSubmitDemand() {
+  const m = ui.modal;
+  const target = m.target, card = m.card, pay = m.pay.slice();
+  ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => {
+    doAction({ type: 'BUY_FROM_PLAYER', player: G.currentPlayer, target, cardId: card.kind === 'raw' ? card.id : undefined, pay });
+  }};
+  render();
+}
+
+// BUY_BUILDING
+function actionBuyBuilding() {
+  const p = currentPlayer();
+  const options = CARDS.materials.filter(m => (p.materials[m] || 0) >= 1);
+  ui.modal = { type: 'buyBuildingPicker', options, picks: [] };
+  render();
+}
+function renderBuyBuildingPicker(m) {
+  const chips = m.options.map(mat => {
+    const sel = m.picks.includes(mat);
+    return `<button onclick="buyBuildingToggle('${mat}')" style="${sel ? 'border-color:var(--accent);background:#f3e9d3;' : ''}">${matIcon(mat)} ${mat}</button>`;
+  }).join('');
+  return `<h3>選 4 種不同素材換抽建築卡</h3><div class="row">${chips}</div><p>已選 ${m.picks.length}/4</p>
+    <div class="row"><button onclick="closeModal()">取消</button><button class="primary" ${m.picks.length === 4 ? '' : 'disabled'} onclick="buyBuildingConfirm()">確認</button></div>`;
+}
+function buyBuildingToggle(mat) {
+  const m = ui.modal;
+  const i = m.picks.indexOf(mat);
+  if (i >= 0) m.picks.splice(i, 1);
+  else if (m.picks.length < 4) m.picks.push(mat);
+  render();
+}
+function buyBuildingConfirm() {
+  const picks = ui.modal.picks.slice();
+  ui.modal = null;
+  doAction({ type: 'BUY_BUILDING', player: G.currentPlayer, spend: picks });
+}
+
+// PLAY_RAW_PAIR / PLAY_CULTURE / draws / end turn
+function actionPlayRawPair(craftId) { doAction({ type: 'PLAY_RAW_PAIR', player: G.currentPlayer, craftId }); }
+function actionPlayCulture(cardId) {
+  const p = currentPlayer();
+  const card = p.hand.find(c => c.kind === 'culture' && c.id === cardId);
+  if (!card) return;
+  if (card.effect === 'steal_2') {
+    chooseTargetModal(`擲出「${card.name}」— 選擇偷取對象`, (targetIdx) => {
+      doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId, target: targetIdx });
+    });
+  } else if (card.effect === 'gain_2_any') {
+    materialPickerModal(`擲出「${card.name}」— 選擇獲得的素材`, 2, (picks) => {
+      doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId, gain: picks });
+    });
+  } else {
+    doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId });
+  }
+}
+function actionDrawMaterial() { doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer }); }
+function actionDrawCulture() { doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer }); }
+function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
+
+Object.assign(window, {
+  setCount, setName, startDraw, revealNext, beginGame, revealTurn,
+  actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
+  actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
+  rpsPick, rpsRevealDefenderReady, rpsAfterTie, rpsRevealAttackerReady, rpsFinish,
+  actionTrade, tradeAddGive, tradeRemoveGive, tradeAddGet, tradeRemoveGet, tradeSubmit, tradeRespondDecide,
+  actionDrawMaterial, actionDrawCulture, actionPlayRawPair, actionPlayCulture,
+  materialPick, materialPickUndo, materialPickConfirm,
+  actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
+  actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
+  actionEndTurn
+});
+
+render();

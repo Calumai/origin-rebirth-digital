@@ -1,0 +1,183 @@
+:root {
+  --thao: #1976d2;
+  --kavalan: #00897b;
+  --hlaalua: #f57c00;
+  --seediq: #d32f2f;
+  --bg: #faf6ef;
+  --paper: #ffffff;
+  --ink: #2b2016;
+  --line: #d8cdb8;
+  --accent: #a6742d;
+  --danger: #c0392b;
+  --ok: #2e7d32;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+h1, h2, h3 { margin: 0.3em 0; }
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.4em; }
+
+button {
+  font-family: inherit;
+  font-size: 1em;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  margin: 4px;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+input[type=text] {
+  font-size: 1em;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  width: 100%;
+}
+
+.card-box {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.center { text-align: center; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row.between { justify-content: space-between; }
+.muted { color: #7a6e58; font-size: 0.85em; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.95em;
+}
+
+.tribe-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: bold;
+}
+.tribe-thao { background: var(--thao); }
+.tribe-kavalan { background: var(--kavalan); }
+.tribe-hlaalua { background: var(--hlaalua); }
+.tribe-seediq { background: var(--seediq); }
+
+.pass-screen {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+}
+.pass-screen .big { font-size: 2em; font-weight: bold; }
+
+.hand-card {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  min-width: 90px;
+  text-align: center;
+}
+.hand-card:hover { border-color: var(--accent); }
+.hand-card.culture { border-color: #8e5aa6; }
+.hand-card.disabled { opacity: 0.4; cursor: not-allowed; }
+
+.action-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 6px 0;
+}
+.ap-cost {
+  float: right;
+  background: var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8em;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 22, 12, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+.modal {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.log-box {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 0.85em;
+  color: #55493a;
+}
+.log-box div { margin: 2px 0; }
+
+.rps-btn { font-size: 2.2em; padding: 18px 26px; }
+
+.score-table { width: 100%; border-collapse: collapse; }
+.score-table th, .score-table td { border-bottom: 1px solid var(--line); padding: 8px; text-align: center; }
+.score-table th { background: #f1e9d8; }
+
+.mat-icon { display: inline-flex; align-items: center; gap: 4px; }
+.mat-icon svg { display: block; }
+
+.other-players { display: flex; flex-wrap: wrap; gap: 10px; }
+.other-players .card-box { flex: 1 1 200px; margin-bottom: 0; }
+
+@media (max-width: 600px) {
+  body { font-size: 17px; }
+  .rps-btn { font-size: 1.6em; padding: 14px 18px; }
+}

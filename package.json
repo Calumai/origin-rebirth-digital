@@ -1,0 +1,10 @@
+{
+  "name": "origin-rebirth-digital",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "《原地重生・返璞歸真》數位化 — 台灣原住民桌遊數位版",
+  "scripts": {
+    "simulate": "node game-engine/simulate.js 100"
+  }
+}

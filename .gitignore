@@ -1,0 +1,5 @@
+node_modules/
+.vercel/
+*.log
+.claude/settings.local.json
+好心睡美人-20260708T093255Z-3-001/

@@ -1,0 +1,87 @@
+import { CARDS } from './cards.js';
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildDecks(rng) {
+  const raw = [];
+  for (const t of CARDS.rawCardTypes)
+    for (let i = 0; i < CARDS.rawCopiesPerType; i++)
+      raw.push({ kind: 'raw', id: t.id, name: t.name, craft: t.craft });
+
+  // 假設：服飾卡洗入原料牌庫（規則書未載明取得管道）
+  const clothing = [];
+  for (const tribe of Object.keys(CARDS.tribes))
+    for (const gender of CARDS.clothing.genders)
+      for (const part of Object.keys(CARDS.clothing.parts))
+        clothing.push({
+          kind: 'clothing', tribe, gender, part,
+          score: CARDS.clothing.parts[part],
+          name: `${CARDS.tribes[tribe].name}服飾-${gender === 'male' ? '男' : '女'}${part === 'head' ? '頭' : '身'}`
+        });
+
+  const culture = CARDS.cultureCards.map(c => ({ kind: 'culture', ...c }));
+
+  const buildings = [];
+  for (const tribe of Object.keys(CARDS.tribes))
+    for (let i = 1; i <= CARDS.buildingsPerTribe; i++)
+      buildings.push({ kind: 'building', tribe, index: i, score: CARDS.buildingScore, name: `${CARDS.tribes[tribe].name}建築${i}` });
+
+  const craftPool = [];
+  for (const [id, c] of Object.entries(CARDS.crafts))
+    for (let i = 0; i < CARDS.craftCopiesPerType; i++)
+      craftPool.push({ kind: 'craft', id, name: c.name, tribe: c.tribe, score: c.score });
+
+  return {
+    rawDeck: shuffle(raw.concat(clothing), rng),
+    cultureDeck: shuffle(culture, rng),
+    buildingDeck: shuffle(buildings, rng),
+    craftPool
+  };
+}
+
+function initGame(playerCount, seed) {
+  if (playerCount < 2 || playerCount > 4) throw new Error('players must be 2-4');
+  const rng = mulberry32(seed);
+  const tribeIds = shuffle(Object.keys(CARDS.tribes), rng).slice(0, playerCount);
+  const decks = buildDecks(rng);
+
+  const players = tribeIds.map((tribe, i) => {
+    const materials = {};
+    for (const m of CARDS.materials) materials[m] = 1; // 4 種各 1
+    for (const m of CARDS.tribes[tribe].produces) materials[m] += 1; // 盛產再各 1 → 共 7
+    return {
+      idx: i, tribe, tribeName: CARDS.tribes[tribe].name,
+      materials, hand: [], played: [], buildings: [], clothing: [],
+      actionPoints: 0
+    };
+  });
+
+  return {
+    seed, rngState: null,
+    players,
+    ...decks,
+    turn: 0, currentPlayer: 0,
+    phase: 'playing',
+    endTriggeredBy: null, endTriggerTurn: null,
+    log: []
+  };
+}
+
+export { initGame, mulberry32, shuffle, CARDS };
