@@ -114,7 +114,7 @@ function render() {
   else if (ui.screen === 'setup') html = renderSetup();
   else if (ui.screen === 'draw') html = renderDraw();
   else if (ui.screen === 'pass') html = `<div class="card-box">${passInner(ui.pass.toIdx, 'revealTurn')}</div>`;
-  else if (ui.screen === 'board') html = renderBoard();
+  else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
   app.innerHTML = html;
