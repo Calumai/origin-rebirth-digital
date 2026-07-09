@@ -481,7 +481,7 @@ function versusStrip() {
       <img src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
       <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
       <div class="vs-score">${scores[i].total} 分</div>
-      <div class="vs-stats">建${pl.buildings.length}・牌${pl.hand.length}・材${matN}</div>
+      <div class="vs-stats">建${pl.buildings.length}・牌${pl.hand.length}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}・材${matN}</div>
     </div>`;
   });
   return `<div class="versus-strip">${cells.join('<div class="vs-sep"></div>')}</div>`;
@@ -497,89 +497,84 @@ function renderBoard() {
   const rawInHand = p.hand.filter(c => c.kind === 'raw');
 
   return `
-    <div class="row between">
-      <h1>原地重生・返璞歸真</h1>
-      <div class="row">
-        <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
-        <div class="chip">第 ${G.turn + 1} 輪</div>
+    <div class="board-viewport">
+      <div class="bv-header row between">
+        <h1>原地重生・返璞歸真</h1>
+        <div class="row">
+          <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
+          <div class="chip">第 ${G.turn + 1} 輪</div>
+        </div>
+      </div>
+
+      <div class="bv-versus">${versusStrip()}</div>
+
+      <div class="bv-battlefield card-box light-frame battle-field">
+        <h3>戰場・公共牌庫</h3>
+        <div class="row center">
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+        </div>
+        <div class="row center">
+          ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
+        </div>
+      </div>
+
+      <div class="bv-self card-box zone-self">
+        <div class="row between">
+          <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
+          <div class="chip tut-ap">剩餘行動點數：${p.actionPoints}</div>
+        </div>
+        <h3>我的素材</h3>
+        <div class="row tut-materials">${materialsRow(p)}</div>
+        <h3>我的手牌</h3>
+        <div class="row">
+          ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('') || '<span class="muted">（無原料卡）</span>'}
+        </div>
+        <div class="row">
+          ${cultureInHand.map(c => `
+            <div class="hand-card culture">
+              ${cardThumb(c)}
+              <div>${c.name}</div>
+              <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
+              <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
+            </div>`).join('') || '<span class="muted">（無文化卡）</span>'}
+        </div>
+        <h3>已擲出 / 工藝</h3>
+        <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
+        <h3 class="tut-buildings">建築</h3>
+        <div class="row">${buildingsArea(p)}</div>
+        <h3>服飾</h3>
+        <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+      </div>
+
+      <div class="bv-side">
+        <div class="card-box light-frame action-menu tut-actions">
+          <h3>行動</h3>
+
+          <div class="action-group-label">基礎行動</div>
+          <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
+          <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡<span class="ap-cost">1</span></button>
+          <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
+          ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">擲出配對換「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
+
+          <div class="action-group-label">建造</div>
+          <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">4種素材換抽建築卡<span class="ap-cost">2</span></button>
+
+          <div class="action-group-label">對抗行動（進階）</div>
+          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
+          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
+          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
+          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
+          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
+
+          <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
+        </div>
+
+        <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
     </div>
-    ${versusStrip()}
-
-    <div class="zone-label">對手</div>
-    <div class="zone-opponents">
-      ${others.map(pl => `
-        <div class="opp-card" style="border-top-color:var(--${pl.tribe})">
-          <div class="opp-head"><img class="tribe-icon" src="${CARDS.tribes[pl.tribe].img}" alt="">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
-          <div class="opp-stats">建${pl.buildings.length}｜牌${pl.hand.length}｜服${pl.clothing.length}｜藝${pl.played.filter(c => c.kind === 'craft').length}｜材${Object.values(pl.materials).reduce((a, b) => a + b, 0)}</div>
-        </div>`).join('')}
-    </div>
-
-    <div class="card-box light-frame battle-field">
-      <h3>戰場・公共牌庫</h3>
-      <div class="row center">
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
-      </div>
-      <div class="row center">
-        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
-      </div>
-    </div>
-
-    <div class="zone-label">我方</div>
-    <div class="card-box zone-self">
-      <div class="row between">
-        <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
-        <div class="chip tut-ap">剩餘行動點數：${p.actionPoints}</div>
-      </div>
-      <h3>我的素材</h3>
-      <div class="row tut-materials">${materialsRow(p)}</div>
-      <h3>我的手牌</h3>
-      <div class="row">
-        ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('') || '<span class="muted">（無原料卡）</span>'}
-      </div>
-      <div class="row">
-        ${cultureInHand.map(c => `
-          <div class="hand-card culture">
-            ${cardThumb(c)}
-            <div>${c.name}</div>
-            <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
-            <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
-          </div>`).join('') || '<span class="muted">（無文化卡）</span>'}
-      </div>
-      <h3>已擲出 / 工藝</h3>
-      <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
-      <h3 class="tut-buildings">建築</h3>
-      <div class="row">${buildingsArea(p)}</div>
-      <h3>服飾</h3>
-      <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
-    </div>
-
-    <div class="card-box light-frame action-menu tut-actions">
-      <h3>行動</h3>
-
-      <div class="action-group-label">基礎行動</div>
-      <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
-      <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡<span class="ap-cost">1</span></button>
-      <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
-      ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">擲出配對換「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
-
-      <div class="action-group-label">建造</div>
-      <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">4種素材換抽建築卡<span class="ap-cost">2</span></button>
-
-      <div class="action-group-label">對抗行動（進階）</div>
-      <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
-      <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
-      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
-      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
-      <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
-
-      <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
-    </div>
-
-    <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
   `;
 }
 
@@ -587,32 +582,40 @@ function renderBoard() {
 function renderBotTurn(p) {
   const others = G.players.filter(pl => pl.idx !== p.idx);
   return `
-    <div class="row between">
-      <h1>原地重生・返璞歸真</h1>
-      <div class="chip">第 ${G.turn + 1} 輪</div>
-    </div>
-    ${versusStrip()}
-    <div class="card-box light-frame center">
-      <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（電腦）思考中…</div>
-      <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
-    </div>
-    <div class="card-box light-frame">
-      <h3>公共區</h3>
-      <div class="row">
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+    <div class="board-viewport">
+      <div class="bv-header row between">
+        <h1>原地重生・返璞歸真</h1>
+        <div class="chip">第 ${G.turn + 1} 輪</div>
+      </div>
+      <div class="bv-versus">
+        ${versusStrip()}
+        <div class="card-box light-frame center">
+          <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（電腦）思考中…</div>
+          <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
+        </div>
+      </div>
+      <div class="bv-battlefield card-box light-frame">
+        <h3>公共區</h3>
+        <div class="row">
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+        </div>
+      </div>
+      <div class="bv-self">
+        <div class="other-players">
+          ${others.map(pl => `
+            <div class="card-box light-frame">
+              <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
+              <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="bv-side">
+        <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
     </div>
-    <div class="other-players">
-      ${others.map(pl => `
-        <div class="card-box light-frame">
-          <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
-          <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
-        </div>`).join('')}
-    </div>
-    <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
   `;
 }
 

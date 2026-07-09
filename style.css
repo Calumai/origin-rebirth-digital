@@ -758,12 +758,19 @@ input[type=text] {
 /* ── 對戰桌牌桌墊 ── */
 /* table-wood.jpg 是張可平鋪的正方形木紋圖，改用 repeat 平鋪＋固定磚塊尺寸，
    避免 cover 把方形圖硬拉伸成超長畫面而糊成一片放大木紋特寫 */
+/* 對局畫面：橫向固定單畫面（不整頁捲動），像其他數位卡牌遊戲的桌面佈局。
+   窄螢幕（手機直向）內容塞不下，改回原本可捲動的直向堆疊，見下方 @media。 */
 .table-surface {
   position: relative;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: -20px;
+  margin-bottom: -40px;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   background: url('assets/ui/table-wood.jpg') repeat;
   background-size: 360px 360px;
-  border-radius: var(--r-lg);
-  padding: 16px 14px 20px;
   box-shadow: var(--shadow-lg), inset 0 0 60px rgba(0,0,0,0.35);
   overflow: hidden;
 }
@@ -775,10 +782,81 @@ input[type=text] {
     radial-gradient(ellipse at 50% 0%, rgba(255,200,120,0.10), transparent 55%),
     linear-gradient(180deg, rgba(10,7,3,0.35), rgba(10,7,3,0.55) 60%, rgba(10,7,3,0.7));
   pointer-events: none;
+  z-index: 0;
 }
-.table-surface > * { position: relative; z-index: 1; }
-.table-surface > .row.between h1 { color: #ffe9bc; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
 .table-surface .muted { color: #6d5c43; }
+
+.board-viewport {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: auto auto auto 1fr;
+  grid-template-areas:
+    "header header"
+    "versus versus"
+    "battlefield battlefield"
+    "self side";
+  gap: 8px;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+.bv-header { grid-area: header; margin: 0; }
+.bv-header h1 { color: #ffe9bc; text-shadow: 0 2px 10px rgba(0,0,0,0.7); font-size: 1.3em; }
+.bv-versus { grid-area: versus; }
+.bv-versus .versus-strip { margin-bottom: 0; padding: 6px 8px; }
+.bv-versus .vs-player { padding: 5px 5px; }
+.bv-versus .vs-player img { width: 38px; height: 38px; }
+.bv-battlefield { grid-area: battlefield; margin-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+.bv-battlefield h3 { margin: 2px 0 6px; }
+.bv-battlefield .chip { padding: 4px 9px; font-size: 0.82em; }
+.bv-battlefield .row { gap: 5px; }
+.bv-self {
+  grid-area: self;
+  margin-bottom: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+.bv-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+.bv-side .action-menu { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin-bottom: 0; }
+.bv-side .log-box { flex: 0 0 auto; max-height: 180px; }
+/* 側欄較窄，行動按鈕改用較緊湊的尺寸，讓固定視窗塞得下更多內容、減少側欄內部捲動需求 */
+.bv-side .action-menu button {
+  padding: 7px 10px;
+  font-size: 0.86em;
+  margin: 3px 0;
+}
+.bv-side .action-menu h3 { margin: 4px 0 6px; }
+.bv-side .action-group-label { margin: 8px 0 3px; font-size: 0.72em; }
+.bv-side .action-group-label:first-of-type { margin-top: 2px; }
+
+@media (max-width: 860px) {
+  .table-surface { height: auto; overflow: visible; }
+  .board-viewport {
+    height: auto;
+    overflow: visible;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "header"
+      "versus"
+      "battlefield"
+      "self"
+      "side";
+  }
+  .bv-self { overflow-y: visible; }
+  .bv-side { overflow: visible; }
+  .bv-side .action-menu { overflow-y: visible; }
+  .bv-side .log-box { max-height: 200px; }
+}
 
 .story p { line-height: 1.9; }
 .story-tribe { text-align: center; }
@@ -894,7 +972,7 @@ input[type=text] {
 .vs-player.active img { border-color: #ffc45c; }
 .vs-name { font-weight: bold; font-size: 0.9em; margin-top: 4px; }
 .vs-score { font-size: 1.15em; font-weight: bold; color: #ffd98a; }
-.vs-stats { font-size: 0.72em; opacity: 0.85; }
+.vs-stats { font-size: 0.66em; opacity: 0.85; line-height: 1.4; }
 .vs-crown {
   position: absolute;
   top: -9px;
