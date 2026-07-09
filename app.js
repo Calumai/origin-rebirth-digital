@@ -41,8 +41,40 @@ function showToast(msg, kind) {
 // 執行動作並把期間新增的 log 浮出
 function flashLog(before) {
   for (let i = before; i < G.log.length; i++) {
-    showToast(G.log[i].replace(/^\[T\d+\]\s*/, ''));
+    const line = G.log[i].replace(/^\[T\d+\]\s*/, '');
+    bubbleForLog(line); // 情境對話泡泡
+    showToast(line);
   }
+}
+// 情境對話泡泡：在對應玩家頭像上冒中文台詞（對戰列 .vs-player 順序 = G.players）
+function showBubble(idx, text) {
+  const layer = document.getElementById('toast-layer');
+  const vp = document.querySelectorAll('.vs-player')[idx];
+  if (!layer || !vp) return;
+  const r = vp.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'speech-bubble';
+  el.textContent = text;
+  el.style.left = (r.left + r.width / 2) + 'px';
+  el.style.top = (r.bottom - 4) + 'px';
+  layer.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 1900);
+}
+function bubbleForLog(line) {
+  const idxOf = name => G.players.findIndex(p => p.tribeName === name);
+  let m;
+  if (m = line.match(/^(.+?) 偷襲 (.+?) 猜拳勝/)) { showBubble(idxOf(m[1]), '受死吧！'); showBubble(idxOf(m[2]), '可惡…'); return; }
+  if (m = line.match(/^(.+?) 偷襲 (.+?) 猜拳敗/)) { showBubble(idxOf(m[2]), '哼，想得美！'); return; }
+  if (m = line.match(/^(.+?) 偷襲 (.+?) 被防禦/)) { showBubble(idxOf(m[2]), '防住了！'); return; }
+  if (m = line.match(/^(.+?) ⇄ (.+?) 交易成立/)) { showBubble(idxOf(m[1]), '成交！'); showBubble(idxOf(m[2]), '好，換吧'); return; }
+  if (m = line.match(/^(.+?) 拒絕交易/)) { showBubble(idxOf(m[1]), '休想！'); return; }
+  if (m = line.match(/^(.+?) 猜拳勝，強制與 (.+?) 成交/)) { showBubble(idxOf(m[1]), '拿來吧！'); showBubble(idxOf(m[2]), '唔…'); return; }
+  if (m = line.match(/^(.+?) 猜拳搶交易失敗/)) { showBubble(idxOf(m[1]), '可惡…'); return; }
+  if (m = line.match(/^(.+?) 猜拳勝，取得/)) { showBubble(idxOf(m[1]), '這棟我要了！'); return; }
+  if (m = line.match(/^(.+?) 換抽建築卡/)) { showBubble(idxOf(m[1]), '蓋好囉！'); return; }
+  if (m = line.match(/^(.+?) 以「.+?」強制換得/)) { showBubble(idxOf(m[1]), '這張歸我！'); return; }
+  if (m = line.match(/^(.+?) 配對原料換得工藝/)) { showBubble(idxOf(m[1]), '手藝不錯吧！'); return; }
 }
 
 function esc(s) {
@@ -395,7 +427,31 @@ function renderBoard() {
       <div class="chip">第 ${G.turn + 1} 輪</div>
     </div>
     ${versusStrip()}
-    <div class="card-box">
+
+    <div class="zone-label">⬆ 對手</div>
+    <div class="zone-opponents">
+      ${others.map(pl => `
+        <div class="opp-card" style="border-top-color:var(--${pl.tribe})">
+          <div class="opp-head"><img class="tribe-icon" src="${CARDS.tribes[pl.tribe].img}" alt="">${nickname(pl.idx)}${isBot(pl.idx) ? ' 🤖' : ''}</div>
+          <div class="opp-stats">🏠${pl.buildings.length}｜🎴${pl.hand.length}｜👘${pl.clothing.length}｜⚒${pl.played.filter(c => c.kind === 'craft').length}｜◈${Object.values(pl.materials).reduce((a, b) => a + b, 0)}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="card-box battle-field">
+      <h3>⚔️ 戰場・公共牌庫</h3>
+      <div class="row center">
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+      </div>
+      <div class="row center">
+        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="zone-label">⬇ 我方</div>
+    <div class="card-box zone-self">
       <div class="row between">
         <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
         <div class="chip">剩餘行動點數：${p.actionPoints}</div>
@@ -421,27 +477,6 @@ function renderBoard() {
       <div class="row">${buildingsArea(p)}</div>
       <h3>服飾</h3>
       <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
-    </div>
-
-    <div class="card-box">
-      <h3>公共區</h3>
-      <div class="row">
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
-        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
-      </div>
-      <div class="row">
-        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
-      </div>
-    </div>
-
-    <div class="other-players">
-      ${others.map(pl => `
-        <div class="card-box">
-          <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
-          <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
-        </div>`).join('')}
     </div>
 
     <div class="card-box action-menu">
@@ -532,6 +567,7 @@ function renderModal() {
   else if (m.type === 'buyBuildingPicker') inner = renderBuyBuildingPicker(m);
   else if (m.type === 'tradeOffer') inner = renderTradeOffer(m);
   else if (m.type === 'tradeRespond') inner = renderTradeRespond(m);
+  else if (m.type === 'tradeRejected') inner = renderTradeRejected(m);
   else if (m.type === 'buyFromPlayerPick') inner = renderBuyFromPlayerPick(m);
   else if (m.type === 'buyFromPlayerDemand') inner = renderBuyFromPlayerDemand(m);
   return `<div class="overlay"><div class="modal">${inner}</div></div>`;
@@ -745,8 +781,14 @@ function tradeSubmit() {
     for (const x of get) counts[x] = (counts[x] || 0) + 1;
     const hasAll = Object.entries(counts).every(([x, n]) => (t.materials[x] || 0) >= n);
     const accepted = hasAll && respondTrade(G, target, { give, get });
-    ui.modal = null;
-    doAction({ type: 'TRADE', player: G.currentPlayer, target, give, get, accepted });
+    if (accepted) {
+      ui.modal = null;
+      doAction({ type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: true });
+    } else {
+      // 電腦拒絕 → 真人可猜拳搶（A13）
+      ui.modal = { type: 'tradeRejected', target, give, get };
+      render();
+    }
     return;
   }
   ui.modal = { type: 'passOverlay', toIdx: target, onReveal: () => {
@@ -768,9 +810,46 @@ function renderTradeRespond(m) {
 }
 function tradeRespondDecide(accepted) {
   const m = ui.modal;
-  const action = { type: 'TRADE', player: G.currentPlayer, target: m.target, give: m.give, get: m.get, accepted };
-  ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => { doAction(action); } };
+  const { target, give, get } = m;
+  if (accepted) {
+    const action = { type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: true };
+    ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => { doAction(action); } };
+    render();
+    return;
+  }
+  // 拒絕 → 交回發起方，問要不要猜拳搶（A13）
+  ui.modal = { type: 'passOverlay', toIdx: G.currentPlayer, onReveal: () => {
+    ui.modal = { type: 'tradeRejected', target, give, get };
+    render();
+  }};
   render();
+}
+// A13：被拒後發起方可猜拳搶交易
+function renderTradeRejected(m) {
+  const p = currentPlayer();
+  const t = G.players[m.target];
+  const cnt = {}; m.get.forEach(x => cnt[x] = (cnt[x] || 0) + 1);
+  const canForce = m.get.length > 0 && Object.entries(cnt).every(([x, n]) => (t.materials[x] || 0) >= n);
+  return `<h3>${t.tribeName} ${nickname(m.target)} 拒絕了交易！</h3>
+    ${canForce
+      ? `<p>不甘心嗎？可以發起猜拳搶——<b>贏了就強制成交</b>。</p>
+         <div class="row"><button onclick="tradeGiveUp()">算了</button>
+         <button class="primary" onclick="tradeChallengeRPS()">✊ 剪刀石頭布！</button></div>`
+      : `<p>但對方沒有你要換的素材，無法強制成交。</p>
+         <div class="row"><button class="primary" onclick="tradeGiveUp()">知道了</button></div>`}`;
+}
+function tradeGiveUp() {
+  const m = ui.modal;
+  doAction({ type: 'TRADE', player: G.currentPlayer, target: m.target, give: m.give, get: m.get, accepted: false });
+}
+function tradeChallengeRPS() {
+  const m = ui.modal;
+  const { target, give, get } = m;
+  startRPS(G.currentPlayer, target, (attackerWins) => {
+    doAction(attackerWins
+      ? { type: 'TRADE', player: G.currentPlayer, target, give, get, forced: true }
+      : { type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: false, failedChallenge: true });
+  });
 }
 
 // BUY_FROM_PLAYER
@@ -893,6 +972,7 @@ Object.assign(window, {
   forceSwapPickMine, forceSwapPickTheirs, forceSwapConfirm,
   rpsPick, rpsRevealDefenderReady, rpsAfterTie, rpsRevealAttackerReady, rpsFinish,
   actionTrade, tradeAddGive, tradeRemoveGive, tradeAddGet, tradeRemoveGet, tradeSubmit, tradeRespondDecide,
+  tradeGiveUp, tradeChallengeRPS,
   actionDrawMaterial, actionDrawCulture, actionPlayRawPair, actionPlayCulture,
   materialPick, materialPickUndo, materialPickConfirm,
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,

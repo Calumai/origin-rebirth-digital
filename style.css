@@ -457,6 +457,71 @@ input[type=text] {
   .bld-puzzle { grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 52px); }
 }
 
+/* ── 對戰桌三區布局：上對手／中戰場／下我方 ── */
+.zone-label {
+  text-align: center;
+  color: #ffe9bc;
+  font-family: var(--fserif);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin: 4px 0 6px;
+  text-shadow: 0 1px 5px rgba(0,0,0,0.7);
+  opacity: 0.92;
+}
+.zone-opponents {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.opp-card {
+  flex: 1 1 150px;
+  max-width: 230px;
+  background: rgba(255,253,248,0.94);
+  border: 2px solid var(--gold);
+  border-top: 5px solid var(--gold);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+.opp-head { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700; }
+.opp-head .tribe-icon { margin-right: 0; }
+.opp-stats { font-size: 0.8em; color: var(--ink-soft); margin-top: 5px; }
+
+.battle-field { text-align: center; }
+.battle-field h3 { border-left: none; padding-left: 0; text-align: center; color: var(--accent-dark); }
+.row.center { justify-content: center; }
+
+/* ── 對話泡泡 ── */
+.speech-bubble {
+  position: fixed;
+  transform: translate(-50%, 2px) scale(0.8);
+  background: #fffdf8;
+  color: var(--ink);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  padding: 6px 13px;
+  font-weight: 700;
+  font-size: 0.9em;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 90;
+  pointer-events: none;
+}
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  top: -8px; left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--accent);
+}
+.speech-bubble.show { opacity: 1; transform: translate(-50%, 8px) scale(1); }
+
 /* ── 浮動提示（對戰動態）── */
 #toast-layer {
   position: fixed;

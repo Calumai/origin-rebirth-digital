@@ -115,17 +115,24 @@ const ACTIONS = {
     } else log(state, `${p.tribeName} 偷襲 ${t.tribeName} 猜拳敗`);
   },
 
-  // 1 點：交易素材（最多各 2 枚，對方可拒）— accepted 由呼叫端決定
+  // 1 點：交易素材（最多各 2 枚，對方可拒）
+  // rules-spec A13：對方拒絕後發起方可猜拳搶，猜拳勝則 a.forced=true 強制成交。
+  // accepted / forced / failedChallenge 皆由呼叫端（UI）帶入。
   TRADE(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
     p.actionPoints -= 1;
-    if (!a.accepted) { log(state, `${t.tribeName} 拒絕交易`); return; }
-    for (const m of a.give) { if ((p.materials[m] || 0) < 1) throw new Error('己方素材不足'); }
-    for (const m of a.get)  { if ((t.materials[m] || 0) < 1) throw new Error('對方素材不足'); }
+    if (!a.accepted && !a.forced) {
+      log(state, a.failedChallenge ? `${p.tribeName} 猜拳搶交易失敗` : `${t.tribeName} 拒絕交易`);
+      return;
+    }
     if (a.give.length > 2 || a.get.length > 2) throw new Error('交易上限各 2 枚');
+    const count = arr => arr.reduce((o, m) => (o[m] = (o[m] || 0) + 1, o), {});
+    const gc = count(a.give), tc = count(a.get);
+    for (const [m, n] of Object.entries(gc)) if ((p.materials[m] || 0) < n) { log(state, `交易失敗：${p.tribeName} ${m} 不足`); return; }
+    for (const [m, n] of Object.entries(tc)) if ((t.materials[m] || 0) < n) { log(state, `交易失敗：${t.tribeName} ${m} 不足`); return; }
     for (const m of a.give) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     for (const m of a.get)  { t.materials[m]--; p.materials[m] = (p.materials[m] || 0) + 1; }
-    log(state, `${p.tribeName} ⇄ ${t.tribeName} 交易成立`);
+    log(state, a.forced ? `${p.tribeName} 猜拳勝，強制與 ${t.tribeName} 成交` : `${p.tribeName} ⇄ ${t.tribeName} 交易成立`);
   },
 
   // 1 點：抽原料卡
