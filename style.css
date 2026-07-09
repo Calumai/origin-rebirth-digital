@@ -801,14 +801,16 @@ input[type=text] {
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(ellipse at 20% 10%, rgba(255, 190, 100, 0.12), transparent 45%),
-    linear-gradient(160deg, #14210f 0%, #1c1408 45%, #0d0904 100%);
+    linear-gradient(rgba(10, 8, 4, 0.15), rgba(10, 8, 4, 0.55)),
+    url('assets/ui/hero-home.jpg') center/cover no-repeat;
 }
 .ps5-vignette {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.82) 100%);
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 55%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(circle, transparent 45%, rgba(0, 0, 0, 0.65) 100%);
   pointer-events: none;
 }
 
@@ -843,7 +845,8 @@ input[type=text] {
   color: #ffe9b0;
   box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.5);
 }
-.ps5-sidebar .side-icon { font-size: 1.3em; width: 1.3em; text-align: center; }
+.ps5-sidebar .side-icon { width: 1.3em; height: 1.3em; flex: none; display: flex; align-items: center; justify-content: center; }
+.ps5-sidebar .side-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .ps5-sidebar .side-item b { display: block; font-size: 0.95em; }
 .ps5-sidebar .side-item small { display: block; font-size: 0.68em; opacity: 0.7; letter-spacing: 0.08em; }
 
@@ -853,19 +856,28 @@ input[type=text] {
   z-index: 2;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
   padding: 18px 28px 0;
 }
-.ps5-topbar button {
-  min-height: auto;
-  padding: 8px 16px;
-  font-size: 0.85em;
+.ps5-toolbar {
+  display: flex;
+  align-items: center;
   border-radius: 999px;
   border: 1px solid rgba(229, 176, 85, 0.3);
-  background: rgba(0, 0, 0, 0.25);
-  color: rgba(248, 230, 184, 0.85);
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
-.ps5-topbar button:hover { border-color: var(--gold); box-shadow: 0 0 10px rgba(var(--gold-rgb), 0.4); }
+.ps5-toolbar button {
+  min-height: auto;
+  padding: 8px 18px;
+  font-size: 0.85em;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: rgba(248, 230, 184, 0.85);
+  box-shadow: none;
+}
+.ps5-toolbar button:hover { color: #ffe9b0; box-shadow: none; }
+.ps5-toolbar .tb-divider { width: 1px; height: 16px; background: rgba(229, 176, 85, 0.3); }
 
 .ps5-content {
   grid-area: content;
@@ -873,18 +885,46 @@ input[type=text] {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: clamp(24px, 3vw, 40px);
-  padding: 20px clamp(20px, 5vw, 64px);
+  gap: clamp(20px, 2.6vw, 34px);
+  padding: 20px clamp(24px, 5vw, 64px);
+  width: 100%;
 }
 
-.game-title-block { text-align: center; }
+.game-title-block { position: relative; text-align: left; padding-top: 46px; }
+.title-emblem {
+  position: absolute;
+  top: -18px;
+  left: 4px;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 1px solid rgba(229, 176, 85, 0.35);
+  opacity: 0.8;
+}
+.title-emblem::before, .title-emblem::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(229, 176, 85, 0.25);
+}
+.title-emblem::after {
+  inset: auto;
+  top: 50%; left: 50%;
+  width: 140%; height: 1px;
+  background: rgba(229, 176, 85, 0.25);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: none;
+  box-shadow: 0 0 0 0;
+}
 .game-title-block h1 {
+  position: relative;
   margin: 0;
-  font-size: clamp(34px, 5vw, 54px);
+  font-size: clamp(36px, 5.2vw, 58px);
   font-weight: 900;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   background: linear-gradient(to bottom, #fff3c4, #d4af37);
   -webkit-background-clip: text;
   background-clip: text;
@@ -892,89 +932,125 @@ input[type=text] {
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(229, 193, 88, 0.3));
 }
 .game-title-block p {
-  margin: 10px 0 0;
-  font-size: clamp(14px, 1.6vw, 18px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-size: clamp(13px, 1.5vw, 16px);
   color: rgba(255, 239, 205, 0.85);
+  letter-spacing: 0.04em;
 }
+.game-title-block .tb-line { flex: 1 1 40px; max-width: 60px; height: 1px; background: linear-gradient(90deg, transparent, rgba(229, 176, 85, 0.6)); }
+.game-title-block p .tb-diamond:last-of-type + .tb-line { background: linear-gradient(90deg, rgba(229, 176, 85, 0.6), transparent); }
+.tb-diamond { color: var(--gold); font-size: 0.7em; }
 
 .tribe-carousel {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 2vw, 24px);
+  gap: clamp(10px, 2vw, 22px);
   width: 100%;
-  max-width: 980px;
+  max-width: 1040px;
 }
 .carousel-arrow {
   min-height: auto;
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  border-radius: 50%;
-  border: 1.5px solid rgba(229, 176, 85, 0.4);
-  background: rgba(0, 0, 0, 0.25);
-  color: #ffe9b0;
-  font-size: 1.6em;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: rgba(229, 176, 85, 0.7);
+  font-size: 1.1em;
   line-height: 1;
   flex: none;
+  box-shadow: none;
 }
-.carousel-arrow:hover { border-color: var(--gold); box-shadow: 0 0 14px rgba(var(--gold-rgb), 0.5); }
+.carousel-arrow:hover { color: var(--gold); box-shadow: none; text-shadow: 0 0 10px rgba(var(--gold-rgb), 0.7); }
+.ps5-tribe-slot { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0; }
 .ps5-tribe-card {
   position: relative;
-  flex: 1 1 0;
-  border-radius: 14px;
+  width: 100%;
+  aspect-ratio: 3 / 4.2;
+  border-radius: 10px;
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
-  opacity: 0.6;
-  transform: scale(0.92) translateY(0);
+  opacity: 0.62;
+  transform: scale(0.92);
   transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
-.ps5-tribe-card img { display: block; width: 100%; }
-.ps5-tribe-name {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  padding: 8px 6px 7px;
-  text-align: center;
-  font-weight: 800;
-  font-size: clamp(12px, 1.4vw, 15px);
-  color: #ffe9b0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent 100%);
-}
+.ps5-tribe-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; transform: scale(1.22); }
 .ps5-tribe-card:hover { opacity: 0.85; transform: scale(0.96) translateY(-4px); }
 .ps5-tribe-card.selected {
   opacity: 1;
-  transform: scale(1.06) translateY(-10px);
-  border-color: rgba(255, 226, 154, 0.8);
-  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.55), 0 0 20px rgba(255, 197, 96, 0.35);
+  transform: scale(1.08) translateY(-10px);
+  border-color: rgba(255, 226, 154, 0.85);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.55), 0 0 22px rgba(255, 197, 96, 0.4);
   z-index: 1;
 }
+.tribe-diamond {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gold);
+  font-size: 1.1em;
+  text-shadow: 0 0 8px rgba(var(--gold-rgb), 0.8);
+  z-index: 2;
+}
+.tribe-diamond.left { left: -8px; }
+.tribe-diamond.right { right: -8px; }
+.ps5-tribe-name {
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(13px, 1.5vw, 16px);
+  color: #ffe9b0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+}
 
-.ps5-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ps5-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; align-self: center; }
 .ps5-actions .start-btn {
-  min-width: 240px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  min-width: 280px;
   min-height: 60px;
   padding: 0 36px;
+  border-radius: 999px;
   font-size: clamp(18px, 2vw, 24px);
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
+.ps5-actions .start-btn small { font-size: 0.4em; letter-spacing: 0.2em; opacity: 0.75; font-weight: 700; }
 .ps5-actions .intro-btn {
-  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
   min-height: 48px;
-  padding: 0 28px;
+  padding: 4px 28px;
+  border-radius: 999px;
   font-size: clamp(14px, 1.6vw, 18px);
 }
+.ps5-actions .intro-btn small { font-size: 0.55em; letter-spacing: 0.18em; opacity: 0.7; font-weight: 700; }
 
 .ps5-hints {
   grid-area: hints;
   position: relative;
   z-index: 2;
-  text-align: center;
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 24px;
   font-size: 0.82em;
-  color: rgba(248, 230, 184, 0.55);
-  letter-spacing: 0.06em;
+  color: rgba(248, 230, 184, 0.6);
+  letter-spacing: 0.04em;
 }
+.ps5-hint-main { display: flex; align-items: center; gap: 8px; }
+.hint-icon { opacity: 0.8; }
+.ps5-hint-keys { display: flex; gap: 18px; font-size: 0.9em; opacity: 0.75; }
 
 @media (max-width: 900px) {
   .ps5-home {
@@ -985,9 +1061,12 @@ input[type=text] {
       "hints";
   }
   .ps5-sidebar { display: none; }
+  .game-title-block { text-align: center; padding-top: 20px; }
+  .title-emblem { display: none; }
+  .game-title-block p { justify-content: center; }
   .tribe-carousel { flex-wrap: wrap; justify-content: center; }
   .carousel-arrow { display: none; }
-  .ps5-tribe-card { flex: 1 1 40%; max-width: 44%; }
+  .ps5-tribe-slot { flex: 1 1 40%; max-width: 44%; }
 }
 
 /* ── 對戰桌牌桌墊 ── */

@@ -293,6 +293,13 @@ function homeCarouselNext() {
 function homeCarouselSelect(i) { ui.homeSelectedTribe = i; render(); }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
 
+const SIDE_ICONS = {
+  home: '<svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5" /><path d="M6 10v9h12v-9" /><path d="M10 19v-5h4v5" /></svg>',
+  story: '<svg viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 0 4 21.5z" /><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5c.8 0 1.5.7 1.5 1.5z" /></svg>',
+  archive: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="4.5" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10" /><path d="M10 13h4" /></svg>',
+  gift: '<svg viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="1" /><path d="M4 9h16v3.5H4z" /><path d="M12 9v11" /><path d="M12 9c-1-3-4-4-5-2s1 2 5 2" /><path d="M12 9c1-3 4-4 5-2s-1 2-5 2" /></svg>',
+  gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M17.7 6.3l-1.5 1.5M7.8 16.2l-1.5 1.5M17.7 17.7l-1.5-1.5M7.8 7.8 6.3 6.3" /></svg>'
+};
 function renderHome() {
   const tribeEntries = Object.entries(CARDS.tribes);
   const selIdx = ui.homeSelectedTribe ?? 0;
@@ -303,53 +310,66 @@ function renderHome() {
 
       <aside class="ps5-sidebar">
         <button class="side-item active" onclick="gotoHome()">
-          <span class="side-icon">⌂</span>
+          <span class="side-icon">${SIDE_ICONS.home}</span>
           <span><b>首頁</b><small>HOME</small></span>
         </button>
         <button class="side-item" onclick="gotoStory()">
-          <span class="side-icon">▣</span>
+          <span class="side-icon">${SIDE_ICONS.story}</span>
           <span><b>故事</b><small>STORY</small></span>
         </button>
         <button class="side-item" onclick="comingSoonToast()">
-          <span class="side-icon">□</span>
+          <span class="side-icon">${SIDE_ICONS.archive}</span>
           <span><b>資料庫</b><small>ARCHIVE</small></span>
         </button>
         <button class="side-item" onclick="comingSoonToast()">
-          <span class="side-icon">⚙</span>
+          <span class="side-icon">${SIDE_ICONS.gift}</span>
+          <span><b>特典</b><small>BONUS</small></span>
+        </button>
+        <button class="side-item" onclick="comingSoonToast()">
+          <span class="side-icon">${SIDE_ICONS.gear}</span>
           <span><b>設定</b><small>OPTION</small></span>
         </button>
       </aside>
 
       <header class="ps5-topbar">
-        <button onclick="comingSoonToast()">⚙ 設定</button>
-        <button onclick="comingSoonToast()">? 操作說明</button>
-        <button onclick="comingSoonToast()">☰ 選項</button>
+        <div class="ps5-toolbar">
+          <button onclick="comingSoonToast()">⚙ 設定</button>
+          <span class="tb-divider"></span>
+          <button onclick="comingSoonToast()">? 操作說明</button>
+          <span class="tb-divider"></span>
+          <button onclick="comingSoonToast()">☰ 選項</button>
+        </div>
       </header>
 
       <section class="ps5-content">
         <div class="game-title-block">
+          <div class="title-emblem"></div>
           <h1>原地重生・返璞歸真</h1>
-          <p>一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
+          <p><span class="tb-line"></span><span class="tb-diamond">◆</span>一款結合台灣原住民族文化與探索冒險的敘事遊戲。<span class="tb-diamond">◆</span><span class="tb-line"></span></p>
         </div>
 
         <section class="tribe-carousel" aria-label="選擇族群">
-          <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">‹</button>
+          <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">◆</button>
           ${tribeEntries.map(([id, t], i) => `
-            <article class="ps5-tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})">
-              <img src="${t.img}" alt="${t.name}">
+            <div class="ps5-tribe-slot">
+              <article class="ps5-tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})">
+                ${i === selIdx ? '<span class="tribe-diamond left">◆</span><span class="tribe-diamond right">◆</span>' : ''}
+                <img src="${t.img}" alt="${t.name}">
+              </article>
               <div class="ps5-tribe-name">${t.name}</div>
-            </article>`).join('')}
-          <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">›</button>
+            </div>`).join('')}
+          <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">◆</button>
         </section>
 
         <div class="ps5-actions">
-          <button class="start-btn" onclick="gotoSetup()">開始遊戲</button>
-          <button class="intro-btn" onclick="gotoStory()">世界觀介紹</button>
+          <button class="start-btn" onclick="gotoSetup()"><span class="tb-diamond">◆</span>開始遊戲<span class="tb-diamond">◆</span><small>START JOURNEY</small></button>
+          <button class="intro-btn" onclick="gotoStory()">世界觀介紹<small>WORLD INTRO</small></button>
         </div>
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇部族，開啟你的冒險旅程</span>
+        <div class="ps5-hint-main"><span class="hint-icon">▤</span>選擇部族，開啟你的冒險旅程</div>
+        <div class="ps5-hint-keys"><span>✕ 確認</span><span>◎ 返回</span></div>
       </footer>
     </main>`;
 }
