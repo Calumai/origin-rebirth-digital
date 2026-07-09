@@ -77,8 +77,9 @@ function bubbleForLog(line) {
   if (m = line.match(/^(.+?) 配對原料換得工藝/)) { showBubble(idxOf(m[1]), '手藝不錯吧！'); return; }
 }
 
-// 動態抽卡動畫（仿爐石戰記）：卡背從牌庫飛到手牌，途中翻面亮出卡面。
-// deckSel：牌庫圖示的 CSS class；backImg：卡背圖；targetEl：飛行終點（新卡落點）DOM 元素。
+// 動態抽卡動畫（仿爐石戰記真實效果：卡面直接從牌庫快速滑到手牌，
+// 不是慢慢翻面——爐石的抽卡是「彈出＋平滑滑動＋縮放」，沒有 3D 翻牌懸疑感）
+// deckSel：牌庫圖示的 CSS class；targetEl：飛行終點（新卡落點）DOM 元素。
 function flyDrawnCard(deckSel, backImg, targetEl, drawnCard) {
   const deckEl = document.querySelector(deckSel);
   const layer = document.getElementById('toast-layer');
@@ -92,30 +93,15 @@ function flyDrawnCard(deckSel, backImg, targetEl, drawnCard) {
   const ghost = document.createElement('div');
   ghost.className = 'draw-flight';
   ghost.innerHTML = `
-    <div class="draw-flight-inner">
-      <div class="draw-flight-face draw-flight-back"><img src="${backImg}" alt=""></div>
-      <div class="draw-flight-face draw-flight-front">
-        <img src="${drawnCard.img || ''}" alt="">
-        <div class="draw-flight-name">${esc(drawnCard.name || '')}</div>
-      </div>
-    </div>`;
+    <img class="draw-flight-img" src="${drawnCard.img || ''}" alt="">
+    <div class="draw-flight-name">${esc(drawnCard.name || '')}</div>`;
   layer.appendChild(ghost);
-  const inner = ghost.querySelector('.draw-flight-inner');
-
-  const midX = (sr.left + er.left) / 2, midY = Math.min(sr.top, er.top) - 60;
-  const midW = (sr.width + er.width) / 2, midH = (sr.height + er.height) / 2 * 1.35;
 
   const flight = ghost.animate([
-    { left: sr.left + 'px', top: sr.top + 'px', width: sr.width + 'px', height: sr.height + 'px', offset: 0 },
-    { left: (midX - midW / 2) + 'px', top: midY + 'px', width: midW + 'px', height: midH + 'px', offset: 0.55 },
-    { left: er.left + 'px', top: er.top + 'px', width: er.width + 'px', height: er.height + 'px', offset: 1 }
-  ], { duration: 700, easing: 'cubic-bezier(.25,.65,.3,1)', fill: 'forwards' });
-  inner.animate([
-    { transform: 'rotateY(0deg)' },
-    { transform: 'rotateY(0deg)', offset: 0.45 },
-    { transform: 'rotateY(180deg)', offset: 0.75 },
-    { transform: 'rotateY(180deg)' }
-  ], { duration: 700, easing: 'ease-in-out', fill: 'forwards' });
+    { left: sr.left + 'px', top: sr.top + 'px', width: sr.width + 'px', height: sr.height + 'px', opacity: 0.5, offset: 0 },
+    { left: sr.left + 'px', top: sr.top + 'px', width: sr.width + 'px', height: sr.height + 'px', opacity: 1, offset: 0.1 },
+    { left: er.left + 'px', top: er.top + 'px', width: er.width + 'px', height: er.height + 'px', opacity: 1, offset: 1 }
+  ], { duration: 380, easing: 'cubic-bezier(.22,.7,.24,1)', fill: 'forwards' });
 
   flight.onfinish = () => {
     ghost.remove();
