@@ -23,7 +23,7 @@ function buildDecks(rng) {
   const raw = [];
   for (const t of CARDS.rawCardTypes)
     for (let i = 0; i < CARDS.rawCopiesPerType; i++)
-      raw.push({ kind: 'raw', id: t.id, name: t.name, craft: t.craft });
+      raw.push({ kind: 'raw', id: t.id, name: t.name, craft: t.craft, img: t.img });
 
   // 假設：服飾卡洗入原料牌庫（規則書未載明取得管道）
   const clothing = [];
@@ -33,7 +33,8 @@ function buildDecks(rng) {
         clothing.push({
           kind: 'clothing', tribe, gender, part,
           score: CARDS.clothing.parts[part],
-          name: `${CARDS.tribes[tribe].name}服飾-${gender === 'male' ? '男' : '女'}${part === 'head' ? '頭' : '身'}`
+          name: `${CARDS.tribes[tribe].name}服飾-${gender === 'male' ? '男' : '女'}${part === 'head' ? '頭' : '身'}`,
+          img: CARDS.clothing.images[tribe][gender][part]
         });
 
   const culture = CARDS.cultureCards.map(c => ({ kind: 'culture', ...c }));
@@ -46,7 +47,7 @@ function buildDecks(rng) {
   const craftPool = [];
   for (const [id, c] of Object.entries(CARDS.crafts))
     for (let i = 0; i < CARDS.craftCopiesPerType; i++)
-      craftPool.push({ kind: 'craft', id, name: c.name, tribe: c.tribe, score: c.score });
+      craftPool.push({ kind: 'craft', id, name: c.name, tribe: c.tribe, score: c.score, img: c.img });
 
   return {
     rawDeck: shuffle(raw.concat(clothing), rng),

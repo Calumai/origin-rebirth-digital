@@ -2,7 +2,6 @@ import { initGame, mulberry32, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves } from './game-engine/actions.js';
 import { finalScores } from './game-engine/scoring.js';
 
-const MAT_COLOR = { '木頭': '#8b5e34', '竹子': '#4caf50', '茅草': '#d4a017', '石頭': '#78909c' };
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
   draw_building: '抽 1 張建築卡',
@@ -30,8 +29,15 @@ function nickname(idx) { return esc(ui.nicknames[idx] || ''); }
 function currentPlayer() { return G.players[G.currentPlayer]; }
 
 function matIcon(m) {
-  const color = MAT_COLOR[m] || '#999';
-  return `<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="${color}"/><text x="10" y="14" text-anchor="middle" font-size="10" fill="#fff">${m[0]}</text></svg>`;
+  return `<img class="mat-coin" src="${CARDS.materialImages[m]}" alt="${m}">`;
+}
+function tribeBadge(tribeId) {
+  const t = CARDS.tribes[tribeId];
+  return `<span class="tribe-badge tribe-${tribeId}"><img class="tribe-icon" src="${t.img}" alt="">${t.name}</span>`;
+}
+function cardThumb(c, size) {
+  if (!c.img) return '';
+  return `<img class="card-thumb${size === 'sm' ? '-sm' : ''}" src="${c.img}" alt="${c.name}">`;
 }
 function materialsRow(p) {
   return CARDS.materials.map(m => `<span class="chip mat-icon">${matIcon(m)} ${m} ×${p.materials[m] || 0}</span>`).join('');
@@ -72,7 +78,8 @@ function passInner(toIdx, continueFn) {
   const p = G.players[toIdx];
   return `<div class="pass-screen">
     <div class="big">請將裝置交給</div>
-    <div class="tribe-badge tribe-${p.tribe}">${p.tribeName}</div>
+    <img class="pass-tribe-img" src="${CARDS.tribes[p.tribe].img}" alt="${p.tribeName}">
+    ${tribeBadge(p.tribe)}
     <div class="big">${nickname(toIdx)}</div>
     <div class="muted">其他人請勿偷看畫面</div>
     <button class="primary" onclick="${continueFn}()">我準備好了，開始</button>
@@ -116,7 +123,7 @@ function renderDraw() {
     <h1>抽取族群卡</h1>
     <div class="card-box">
       ${G.players.map((p, i) => i < d.revealed
-        ? `<div class="row"><span class="tribe-badge tribe-${p.tribe}">${p.tribeName}</span> ${nickname(i)}</div>`
+        ? `<div class="row"><img class="tribe-icon-lg" src="${CARDS.tribes[p.tribe].img}" alt="">${tribeBadge(p.tribe)} ${nickname(i)}</div>`
         : `<div class="row muted">P${i + 1}（尚未抽取）</div>`).join('')}
     </div>
     <div class="center">
@@ -187,48 +194,49 @@ function renderBoard() {
     </div>
     <div class="card-box">
       <div class="row between">
-        <div><span class="tribe-badge tribe-${p.tribe}">${p.tribeName}</span> ${nickname(p.idx)} 的回合</div>
+        <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
         <div class="chip">剩餘行動點數：${p.actionPoints}</div>
       </div>
       <h3>我的素材</h3>
       <div class="row">${materialsRow(p)}</div>
       <h3>我的手牌</h3>
       <div class="row">
-        ${rawInHand.map(c => `<div class="hand-card">${c.name}</div>`).join('') || '<span class="muted">（無原料卡）</span>'}
+        ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('') || '<span class="muted">（無原料卡）</span>'}
       </div>
       <div class="row">
         ${cultureInHand.map(c => `
           <div class="hand-card culture">
+            ${cardThumb(c)}
             <div>${c.name}</div>
             <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
             <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
           </div>`).join('') || '<span class="muted">（無文化卡）</span>'}
       </div>
       <h3>已擲出 / 工藝</h3>
-      <div class="row">${p.played.map(c => `<span class="chip">${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
+      <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
       <h3>建築</h3>
       <div class="row">${p.buildings.map(b => `<span class="chip">${b.name}</span>`).join('') || '<span class="muted">（無建築）</span>'}</div>
       <h3>服飾</h3>
-      <div class="row">${p.clothing.map(c => `<span class="chip">${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+      <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
     </div>
 
     <div class="card-box">
       <h3>公共區</h3>
       <div class="row">
-        <span class="chip">原料牌庫 ${G.rawDeck.length}</span>
-        <span class="chip">文化牌庫 ${G.cultureDeck.length}</span>
-        <span class="chip">建築牌庫 ${G.buildingDeck.length}</span>
-        <span class="chip">工藝池 ${G.craftPool.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
       </div>
       <div class="row">
-        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip">${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
+        ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
       </div>
     </div>
 
     <div class="other-players">
       ${others.map(pl => `
         <div class="card-box">
-          <div><span class="tribe-badge tribe-${pl.tribe}">${pl.tribeName}</span> ${nickname(pl.idx)}</div>
+          <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
           <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
         </div>`).join('')}
     </div>

@@ -84,8 +84,9 @@ input[type=text] {
 }
 
 .tribe-badge {
-  display: inline-block;
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px 4px 4px;
   border-radius: 999px;
   color: #fff;
   font-weight: bold;
@@ -94,6 +95,32 @@ input[type=text] {
 .tribe-kavalan { background: var(--kavalan); }
 .tribe-hlaalua { background: var(--hlaalua); }
 .tribe-seediq { background: var(--seediq); }
+
+.tribe-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
+  margin-right: 6px;
+  border: 2px solid rgba(255,255,255,0.8);
+}
+.tribe-icon-lg {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
+  margin-right: 6px;
+  border: 2px solid var(--line);
+}
+.pass-tribe-img {
+  width: 180px;
+  max-width: 60vw;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
 
 .pass-screen {
   min-height: 80vh;
@@ -112,7 +139,7 @@ input[type=text] {
   border-radius: 12px;
   padding: 10px 14px;
   cursor: pointer;
-  min-width: 90px;
+  min-width: 110px;
   text-align: center;
 }
 .hand-card:hover { border-color: var(--accent); }
@@ -172,7 +199,29 @@ input[type=text] {
 .score-table th { background: #f1e9d8; }
 
 .mat-icon { display: inline-flex; align-items: center; gap: 4px; }
-.mat-icon svg { display: block; }
+.mat-coin { width: 26px; height: 26px; display: block; }
+
+.card-thumb {
+  width: 84px;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto 6px;
+}
+.card-thumb-sm {
+  width: 30px;
+  height: auto;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-right: 2px;
+}
+.card-back-sm {
+  width: 22px;
+  height: auto;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.card-chip { padding-left: 4px; }
 
 .other-players { display: flex; flex-wrap: wrap; gap: 10px; }
 .other-players .card-box { flex: 1 1 200px; margin-bottom: 0; }
