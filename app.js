@@ -613,16 +613,29 @@ function renderBotTurn(p) {
 function renderEnd() {
   const scores = finalScores(G);
   const maxTotal = Math.max(...scores.map(s => s.total));
+  const winners = scores.filter(s => s.total === maxTotal);
   return `
-    <h1>結算</h1>
-    <p class="muted">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
-    <table class="score-table">
-      <tr><th>族群</th><th>建築</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
-      ${scores.map(s => `<tr style="${s.total === maxTotal ? 'font-weight:bold;background:#f6ecd4;' : ''}">
-        <td>${s.tribe} ${nickname(s.player)}</td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
-      </tr>`).join('')}
-    </table>
-    <div class="center"><button class="primary" onclick="location.reload()">重新開始</button></div>`;
+    <section class="end-screen">
+      <div class="setup-panel">
+        <h2>結算</h2>
+        <p class="center muted" style="color:rgba(248,230,190,0.75);">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
+        <div class="winner-banner">
+          ${winners.map(w => `
+            <div class="winner-card">
+              <img src="${CARDS.tribes[G.players[w.player].tribe].img}" alt="">
+              <div class="winner-name">${w.tribe} ${nickname(w.player)}</div>
+              <div class="winner-score">${w.total} 分</div>
+            </div>`).join('')}
+        </div>
+        <table class="score-table">
+          <tr><th>族群</th><th>建築</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
+          ${scores.map(s => `<tr class="${s.total === maxTotal ? 'is-winner' : ''}">
+            <td>${s.tribe} ${nickname(s.player)}</td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
+          </tr>`).join('')}
+        </table>
+        <div class="center"><button class="primary-start-button" onclick="location.reload()">重新開始</button></div>
+      </div>
+    </section>`;
 }
 
 // ── modal system ──────────────────────────────────────────
