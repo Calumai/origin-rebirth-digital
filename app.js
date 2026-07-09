@@ -516,7 +516,7 @@ function renderBoard() {
         </div>`).join('')}
     </div>
 
-    <div class="card-box battle-field">
+    <div class="card-box light-frame battle-field">
       <h3>戰場・公共牌庫</h3>
       <div class="row center">
         <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
@@ -558,7 +558,7 @@ function renderBoard() {
       <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
     </div>
 
-    <div class="card-box action-menu tut-actions">
+    <div class="card-box light-frame action-menu tut-actions">
       <h3>行動</h3>
 
       <div class="action-group-label">基礎行動</div>
@@ -593,11 +593,11 @@ function renderBotTurn(p) {
       <div class="chip">第 ${G.turn + 1} 輪</div>
     </div>
     ${versusStrip()}
-    <div class="card-box center">
+    <div class="card-box light-frame center">
       <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（電腦）思考中…</div>
       <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
     </div>
-    <div class="card-box">
+    <div class="card-box light-frame">
       <h3>公共區</h3>
       <div class="row">
         <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
@@ -608,7 +608,7 @@ function renderBotTurn(p) {
     </div>
     <div class="other-players">
       ${others.map(pl => `
-        <div class="card-box">
+        <div class="card-box light-frame">
           <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
           <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
         </div>`).join('')}
