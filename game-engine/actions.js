@@ -237,16 +237,22 @@ const ACTIONS = {
   },
 
   // 2 點：強制指定玩家交換原料卡
+  // rules-spec A12：發起方可自選給出哪張、換得對方哪張原料卡（UI 帶 myHandIdx/theirHandIdx）；
+  // 未指定時（Bot／模擬對局）沿用「各取第一張原料卡」的原路徑，不影響既有驗收結果。
   FORCE_SWAP_RAW(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
+    if (a.player === a.target) throw new Error('不能與自己交換');
     if (p.actionPoints < 2) throw new Error('點數不足');
     p.actionPoints -= 2;
-    const mi = p.hand.findIndex(c => c.kind === 'raw');
-    const ti = t.hand.findIndex(c => c.kind === 'raw');
-    if (mi < 0 || ti < 0) { log(state, `強制交換失敗（一方無原料卡）`); return; }
+    const mi = a.myHandIdx !== undefined ? a.myHandIdx : p.hand.findIndex(c => c.kind === 'raw');
+    const ti = a.theirHandIdx !== undefined ? a.theirHandIdx : t.hand.findIndex(c => c.kind === 'raw');
+    if (mi < 0 || ti < 0 || !p.hand[mi] || p.hand[mi].kind !== 'raw'
+        || !t.hand[ti] || t.hand[ti].kind !== 'raw') {
+      log(state, `強制交換失敗（一方無原料卡或選擇無效）`); return;
+    }
     const mine = p.hand.splice(mi, 1)[0], theirs = t.hand.splice(ti, 1)[0];
     p.hand.push(theirs); t.hand.push(mine);
-    log(state, `${p.tribeName} 強制與 ${t.tribeName} 交換原料卡`);
+    log(state, `${p.tribeName} 以「${mine.name}」強制換得 ${t.tribeName} 的「${theirs.name}」`);
   },
 
   END_TURN(state, a) { P(state, a.player).actionPoints = 0; }

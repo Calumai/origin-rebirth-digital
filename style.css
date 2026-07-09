@@ -145,6 +145,7 @@ input[type=text] {
 .hand-card:hover { border-color: var(--accent); }
 .hand-card.culture { border-color: #8e5aa6; }
 .hand-card.disabled { opacity: 0.4; cursor: not-allowed; }
+.hand-card.selected { border-color: var(--accent); background: #f3e9d3; box-shadow: 0 0 0 2px rgba(166,116,45,0.35); }
 
 .action-menu button {
   display: block;
@@ -295,23 +296,98 @@ input[type=text] {
   100% { transform: rotate(-12deg) scale(1.05); }
 }
 
-/* ── 建築卡拼圖 ── */
-.bld-piece {
-  display: inline-block;
-  width: 48px;
-  height: 34px;
-  border-radius: 4px;
+/* ── 建築卡拼圖：2×2 格盤，缺片顯示虛線空格，集滿縫隙閉合成整張家屋 ── */
+.bld-group { display: inline-block; text-align: center; margin: 6px 14px 6px 0; vertical-align: top; }
+.bld-puzzle {
+  display: grid;
+  grid-template-columns: repeat(2, 92px);
+  grid-template-rows: repeat(2, 66px);
+  gap: 3px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #efe6d3;
+  border: 2px solid var(--line);
+  transition: gap 0.3s ease, padding 0.3s ease, box-shadow 0.3s ease;
+}
+.bld-puzzle.complete {
+  gap: 0;
+  padding: 0;
+  border-color: var(--accent);
+  background: transparent;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+}
+.bld-cell {
+  border-radius: 5px;
   background-size: 200% 200%;
   background-repeat: no-repeat;
-  border: 1px solid var(--line);
+  transition: border-radius 0.3s ease;
 }
-.bld-complete { text-align: center; }
-.bld-complete img {
-  width: 220px;
-  border-radius: 10px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+.bld-cell.filled { background-color: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+.bld-cell.empty {
+  background: repeating-linear-gradient(45deg, #e8dec6, #e8dec6 6px, #ddd0b3 6px, #ddd0b3 12px);
+  border: 1px dashed #c3b48f;
 }
-.bld-label { font-weight: bold; color: var(--accent); }
+.bld-puzzle.complete .bld-cell { border-radius: 0; box-shadow: none; }
+.bld-puzzle.complete .bld-cell:first-child { border-top-left-radius: 8px; }
+.bld-puzzle.complete .bld-cell:nth-child(2) { border-top-right-radius: 8px; }
+.bld-puzzle.complete .bld-cell:nth-child(3) { border-bottom-left-radius: 8px; }
+.bld-puzzle.complete .bld-cell:nth-child(4) { border-bottom-right-radius: 8px; }
+.bld-label { font-weight: bold; color: var(--accent); font-size: 0.85em; margin-top: 4px; }
+
+/* ── 對戰列 ── */
+.versus-strip {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: nowrap;
+  margin-bottom: 16px;
+  padding: 10px 8px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2b2016, #3d2f1f);
+  overflow-x: auto;
+}
+.vs-player {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 88px;
+  text-align: center;
+  padding: 8px 6px;
+  border-radius: 12px;
+  color: #f6ecd4;
+  border: 2px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.vs-player img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
+  border: 3px solid rgba(255,255,255,0.35);
+}
+.vs-player.active {
+  background: rgba(255,255,255,0.12);
+  border-color: #ffc45c;
+  box-shadow: 0 0 18px rgba(255,196,92,0.5);
+  transform: translateY(-3px);
+}
+.vs-player.active img { border-color: #ffc45c; }
+.vs-name { font-weight: bold; font-size: 0.9em; margin-top: 4px; }
+.vs-score { font-size: 1.15em; font-weight: bold; color: #ffd98a; }
+.vs-stats { font-size: 0.72em; opacity: 0.85; }
+.vs-crown { position: absolute; top: -6px; right: 8px; font-size: 1.2em; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.vs-sep { align-self: center; color: #a6742d; font-size: 1.3em; padding: 0 2px; flex: 0 0 auto; }
+
+@media (max-width: 600px) {
+  .versus-strip { gap: 0; padding: 8px 4px; }
+  .vs-player { min-width: 66px; padding: 6px 3px; }
+  .vs-player img { width: 40px; height: 40px; }
+  .vs-name { font-size: 0.78em; }
+  .vs-score { font-size: 1em; }
+  .vs-sep { font-size: 1em; }
+  .bld-puzzle { grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 52px); }
+}
 
 @media (max-width: 600px) {
   body { font-size: 17px; }

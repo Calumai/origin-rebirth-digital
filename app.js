@@ -44,21 +44,24 @@ function cardThumb(c, size) {
   return `<img class="card-thumb${size === 'sm' ? '-sm' : ''}" src="${c.img}" alt="${c.name}">`;
 }
 // 建築卡＝一族家屋圖切 4 片拼圖（index 1~4 對應 左上/右上/左下/右下）
+// 以 2×2 格盤呈現：已收集的片段拼在正確位置，缺片顯示虛線空格；集滿時縫隙閉合成整張家屋。
 function buildingsArea(p) {
   if (!p.buildings.length) return '<span class="muted">（無建築）</span>';
   const byTribe = {};
   for (const b of p.buildings) (byTribe[b.tribe] = byTribe[b.tribe] || []).push(b);
+  const POS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%'];
   return Object.entries(byTribe).map(([tribe, list]) => {
-    if (list.length >= CARDS.buildingsPerTribe) {
-      return `<div class="bld-complete">
-        <img src="${CARDS.buildingImages[tribe]}" alt="${CARDS.tribes[tribe].name}家屋">
-        <div class="bld-label">🏠 ${CARDS.tribes[tribe].name}家屋（完整）</div>
-      </div>`;
-    }
-    return list.map(b => {
-      const pos = [['0%', '0%'], ['100%', '0%'], ['0%', '100%'], ['100%', '100%']][b.index - 1];
-      return `<span class="chip card-chip"><span class="bld-piece" style="background-image:url('${b.img}');background-position:${pos[0]} ${pos[1]}"></span>${b.name}</span>`;
-    }).join('');
+    const img = CARDS.buildingImages[tribe];
+    const have = {};
+    for (const b of list) have[b.index] = b;
+    const complete = list.length >= CARDS.buildingsPerTribe;
+    const cells = [1, 2, 3, 4].map(idx => have[idx]
+      ? `<div class="bld-cell filled" style="background-image:url('${img}');background-position:${POS[idx - 1]}" title="${have[idx].name}"></div>`
+      : `<div class="bld-cell empty"></div>`).join('');
+    return `<div class="bld-group">
+      <div class="bld-puzzle${complete ? ' complete' : ''}">${cells}</div>
+      <div class="bld-label">${complete ? '🏠 ' : ''}${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}</div>
+    </div>`;
   }).join('');
 }
 function materialsRow(p) {
@@ -321,6 +324,25 @@ function doAction(action) {
   else render();
 }
 
+// 對戰列：所有玩家一字排開互相對峙，標出當前行動者與即時領先者，營造對戰感
+function versusStrip() {
+  const scores = finalScores(G); // 依 player index 排列（含即時盤面分）
+  const maxTotal = Math.max(...scores.map(s => s.total));
+  const cells = G.players.map((pl, i) => {
+    const active = pl.idx === G.currentPlayer;
+    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
+    return `<div class="vs-player tribe-${pl.tribe}${active ? ' active' : ''}">
+      ${leading ? '<div class="vs-crown">👑</div>' : ''}
+      <img src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
+      <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? ' 🤖' : ''}</div>
+      <div class="vs-score">${scores[i].total} 分</div>
+      <div class="vs-stats">🏠${pl.buildings.length}・🎴${pl.hand.length}・◈${matN}</div>
+    </div>`;
+  });
+  return `<div class="versus-strip">${cells.join('<div class="vs-sep">⚔️</div>')}</div>`;
+}
+
 // ── board ──────────────────────────────────────────
 function renderBoard() {
   const p = currentPlayer();
@@ -335,6 +357,7 @@ function renderBoard() {
       <h1>原地重生・返璞歸真</h1>
       <div class="chip">第 ${G.turn + 1} 輪</div>
     </div>
+    ${versusStrip()}
     <div class="card-box">
       <div class="row between">
         <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
@@ -411,6 +434,7 @@ function renderBotTurn(p) {
       <h1>原地重生・返璞歸真</h1>
       <div class="chip">第 ${G.turn + 1} 輪</div>
     </div>
+    ${versusStrip()}
     <div class="card-box center">
       <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（🤖 電腦）思考中…</div>
       <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
@@ -461,6 +485,7 @@ function renderModal() {
   let inner = '';
   if (m.type === 'dice') inner = renderDice(m);
   else if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
+  else if (m.type === 'forceSwapPick') inner = renderForceSwapPick(m);
   else if (m.type === 'passOverlay') inner = passInner(m.toIdx, 'passOverlayContinue');
   else if (m.type === 'rps') inner = renderRPS(m);
   else if (m.type === 'materialPicker') inner = renderMaterialPicker(m);
@@ -611,9 +636,36 @@ function actionSwapBuilding() {
   }, pl => `${pl.tribeName} ${nickname(pl.idx)}（建築 ${pl.buildings.length} 張）`);
 }
 function actionForceSwapRaw() {
+  const p = currentPlayer();
+  if (!p.hand.some(c => c.kind === 'raw')) { alert('你手上沒有原料卡可交換'); return; }
   chooseTargetModal('選擇強制交換對象', (targetIdx) => {
-    doAction({ type: 'FORCE_SWAP_RAW', player: G.currentPlayer, target: targetIdx });
-  });
+    const t = G.players[targetIdx];
+    if (!t.hand.some(c => c.kind === 'raw')) {
+      alert(`${t.tribeName} 手上沒有原料卡可交換`);
+      ui.modal = null; render(); return;
+    }
+    ui.modal = { type: 'forceSwapPick', target: targetIdx, myHandIdx: null, theirHandIdx: null };
+    render();
+  }, pl => `${pl.tribeName} ${nickname(pl.idx)}（原料卡 ${pl.hand.filter(c => c.kind === 'raw').length} 張）`);
+}
+function renderForceSwapPick(m) {
+  const p = currentPlayer();
+  const t = G.players[m.target];
+  const mine = p.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
+    .map(x => `<div class="hand-card${m.myHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickMine(${x.idx})">${cardThumb(x.c)}<div>${x.c.name}</div></div>`).join('');
+  const theirs = t.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
+    .map(x => `<div class="hand-card${m.theirHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickTheirs(${x.idx})">${cardThumb(x.c)}<div>${x.c.name}</div></div>`).join('');
+  return `<h3>強制交換原料卡</h3>
+    <p>選擇你要<b>給出</b>的原料卡：</p><div class="row">${mine}</div>
+    <p>選擇你要向 ${t.tribeName} <b>換得</b>的原料卡：</p><div class="row">${theirs}</div>
+    <div class="row"><button onclick="closeModal()">取消</button>
+    <button class="primary" ${m.myHandIdx == null || m.theirHandIdx == null ? 'disabled' : ''} onclick="forceSwapConfirm()">確認交換</button></div>`;
+}
+function forceSwapPickMine(idx) { ui.modal.myHandIdx = idx; render(); }
+function forceSwapPickTheirs(idx) { ui.modal.theirHandIdx = idx; render(); }
+function forceSwapConfirm() {
+  const m = ui.modal;
+  doAction({ type: 'FORCE_SWAP_RAW', player: G.currentPlayer, target: m.target, myHandIdx: m.myHandIdx, theirHandIdx: m.theirHandIdx });
 }
 
 // TRADE
@@ -800,6 +852,7 @@ Object.assign(window, {
   setCount, setName, setBot, startDraw, revealNext, beginGame, revealTurn,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
+  forceSwapPickMine, forceSwapPickTheirs, forceSwapConfirm,
   rpsPick, rpsRevealDefenderReady, rpsAfterTie, rpsRevealAttackerReady, rpsFinish,
   actionTrade, tradeAddGive, tradeRemoveGive, tradeAddGet, tradeRemoveGet, tradeSubmit, tradeRespondDecide,
   actionDrawMaterial, actionDrawCulture, actionPlayRawPair, actionPlayCulture,
