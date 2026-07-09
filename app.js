@@ -189,10 +189,7 @@ function positionTutorial() {
   const tip = document.createElement('div');
   tip.id = 'tutorial-tooltip';
   tip.className = 'tutorial-tooltip';
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const top = spaceBelow > 170 ? rect.bottom + 12 : Math.max(12, rect.top - 158);
-  tip.style.top = top + 'px';
-  tip.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 276)) + 'px';
+  tip.style.visibility = 'hidden'; // 先插入量測實際尺寸，避免用估計值導致按鈕被推出螢幕
   tip.innerHTML = `
     <div class="tut-step">第 ${ui.tutorial.step + 1} / ${TUTORIAL_STEPS.length} 步</div>
     <h4>${step.title}</h4>
@@ -203,6 +200,16 @@ function positionTutorial() {
       <button onclick="closeTutorial()">跳過教學</button>
     </div>`;
   document.body.appendChild(tip);
+
+  const margin = 12;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = Math.max(margin, Math.min(rect.left, window.innerWidth - tw - margin));
+  let top = rect.bottom + margin;
+  if (top + th > window.innerHeight - margin) top = rect.top - th - margin; // 下面塞不下就放上面
+  top = Math.max(margin, Math.min(top, window.innerHeight - th - margin)); // 夾在畫面範圍內，上下都塞不下就貼齊並靠 max-height 捲動
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+  tip.style.visibility = 'visible';
 }
 
 function passInner(toIdx, continueFn) {
