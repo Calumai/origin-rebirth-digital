@@ -152,8 +152,7 @@ function render() {
   positionTutorial();
 }
 
-// ── 新手互動教學（A15）────────────────────────────────
-const TUTORIAL_KEY = 'origin-rebirth-tutorial-seen';
+// ── 新手互動教學（A15，2026-07-09 改為每局都自動觸發，不記憶跳過狀態）────
 const TUTORIAL_STEPS = [
   { target: 'tut-ap', title: '行動點數', text: '每回合會先擲骰子，決定你這回合有幾點行動點數可以用！' },
   { target: 'tut-materials', title: '你的素材', text: '這些是你現在擁有的素材，可以用來換工藝卡、蓋家屋。' },
@@ -162,7 +161,7 @@ const TUTORIAL_STEPS = [
   { target: 'tut-endturn', title: '結束回合', text: '行動點數用完了，或想提前結束，按這裡換下一位玩家繼續玩！' }
 ];
 function maybeStartTutorial() {
-  if (G.turn === 0 && G.currentPlayer === 0 && !isBot(0) && !localStorage.getItem(TUTORIAL_KEY)) startTutorial();
+  if (G.turn === 0 && G.currentPlayer === 0 && !isBot(0)) startTutorial();
 }
 function startTutorial() { ui.tutorial = { step: 0 }; render(); }
 function tutorialNext() {
@@ -170,7 +169,7 @@ function tutorialNext() {
   ui.tutorial.step++; render();
 }
 function tutorialPrev() { if (ui.tutorial.step > 0) { ui.tutorial.step--; render(); } }
-function closeTutorial() { ui.tutorial = null; localStorage.setItem(TUTORIAL_KEY, '1'); render(); }
+function closeTutorial() { ui.tutorial = null; render(); }
 function positionTutorial() {
   document.getElementById('tutorial-dim')?.remove();
   document.getElementById('tutorial-tooltip')?.remove();
