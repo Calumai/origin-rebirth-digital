@@ -1,6 +1,7 @@
 import { initGame, mulberry32, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves } from './game-engine/actions.js';
 import { finalScores } from './game-engine/scoring.js';
+import { chooseAction, respondTrade } from './game-engine/bot.js';
 
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
@@ -15,12 +16,15 @@ let G = null;
 let rng = null;
 let ui = {
   screen: 'setup',
-  setup: { count: 2, names: ['', '', '', ''] },
+  setup: { count: 2, names: ['', '', '', ''], bots: [false, false, false, false] },
   nicknames: [],
+  isBot: [],
   pass: null,
   draw: null,
   modal: null
 };
+
+function isBot(idx) { return !!ui.isBot[idx]; }
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -97,21 +101,33 @@ function renderSetup() {
       <div class="row">
         ${[2, 3, 4].map(n => `<button class="${s.count === n ? 'primary' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
       </div>
-      <h3>暱稱</h3>
+      <h3>玩家</h3>
       ${Array.from({ length: s.count }).map((_, i) => `
         <div class="row"><span class="chip">P${i + 1}</span>
-        <input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)"></div>
+        ${i === 0
+          ? `<span class="chip">👤 真人</span>`
+          : `<button class="${!s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, false)">👤 真人</button>
+             <button class="${s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, true)">🤖 電腦</button>`}
+        ${s.bots[i]
+          ? `<span class="muted">（電腦自動操作）</span>`
+          : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)" style="flex:1;min-width:140px;width:auto;">`}
+        </div>
       `).join('')}
       <div class="center"><button class="primary" onclick="startDraw()">開始抽族群卡</button></div>
     </div>`;
 }
 function setCount(n) { ui.setup.count = n; render(); }
 function setName(i, val) { ui.setup.names[i] = val; }
+function setBot(i, val) { ui.setup.bots[i] = val; render(); }
 function startDraw() {
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   G = initGame(ui.setup.count, seed);
   rng = mulberry32(seed ^ 0x9e3779b9);
-  ui.nicknames = G.players.map((_, i) => (ui.setup.names[i] || '').trim() || `玩家${i + 1}`);
+  ui.isBot = ui.setup.bots.slice(0, ui.setup.count);
+  let botN = 0;
+  ui.nicknames = G.players.map((_, i) => ui.isBot[i]
+    ? `電腦${++botN}`
+    : ((ui.setup.names[i] || '').trim() || `玩家${i + 1}`));
   ui.screen = 'draw';
   ui.draw = { revealed: 0 };
   render();
@@ -139,11 +155,44 @@ function beginGame() { startPlayerTurn(0); }
 function startPlayerTurn(idx) {
   G.players[idx].actionPoints = 3;
   ui.modal = null;
+  if (isBot(idx)) {
+    ui.screen = 'board';
+    render();
+    setTimeout(runBotStep, 700);
+    return;
+  }
   ui.screen = 'pass';
   ui.pass = { toIdx: idx, next: 'board' };
   render();
 }
 function revealTurn() { ui.screen = ui.pass.next; render(); }
+
+// 電腦回合：一次做一步，間隔播放讓真人看得到過程
+let botGuard = 0;
+function runBotStep() {
+  if (G.phase !== 'playing') return;
+  const p = currentPlayer();
+  if (!isBot(p.idx)) return;
+  if (p.actionPoints <= 0 || ++botGuard > 60) {
+    botGuard = 0;
+    p.actionPoints = 0;
+    finishTurnAndAdvance();
+    return;
+  }
+  const action = chooseAction(G, p.idx, rng);
+  try {
+    applyAction(G, action, rng); // Bot 猜拳不帶 result，引擎走 RNG 判定（rules-spec A9）
+  } catch (e) {
+    p.actionPoints = 0; // Bot 動作異常時直接結束回合，避免卡死
+  }
+  render();
+  if (currentPlayer().actionPoints <= 0 || G.phase !== 'playing') {
+    botGuard = 0;
+    setTimeout(finishTurnAndAdvance, 700);
+  } else {
+    setTimeout(runBotStep, 700);
+  }
+}
 
 function finishTurnAndAdvance() {
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
@@ -182,6 +231,7 @@ function doAction(action) {
 // ── board ──────────────────────────────────────────
 function renderBoard() {
   const p = currentPlayer();
+  if (isBot(p.idx)) return renderBotTurn(p);
   const others = G.players.filter(pl => pl.idx !== p.idx);
   const pairs = availablePairs(p);
   const cultureInHand = p.hand.filter(c => c.kind === 'culture');
@@ -256,6 +306,38 @@ function renderBoard() {
       <button class="danger" onclick="actionEndTurn()">結束回合</button>
     </div>
 
+    <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
+  `;
+}
+
+// 電腦回合畫面：不顯示電腦手牌內容，只顯示進度與 log
+function renderBotTurn(p) {
+  const others = G.players.filter(pl => pl.idx !== p.idx);
+  return `
+    <div class="row between">
+      <h1>原地重生・返璞歸真</h1>
+      <div class="chip">第 ${G.turn + 1} 輪</div>
+    </div>
+    <div class="card-box center">
+      <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（🤖 電腦）思考中…</div>
+      <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
+    </div>
+    <div class="card-box">
+      <h3>公共區</h3>
+      <div class="row">
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+        <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+      </div>
+    </div>
+    <div class="other-players">
+      ${others.map(pl => `
+        <div class="card-box">
+          <div>${tribeBadge(pl.tribe)} ${nickname(pl.idx)}</div>
+          <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
+        </div>`).join('')}
+    </div>
     <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
   `;
 }
@@ -340,7 +422,18 @@ function renderRPS(m) {
 }
 function rpsPick(move) {
   const m = ui.modal;
-  if (m.phase === 'attacker') { m.attackerMove = move; m.phase = 'pass_to_defender'; }
+  if (m.phase === 'attacker') {
+    m.attackerMove = move;
+    if (isBot(m.defenderIdx)) {
+      // 對電腦猜拳：電腦隨機出拳，直接判定
+      m.defenderMove = Math.floor(rng() * 3);
+      const res = resolveRPSMoves(m.attackerMove, m.defenderMove);
+      if (res === null) m.phase = 'tie';
+      else { m.result = res; m.phase = 'reveal'; }
+    } else {
+      m.phase = 'pass_to_defender';
+    }
+  }
   else if (m.phase === 'defender') {
     m.defenderMove = move;
     const res = resolveRPSMoves(m.attackerMove, m.defenderMove);
@@ -350,7 +443,12 @@ function rpsPick(move) {
   render();
 }
 function rpsRevealDefenderReady() { ui.modal.phase = 'defender'; render(); }
-function rpsAfterTie() { ui.modal.attackerMove = null; ui.modal.defenderMove = null; ui.modal.phase = 'pass_to_attacker_retry'; render(); }
+function rpsAfterTie() {
+  const m = ui.modal;
+  m.attackerMove = null; m.defenderMove = null;
+  m.phase = isBot(m.defenderIdx) ? 'attacker' : 'pass_to_attacker_retry';
+  render();
+}
 function rpsRevealAttackerReady() { ui.modal.phase = 'attacker'; render(); }
 function rpsFinish() { const m = ui.modal; const cb = m.onDone; const result = m.result; ui.modal = null; cb(result); }
 
@@ -456,6 +554,17 @@ function tradeRemoveGet(i) { ui.modal.get.splice(i, 1); render(); }
 function tradeSubmit() {
   const m = ui.modal;
   const target = m.target, give = m.give.slice(), get = m.get.slice();
+  if (isBot(target)) {
+    // 電腦自動決定：用 bot.respondTrade，且電腦必須真的持有對方要換的素材
+    const t = G.players[target];
+    const counts = {};
+    for (const x of get) counts[x] = (counts[x] || 0) + 1;
+    const hasAll = Object.entries(counts).every(([x, n]) => (t.materials[x] || 0) >= n);
+    const accepted = hasAll && respondTrade(G, target, { give, get });
+    ui.modal = null;
+    doAction({ type: 'TRADE', player: G.currentPlayer, target, give, get, accepted });
+    return;
+  }
   ui.modal = { type: 'passOverlay', toIdx: target, onReveal: () => {
     ui.modal = { type: 'tradeRespond', target, give, get };
     render();
@@ -483,6 +592,20 @@ function tradeRespondDecide(accepted) {
 // BUY_FROM_PLAYER
 function actionBuyFromPlayer() {
   chooseTargetModal('選擇購買對象', (targetIdx) => {
+    if (isBot(targetIdx)) {
+      // 電腦自動賣卡：優先賣自己配不成對的原料卡，並指定自己最缺的 2 種素材
+      const t = G.players[targetIdx];
+      const sellable = t.hand.filter(c => c.kind === 'raw' || c.kind === 'clothing');
+      if (!sellable.length) {
+        doAction({ type: 'BUY_FROM_PLAYER', player: G.currentPlayer, target: targetIdx, pay: [] });
+        return;
+      }
+      const card = sellable[0];
+      const sorted = CARDS.materials.slice().sort((a, b) => (t.materials[a] || 0) - (t.materials[b] || 0));
+      const pay = [sorted[0], sorted[1]];
+      doAction({ type: 'BUY_FROM_PLAYER', player: G.currentPlayer, target: targetIdx, cardId: card.kind === 'raw' ? card.id : undefined, pay });
+      return;
+    }
     ui.modal = { type: 'passOverlay', toIdx: targetIdx, onReveal: () => {
       ui.modal = { type: 'buyFromPlayerPick', target: targetIdx };
       render();
@@ -579,7 +702,7 @@ function actionDrawCulture() { doAction({ type: 'DRAW_CULTURE_CARD', player: G.c
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
 Object.assign(window, {
-  setCount, setName, startDraw, revealNext, beginGame, revealTurn,
+  setCount, setName, setBot, startDraw, revealNext, beginGame, revealTurn,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
   rpsPick, rpsRevealDefenderReady, rpsAfterTie, rpsRevealAttackerReady, rpsFinish,
