@@ -1094,6 +1094,50 @@ input[type=text] {
 }
 .toast.show { opacity: 1; transform: translateY(0) scale(1); }
 
+/* ── 動態抽卡動畫（仿爐石戰記）：卡背從牌庫飛到手牌，途中翻面亮出卡面 ── */
+.draw-flight {
+  position: fixed;
+  z-index: 88;
+  perspective: 900px;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.55));
+}
+.draw-flight-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+.draw-flight-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1.5px solid var(--gold);
+  background: #fff;
+}
+.draw-flight-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.draw-flight-back { }
+.draw-flight-front {
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+}
+.draw-flight-front img { flex: 1; min-height: 0; }
+.draw-flight-name {
+  flex: 0 0 auto;
+  font-size: 0.62em;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 3px;
+  background: rgba(20,14,6,0.85);
+  color: #ffe9b0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 600px) {
   body { font-size: 17px; }
   .rps-btn { font-size: 1.6em; padding: 14px 18px; }

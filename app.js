@@ -77,6 +77,52 @@ function bubbleForLog(line) {
   if (m = line.match(/^(.+?) 配對原料換得工藝/)) { showBubble(idxOf(m[1]), '手藝不錯吧！'); return; }
 }
 
+// 動態抽卡動畫（仿爐石戰記）：卡背從牌庫飛到手牌，途中翻面亮出卡面。
+// deckSel：牌庫圖示的 CSS class；backImg：卡背圖；targetEl：飛行終點（新卡落點）DOM 元素。
+function flyDrawnCard(deckSel, backImg, targetEl, drawnCard) {
+  const deckEl = document.querySelector(deckSel);
+  const layer = document.getElementById('toast-layer');
+  if (!deckEl || !targetEl || !layer || !drawnCard) return;
+  const sr = deckEl.getBoundingClientRect();
+  const er = targetEl.getBoundingClientRect();
+  if (!sr.width || !er.width) return;
+
+  targetEl.style.visibility = 'hidden'; // 真卡先藏起來，等飛行動畫抵達終點才現身，避免瞬間重複顯示
+
+  const ghost = document.createElement('div');
+  ghost.className = 'draw-flight';
+  ghost.innerHTML = `
+    <div class="draw-flight-inner">
+      <div class="draw-flight-face draw-flight-back"><img src="${backImg}" alt=""></div>
+      <div class="draw-flight-face draw-flight-front">
+        <img src="${drawnCard.img || ''}" alt="">
+        <div class="draw-flight-name">${esc(drawnCard.name || '')}</div>
+      </div>
+    </div>`;
+  layer.appendChild(ghost);
+  const inner = ghost.querySelector('.draw-flight-inner');
+
+  const midX = (sr.left + er.left) / 2, midY = Math.min(sr.top, er.top) - 60;
+  const midW = (sr.width + er.width) / 2, midH = (sr.height + er.height) / 2 * 1.35;
+
+  const flight = ghost.animate([
+    { left: sr.left + 'px', top: sr.top + 'px', width: sr.width + 'px', height: sr.height + 'px', offset: 0 },
+    { left: (midX - midW / 2) + 'px', top: midY + 'px', width: midW + 'px', height: midH + 'px', offset: 0.55 },
+    { left: er.left + 'px', top: er.top + 'px', width: er.width + 'px', height: er.height + 'px', offset: 1 }
+  ], { duration: 700, easing: 'cubic-bezier(.25,.65,.3,1)', fill: 'forwards' });
+  inner.animate([
+    { transform: 'rotateY(0deg)' },
+    { transform: 'rotateY(0deg)', offset: 0.45 },
+    { transform: 'rotateY(180deg)', offset: 0.75 },
+    { transform: 'rotateY(180deg)' }
+  ], { duration: 700, easing: 'ease-in-out', fill: 'forwards' });
+
+  flight.onfinish = () => {
+    ghost.remove();
+    targetEl.style.visibility = 'visible';
+  };
+}
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -511,10 +557,10 @@ function renderBoard() {
       <div class="bv-battlefield card-box light-frame battle-field">
         <h3>戰場・公共牌庫</h3>
         <div class="row center">
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
+          <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
+          <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
+          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+          <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
         </div>
         <div class="row center">
           ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
@@ -1065,8 +1111,20 @@ function actionPlayCulture(cardId) {
     doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId });
   }
 }
-function actionDrawMaterial() { doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer }); }
-function actionDrawCulture() { doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer }); }
+function actionDrawMaterial() {
+  doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
+  const p = currentPlayer();
+  const drawn = p.hand.filter(c => c.kind === 'raw').slice(-1)[0];
+  const cards = document.querySelectorAll('.bv-self .hand-card:not(.culture)');
+  if (drawn && cards.length) flyDrawnCard('.deck-raw', CARDS.cardBacks.raw, cards[cards.length - 1], drawn);
+}
+function actionDrawCulture() {
+  doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
+  const p = currentPlayer();
+  const drawn = p.hand.filter(c => c.kind === 'culture').slice(-1)[0];
+  const cards = document.querySelectorAll('.bv-self .hand-card.culture');
+  if (drawn && cards.length) flyDrawnCard('.deck-culture', CARDS.cardBacks.culture, cards[cards.length - 1], drawn);
+}
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
 Object.assign(window, {
