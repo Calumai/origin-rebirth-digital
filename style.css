@@ -776,7 +776,7 @@ input[type=text] {
 .primary-start-button:disabled { filter: grayscale(0.6) brightness(0.75); cursor: not-allowed; }
 .primary-start-button:disabled:hover { transform: none; }
 
-/* ── 首頁 v2：PS5 風格主選單 ── */
+/* ── 首頁 v3：PS5 / 主機 RPG 選單（依 JJ PS5_RPG_HOME_MENU_REDESIGN 工作單）── */
 .ps5-home {
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
@@ -786,287 +786,330 @@ input[type=text] {
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  grid-template-rows: auto 1fr auto;
-  grid-template-areas:
-    "sidebar topbar"
-    "sidebar content"
-    "sidebar hints";
-  color: #f8e6b8;
+  color: #f8e7bf;
   font-family: var(--fserif);
 }
-.ps5-bg {
+.ps5-home .ps5-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(rgba(10, 8, 4, 0.15), rgba(10, 8, 4, 0.55)),
+    linear-gradient(to bottom, rgba(5, 6, 4, 0.12), rgba(5, 6, 4, 0.62)),
     url('assets/ui/hero-home.jpg') center/cover no-repeat;
+  transform: scale(1.04);
 }
-.ps5-vignette {
+.ps5-home .ps5-vignette {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background:
-    radial-gradient(ellipse 70% 60% at 30% 55%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
-    radial-gradient(circle, transparent 45%, rgba(0, 0, 0, 0.65) 100%);
   pointer-events: none;
+  background:
+    radial-gradient(circle at 49% 43%, rgba(255, 214, 132, 0.08), transparent 34%),
+    radial-gradient(circle at 53% 54%, transparent 36%, rgba(0, 0, 0, 0.58) 100%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.16) 23%, rgba(0, 0, 0, 0.12) 65%, rgba(0, 0, 0, 0.58));
+}
+.ps5-home .ps5-focus-glow {
+  position: absolute;
+  z-index: 2;
+  left: 14%;
+  top: 18%;
+  width: 58%;
+  height: 64%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.16), transparent 68%);
 }
 
-.ps5-sidebar {
-  grid-area: sidebar;
-  position: relative;
-  z-index: 2;
+/* 左側：主機遊戲選單（薄玻璃，浮於背景，不擠版面） */
+.ps5-home .ps5-sidebar {
+  position: fixed;
+  left: 18px;
+  top: 24px;
+  bottom: 24px;
+  z-index: 8;
+  width: 150px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 28px 10px;
-  background: linear-gradient(180deg, rgba(20, 14, 6, 0.55), rgba(10, 7, 3, 0.7));
-  border-right: 1px solid rgba(229, 176, 85, 0.25);
+  gap: 10px;
+  padding: 8px 0;
+  border-right: 1px solid rgba(255, 224, 148, 0.14);
 }
-.ps5-sidebar .side-item {
+.ps5-home .side-item {
+  width: 136px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: rgba(248, 230, 184, 0.7);
-  text-align: left;
+  border: 1px solid rgba(255, 220, 140, 0.08);
+  color: rgba(255, 238, 202, 0.68);
+  background: rgba(12, 9, 5, 0.34);
+  backdrop-filter: blur(12px);
   cursor: pointer;
-  min-height: auto;
-  transition: background 140ms ease, color 140ms ease;
+  text-align: left;
+  box-shadow: none;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
-.ps5-sidebar .side-item:hover { background: rgba(255, 255, 255, 0.06); color: #ffe9b0; }
-.ps5-sidebar .side-item.active {
-  background: rgba(var(--gold-rgb), 0.16);
-  color: #ffe9b0;
-  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.5);
-}
-.ps5-sidebar .side-icon { width: 1.3em; height: 1.3em; flex: none; display: flex; align-items: center; justify-content: center; }
-.ps5-sidebar .side-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.ps5-sidebar .side-item b { display: block; font-size: 0.95em; }
-.ps5-sidebar .side-item small { display: block; font-size: 0.68em; opacity: 0.7; letter-spacing: 0.08em; }
-
-.ps5-topbar {
-  grid-area: topbar;
-  position: relative;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  padding: 18px 28px 0;
-}
-.ps5-toolbar {
-  display: flex;
-  align-items: center;
-  border-radius: 999px;
-  border: 1px solid rgba(229, 176, 85, 0.3);
-  background: rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-.ps5-toolbar button {
-  min-height: auto;
-  padding: 8px 18px;
-  font-size: 0.85em;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  color: rgba(248, 230, 184, 0.85);
+.ps5-home .side-item:hover {
+  transform: translateX(4px);
+  color: rgba(255, 238, 202, 0.96);
+  background: rgba(255, 222, 144, 0.08);
+  border-color: rgba(255, 218, 140, 0.24);
   box-shadow: none;
 }
-.ps5-toolbar button:hover { color: #ffe9b0; box-shadow: none; }
-.ps5-toolbar .tb-divider { width: 1px; height: 16px; background: rgba(229, 176, 85, 0.3); }
+.ps5-home .side-item.active {
+  color: #ffe8b4;
+  background: linear-gradient(180deg, rgba(255, 210, 118, 0.16), rgba(55, 34, 12, 0.44));
+  border-color: rgba(255, 213, 118, 0.52);
+  box-shadow: 0 0 28px rgba(255, 188, 72, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.ps5-home .side-icon { width: 24px; height: 24px; display: grid; place-items: center; color: rgba(255, 229, 170, 0.9); font-size: 16px; flex: none; }
+.ps5-home .side-text b { display: block; font-size: 16px; line-height: 1.1; letter-spacing: 0.08em; }
+.ps5-home .side-text small { display: block; margin-top: 4px; font-size: 10px; line-height: 1; letter-spacing: 0.16em; color: rgba(255, 225, 170, 0.48); }
 
-.ps5-content {
-  grid-area: content;
+/* 右上：小型工具列 */
+.ps5-home .ps5-topbar {
+  position: fixed;
+  top: 24px;
+  right: 36px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(19, 15, 10, 0.48);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 226, 160, 0.2);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.ps5-home .ps5-topbar button {
+  min-height: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: rgba(255, 239, 205, 0.78);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  box-shadow: none;
+}
+.ps5-home .ps5-topbar button:hover { color: #fff2cb; background: rgba(255, 255, 255, 0.08); box-shadow: none; }
+
+/* 中央主內容區 */
+.ps5-home .ps5-content {
   position: relative;
-  z-index: 2;
+  z-index: 4;
+  min-height: 100vh;
+  padding: clamp(88px, 9vh, 130px) clamp(48px, 5vw, 92px) clamp(72px, 8vh, 110px) clamp(190px, 14vw, 260px);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   justify-content: center;
-  gap: clamp(20px, 2.6vw, 34px);
-  padding: 20px clamp(24px, 5vw, 64px);
-  width: 100%;
+  align-items: flex-start;
+  gap: clamp(28px, 4vh, 46px);
 }
 
-.game-title-block { position: relative; text-align: left; padding-top: 46px; }
-.title-emblem {
-  position: absolute;
-  top: -18px;
-  left: 4px;
-  width: 108px;
-  height: 108px;
-  border-radius: 50%;
-  border: 1px solid rgba(229, 176, 85, 0.35);
-  opacity: 0.8;
-}
-.title-emblem::before, .title-emblem::after {
+.ps5-home .game-title-block { position: relative; max-width: 920px; text-align: left; }
+.ps5-home .game-title-block::before {
   content: '';
   position: absolute;
-  inset: 14px;
+  left: -38px;
+  top: 50%;
+  width: 110px;
+  height: 110px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 217, 130, 0.12);
   border-radius: 50%;
-  border: 1px solid rgba(229, 176, 85, 0.25);
+  opacity: 0.7;
 }
-.title-emblem::after {
-  inset: auto;
-  top: 50%; left: 50%;
-  width: 140%; height: 1px;
-  background: rgba(229, 176, 85, 0.25);
-  transform: translate(-50%, -50%) rotate(45deg);
-  border: none;
-  box-shadow: 0 0 0 0;
-}
-.game-title-block h1 {
+.ps5-home .game-title-block h1 {
   position: relative;
   margin: 0;
-  font-size: clamp(36px, 5.2vw, 58px);
+  font-size: clamp(46px, 5.8vw, 92px);
+  line-height: 1.04;
   font-weight: 900;
-  letter-spacing: 0.06em;
-  background: linear-gradient(to bottom, #fff3c4, #d4af37);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(229, 193, 88, 0.3));
+  letter-spacing: 0.08em;
+  color: #f8e3a9;
+  text-shadow: 0 3px 0 rgba(54, 31, 8, 0.92), 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 28px rgba(255, 209, 112, 0.22);
 }
-.game-title-block p {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0 0;
-  font-size: clamp(13px, 1.5vw, 16px);
-  color: rgba(255, 239, 205, 0.85);
-  letter-spacing: 0.04em;
-}
-.game-title-block .tb-line { flex: 1 1 40px; max-width: 60px; height: 1px; background: linear-gradient(90deg, transparent, rgba(229, 176, 85, 0.6)); }
-.game-title-block p .tb-diamond:last-of-type + .tb-line { background: linear-gradient(90deg, rgba(229, 176, 85, 0.6), transparent); }
-.tb-diamond { color: var(--gold); font-size: 0.7em; }
-
-.tribe-carousel {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 2vw, 22px);
-  width: 100%;
-  max-width: 1040px;
-}
-.carousel-arrow {
-  min-height: auto;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  color: rgba(229, 176, 85, 0.7);
-  font-size: 1.1em;
-  line-height: 1;
-  flex: none;
-  box-shadow: none;
-}
-.carousel-arrow:hover { color: var(--gold); box-shadow: none; text-shadow: 0 0 10px rgba(var(--gold-rgb), 0.7); }
-.ps5-tribe-slot { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1 1 0; min-width: 0; }
-.ps5-tribe-card {
+.ps5-home .game-title-block p {
   position: relative;
-  width: 100%;
-  aspect-ratio: 3 / 4.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 0;
+  font-size: clamp(15px, 1.35vw, 20px);
+  color: rgba(255, 237, 203, 0.88);
+  letter-spacing: 0.08em;
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.75);
+}
+.ps5-home .game-title-block p::before, .ps5-home .game-title-block p::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  background: rgba(255, 201, 83, 0.78);
+}
+
+/* 卡片 Carousel */
+.ps5-home .tribe-carousel {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: min(880px, 70vw);
+  gap: clamp(18px, 2vw, 30px);
+  margin-top: 4px;
+}
+.ps5-home .tribe-card {
+  position: relative;
+  width: clamp(136px, 9.8vw, 188px);
+  aspect-ratio: 3 / 4;
   border-radius: 10px;
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 14, 8, 0.42);
+  border: 1px solid rgba(255, 222, 144, 0.16);
+  box-shadow: 0 24px 36px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: scale(0.94);
+  opacity: 0.72;
   cursor: pointer;
-  opacity: 0.62;
-  transform: scale(0.92);
-  transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease, filter 180ms ease;
 }
-.ps5-tribe-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; transform: scale(1.22); }
-.ps5-tribe-card:hover { opacity: 0.85; transform: scale(0.96) translateY(-4px); }
-.ps5-tribe-card.selected {
+.ps5-home .tribe-card:hover { transform: translateY(-6px) scale(0.98); opacity: 0.92; }
+.ps5-home .tribe-card.selected {
+  transform: translateY(-8px) scale(1.08);
   opacity: 1;
-  transform: scale(1.08) translateY(-10px);
-  border-color: rgba(255, 226, 154, 0.85);
-  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.55), 0 0 22px rgba(255, 197, 96, 0.4);
-  z-index: 1;
+  border-color: rgba(255, 225, 142, 0.86);
+  box-shadow: 0 0 0 2px rgba(255, 225, 142, 0.22), 0 0 42px rgba(255, 196, 82, 0.32), 0 36px 54px rgba(0, 0, 0, 0.68), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  filter: brightness(1.08);
 }
-.tribe-diamond {
+.ps5-home .tribe-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ps5-home .tribe-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 56%, rgba(0, 0, 0, 0.82));
+  pointer-events: none;
+}
+.ps5-home .tribe-name {
+  position: absolute;
+  left: 0; right: 0; bottom: 12px;
+  z-index: 2;
+  text-align: center;
+  font-size: clamp(15px, 1.2vw, 20px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffe8b8;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.9);
+}
+.ps5-home .carousel-arrow {
+  min-height: auto;
+  width: 40px;
+  height: 70px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(255, 214, 118, 0.8);
+  font-size: 52px;
+  line-height: 1;
+  background: rgba(10, 8, 5, 0.16);
+  cursor: pointer;
+  box-shadow: none;
+  transition: 150ms ease;
+}
+.ps5-home .carousel-arrow:hover { color: #ffe7ad; background: rgba(255, 220, 140, 0.08); box-shadow: none; }
+.ps5-home .carousel-arrow.left { margin-right: -8px; }
+.ps5-home .carousel-arrow.right { margin-left: -8px; }
+
+/* 主按鈕區 */
+.ps5-home .ps5-actions { width: min(880px, 70vw); display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 4px; }
+.ps5-home .start-btn {
+  position: relative;
+  width: min(340px, 100%);
+  min-height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 218, 128, 0.82);
+  color: #fff1c8;
+  font-size: clamp(24px, 2.2vw, 34px);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(255, 199, 84, 0.2), rgba(191, 104, 20, 0.18)), rgba(17, 12, 7, 0.66);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 1px rgba(255, 196, 82, 0.16), 0 0 34px rgba(255, 183, 65, 0.28), 0 18px 36px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 211, 126, 0.34);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+.ps5-home .start-btn::before, .ps5-home .start-btn::after {
+  content: '';
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  color: var(--gold);
-  font-size: 1.1em;
-  text-shadow: 0 0 8px rgba(var(--gold-rgb), 0.8);
-  z-index: 2;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%) rotate(45deg);
+  border: 1px solid rgba(255, 205, 95, 0.86);
 }
-.tribe-diamond.left { left: -8px; }
-.tribe-diamond.right { right: -8px; }
-.ps5-tribe-name {
-  text-align: center;
-  font-weight: 800;
-  font-size: clamp(13px, 1.5vw, 16px);
-  color: #ffe9b0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
+.ps5-home .start-btn::before { left: 28px; }
+.ps5-home .start-btn::after { right: 28px; }
+.ps5-home .start-btn:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 1px rgba(255, 219, 140, 0.42), 0 0 52px rgba(255, 191, 78, 0.42), 0 26px 44px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
-
-.ps5-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; align-self: center; }
-.ps5-actions .start-btn {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 10px;
-  min-width: 280px;
-  min-height: 60px;
-  padding: 0 36px;
-  border-radius: 999px;
-  font-size: clamp(18px, 2vw, 24px);
-  font-weight: 900;
-  letter-spacing: 0.1em;
-}
-.ps5-actions .start-btn small { font-size: 0.4em; letter-spacing: 0.2em; opacity: 0.75; font-weight: 700; }
-.ps5-actions .intro-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 220px;
+.ps5-home .intro-btn {
+  width: min(230px, 100%);
   min-height: 48px;
-  padding: 4px 28px;
   border-radius: 999px;
-  font-size: clamp(14px, 1.6vw, 18px);
+  border: 1px solid rgba(255, 218, 128, 0.48);
+  color: rgba(255, 238, 204, 0.9);
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  background: rgba(12, 10, 7, 0.48);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-.ps5-actions .intro-btn small { font-size: 0.55em; letter-spacing: 0.18em; opacity: 0.7; font-weight: 700; }
+.ps5-home .intro-btn:hover { color: #fff1c8; border-color: rgba(255, 218, 128, 0.72); background: rgba(255, 218, 128, 0.08); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08); }
 
-.ps5-hints {
-  grid-area: hints;
-  position: relative;
-  z-index: 2;
+/* 底部操作提示 */
+.ps5-home .ps5-hints {
+  position: fixed;
+  left: 190px;
+  bottom: 28px;
+  z-index: 8;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 24px;
-  font-size: 0.82em;
-  color: rgba(248, 230, 184, 0.6);
-  letter-spacing: 0.04em;
+  align-items: center;
+  gap: 22px;
+  color: rgba(255, 237, 203, 0.68);
+  font-size: 14px;
+  letter-spacing: 0.06em;
 }
-.ps5-hint-main { display: flex; align-items: center; gap: 8px; }
-.hint-icon { opacity: 0.8; }
-.ps5-hint-keys { display: flex; gap: 18px; font-size: 0.9em; opacity: 0.75; }
+.ps5-home .ps5-hints span:not(:first-child)::before { content: '○'; margin-right: 6px; color: rgba(255, 220, 140, 0.7); }
 
-@media (max-width: 900px) {
-  .ps5-home {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "topbar"
-      "content"
-      "hints";
-  }
-  .ps5-sidebar { display: none; }
-  .game-title-block { text-align: center; padding-top: 20px; }
-  .title-emblem { display: none; }
-  .game-title-block p { justify-content: center; }
-  .tribe-carousel { flex-wrap: wrap; justify-content: center; }
-  .carousel-arrow { display: none; }
-  .ps5-tribe-slot { flex: 1 1 40%; max-width: 44%; }
+@media (max-width: 1100px) {
+  .ps5-home .ps5-content { padding-left: 176px; }
+  .ps5-home .tribe-carousel, .ps5-home .ps5-actions { width: min(760px, 74vw); }
+  .ps5-home .tribe-card { width: clamp(118px, 12vw, 156px); }
+}
+
+@media (max-width: 820px) {
+  .ps5-home .ps5-sidebar { display: none; }
+  .ps5-home .ps5-topbar { top: 16px; right: 16px; }
+  .ps5-home .ps5-content { padding: 96px 22px 48px; align-items: center; text-align: center; }
+  .ps5-home .game-title-block { text-align: center; }
+  .ps5-home .game-title-block::before { display: none; }
+  .ps5-home .game-title-block h1 { font-size: clamp(38px, 10vw, 58px); }
+  .ps5-home .game-title-block p { justify-content: center; font-size: 15px; }
+  .ps5-home .tribe-carousel { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 16px; }
+  .ps5-home .carousel-arrow { display: none; }
+  .ps5-home .tribe-card, .ps5-home .tribe-card.selected, .ps5-home .tribe-card:hover { width: 100%; transform: none; }
+  .ps5-home .tribe-card.selected { box-shadow: 0 0 0 2px rgba(255, 225, 142, 0.26), 0 0 34px rgba(255, 196, 82, 0.26), 0 22px 36px rgba(0, 0, 0, 0.58); }
+  .ps5-home .ps5-actions { width: 100%; }
+  .ps5-home .start-btn { width: min(340px, 92vw); }
+  .ps5-home .intro-btn { width: min(240px, 82vw); }
+  .ps5-home .ps5-hints { display: none; }
 }
 
 /* ── 對戰桌牌桌墊 ── */
