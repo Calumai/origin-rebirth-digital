@@ -20,7 +20,8 @@ let ui = {
   nicknames: [],
   isBot: [],
   pass: null,
-  modal: null
+  modal: null,
+  tutorial: null
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
@@ -148,6 +149,60 @@ function render() {
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
   app.innerHTML = html;
+  positionTutorial();
+}
+
+// ── 新手互動教學（A15）────────────────────────────────
+const TUTORIAL_KEY = 'origin-rebirth-tutorial-seen';
+const TUTORIAL_STEPS = [
+  { target: 'tut-ap', title: '行動點數', text: '每回合會先擲骰子，決定你這回合有幾點行動點數可以用！' },
+  { target: 'tut-materials', title: '你的素材', text: '這些是你現在擁有的素材，可以用來換工藝卡、蓋家屋。' },
+  { target: 'tut-actions', title: '怎麼行動', text: '點下面的按鈕做事情：「拿素材」最簡單安全；也可以去偷襲或跟別人交易喔！' },
+  { target: 'tut-buildings', title: '獲勝條件', text: '集滿本族的 4 張建築卡，或搶下最後一張工藝卡，遊戲就結束、比總分！' },
+  { target: 'tut-endturn', title: '結束回合', text: '行動點數用完了，或想提前結束，按這裡換下一位玩家繼續玩！' }
+];
+function maybeStartTutorial() {
+  if (G.turn === 0 && G.currentPlayer === 0 && !isBot(0) && !localStorage.getItem(TUTORIAL_KEY)) startTutorial();
+}
+function startTutorial() { ui.tutorial = { step: 0 }; render(); }
+function tutorialNext() {
+  if (ui.tutorial.step >= TUTORIAL_STEPS.length - 1) { closeTutorial(); return; }
+  ui.tutorial.step++; render();
+}
+function tutorialPrev() { if (ui.tutorial.step > 0) { ui.tutorial.step--; render(); } }
+function closeTutorial() { ui.tutorial = null; localStorage.setItem(TUTORIAL_KEY, '1'); render(); }
+function positionTutorial() {
+  document.getElementById('tutorial-dim')?.remove();
+  document.getElementById('tutorial-tooltip')?.remove();
+  if (!ui.tutorial) return;
+  const step = TUTORIAL_STEPS[ui.tutorial.step];
+  const target = document.querySelector('.' + step.target);
+  if (!target) { tutorialNext(); return; } // 目標元件這回合不存在（如按鈕未渲染）就跳過該步
+  target.classList.add('tutorial-highlight');
+  const rect = target.getBoundingClientRect();
+
+  const dim = document.createElement('div');
+  dim.id = 'tutorial-dim';
+  dim.className = 'tutorial-dim';
+  document.body.appendChild(dim);
+
+  const tip = document.createElement('div');
+  tip.id = 'tutorial-tooltip';
+  tip.className = 'tutorial-tooltip';
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const top = spaceBelow > 170 ? rect.bottom + 12 : Math.max(12, rect.top - 158);
+  tip.style.top = top + 'px';
+  tip.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 276)) + 'px';
+  tip.innerHTML = `
+    <div class="tut-step">第 ${ui.tutorial.step + 1} / ${TUTORIAL_STEPS.length} 步</div>
+    <h4>${step.title}</h4>
+    <p>${step.text}</p>
+    <div class="row" style="margin-top:10px;">
+      ${ui.tutorial.step > 0 ? '<button onclick="tutorialPrev()">上一步</button>' : ''}
+      <button class="primary" onclick="tutorialNext()">${ui.tutorial.step === TUTORIAL_STEPS.length - 1 ? '知道了，開始玩！' : '下一步'}</button>
+      <button onclick="closeTutorial()">跳過教學</button>
+    </div>`;
+  document.body.appendChild(tip);
 }
 
 function passInner(toIdx, continueFn) {
@@ -339,7 +394,7 @@ function diceRoll() {
     }
   }, 90);
 }
-function diceDone() { ui.modal = null; render(); }
+function diceDone() { ui.modal = null; render(); maybeStartTutorial(); }
 
 // 電腦回合：一次做一步，間隔播放讓真人看得到過程
 let botGuard = 0;
@@ -437,7 +492,10 @@ function renderBoard() {
   return `
     <div class="row between">
       <h1>原地重生・返璞歸真</h1>
-      <div class="chip">第 ${G.turn + 1} 輪</div>
+      <div class="row">
+        <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
+        <div class="chip">第 ${G.turn + 1} 輪</div>
+      </div>
     </div>
     ${versusStrip()}
 
@@ -467,10 +525,10 @@ function renderBoard() {
     <div class="card-box zone-self">
       <div class="row between">
         <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
-        <div class="chip">剩餘行動點數：${p.actionPoints}</div>
+        <div class="chip tut-ap">剩餘行動點數：${p.actionPoints}</div>
       </div>
       <h3>我的素材</h3>
-      <div class="row">${materialsRow(p)}</div>
+      <div class="row tut-materials">${materialsRow(p)}</div>
       <h3>我的手牌</h3>
       <div class="row">
         ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('') || '<span class="muted">（無原料卡）</span>'}
@@ -486,13 +544,13 @@ function renderBoard() {
       </div>
       <h3>已擲出 / 工藝</h3>
       <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
-      <h3>建築</h3>
+      <h3 class="tut-buildings">建築</h3>
       <div class="row">${buildingsArea(p)}</div>
       <h3>服飾</h3>
       <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
     </div>
 
-    <div class="card-box action-menu">
+    <div class="card-box action-menu tut-actions">
       <h3>行動</h3>
       <button ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
       <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
@@ -504,7 +562,7 @@ function renderBoard() {
       <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
       <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
       <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
-      <button class="danger" onclick="actionEndTurn()">結束回合</button>
+      <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
     </div>
 
     <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
@@ -994,7 +1052,8 @@ Object.assign(window, {
   materialPick, materialPickUndo, materialPickConfirm,
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
-  actionEndTurn
+  actionEndTurn,
+  startTutorial, tutorialNext, tutorialPrev, closeTutorial
 });
 
 render();

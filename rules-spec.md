@@ -82,6 +82,14 @@ if (result === null) {
 
 **實作**：`state.js` `initGame(playerCount, seed, chosenTribeIds?)` 新增可選第三參數；**未帶時**（Bot／`simulate.js` 自動對局路徑）完全沿用原本 `shuffle` 隨機抽取，既有壓測結果不受影響。`app.js` `renderSetup` 加入 `.tribe-pick-row`，`startGame()` 取代原本 `startDraw()`／`renderDraw()`／`revealNext()`／`beginGame()` 整組抽卡流程，計算完 `tribeIds`（真人已選 ＋ 電腦隨機分配剩餘）後直接呼叫 `initGame` 並開局。
 
+## A15：新手互動教學（2026-07-09 JJ 決議，數位版新增功能）
+
+**背景**：JJ 指出小孩玩家不會知道怎麼玩，要求加新手引導，指定「互動式引導」（點這邊看到那邊發生什麼，而非純圖文說明或不做開場教學）。
+
+**決議內容**：第一位玩家（永遠是真人）第一次擲完骰進入對局畫面時，自動觸發 5 步互動教學，直接對**真實畫面元件**發光框強調＋提示框說明（不是另開一個獨立教學畫面），依序：行動點數 → 我的素材 → 行動選單 → 建築（獲勝條件）→ 結束回合。每步可「上一步／下一步／跳過教學」，玩家仍可自由點擊畫面上任何東西（教學不封鎖操作）。完成或跳過後用 `localStorage` 記住，不會每次開新局都跳出來；board 畫面右上角保留「怎麼玩？」按鈕可隨時手動重新開啟。
+
+**實作**：`app.js` 新增 `TUTORIAL_STEPS`（含 target class／標題／說明文字）、`positionTutorial()`（每次 `render()` 後執行，用 `getBoundingClientRect` 動態定位提示框並替目標元件加 `.tutorial-highlight` 發光動畫）。目標元件用固定 class 標記（`tut-ap`／`tut-materials`／`tut-actions`／`tut-buildings`／`tut-endturn`），純加法式標記，不影響原有邏輯或 Bot 路徑。
+
 ## 待補（尚未決議，暫依交接文件假設開發，不擋 M2 進度）
 - 交接文件 §8「待 JJ 提供」項目：族語會話內容（部落戰爭 P.29–P.44，規則書已再次確認此頁碼範圍）、正式族語會話大字體排版。
 - 建築卡各卡實際分數：正式素材裡沒有找到建築卡卡面圖或分數資料，暫沿用假設 A3 一律 3 分，待 JJ 提供。

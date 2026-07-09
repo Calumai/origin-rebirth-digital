@@ -623,12 +623,27 @@ input[type=text] {
 .primary-start-button:disabled:hover { transform: none; }
 
 /* ── 對戰桌牌桌墊 ── */
+/* table-wood.jpg 是張可平鋪的正方形木紋圖，改用 repeat 平鋪＋固定磚塊尺寸，
+   避免 cover 把方形圖硬拉伸成超長畫面而糊成一片放大木紋特寫 */
 .table-surface {
-  background: url('assets/ui/table-wood.jpg') center/cover no-repeat;
+  position: relative;
+  background: url('assets/ui/table-wood.jpg') repeat;
+  background-size: 360px 360px;
   border-radius: var(--r-lg);
   padding: 16px 14px 20px;
   box-shadow: var(--shadow-lg), inset 0 0 60px rgba(0,0,0,0.35);
+  overflow: hidden;
 }
+.table-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,200,120,0.10), transparent 55%),
+    linear-gradient(180deg, rgba(10,7,3,0.35), rgba(10,7,3,0.55) 60%, rgba(10,7,3,0.7));
+  pointer-events: none;
+}
+.table-surface > * { position: relative; z-index: 1; }
 .table-surface > .row.between h1 { color: #ffe9bc; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
 .table-surface .muted { color: #6d5c43; }
 
@@ -899,4 +914,53 @@ input[type=text] {
   .secondary-lore-button { min-width: min(280px, 82vw); min-height: 54px; font-size: 22px; }
   .setup-screen { align-items: flex-start; padding: 20px 14px; }
   .setup-panel { width: 100%; }
+}
+
+/* ── 新手互動教學（A15）：發光框強調真實元件＋提示框，不用單獨畫面 ── */
+.tutorial-open-btn {
+  padding: 8px 16px;
+  font-size: 0.85em;
+  border-radius: 999px;
+  border: 1.5px solid var(--gold);
+  background: linear-gradient(180deg, #4a2f11, #241407);
+  color: #ffe4a3;
+  font-weight: 700;
+}
+.tutorial-open-btn:hover { filter: brightness(1.15); }
+.tutorial-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,7,3,0.5);
+  z-index: 70;
+  pointer-events: none;
+}
+.tutorial-highlight {
+  position: relative;
+  z-index: 75;
+  border-radius: var(--r-md);
+  animation: tut-pulse 1.4s ease-in-out infinite;
+}
+@keyframes tut-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--gold), 0 0 18px rgba(217,164,65,0.55); }
+  50%      { box-shadow: 0 0 0 6px var(--gold), 0 0 30px rgba(217,164,65,0.85); }
+}
+.tutorial-tooltip {
+  position: fixed;
+  z-index: 80;
+  width: 260px;
+  background: linear-gradient(180deg, #4a2f11, #241407);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #f8e6b8;
+  box-shadow: var(--shadow-lg);
+}
+.tutorial-tooltip h4 { margin: 2px 0 6px; color: #ffe4a3; font-family: var(--fserif); font-size: 1.05em; }
+.tutorial-tooltip p { margin: 0; font-size: 0.88em; line-height: 1.5; color: rgba(248,230,190,0.92); }
+.tutorial-tooltip .row { gap: 6px; }
+.tutorial-tooltip button { padding: 7px 12px; font-size: 0.85em; margin: 0; }
+.tut-step { font-size: 0.72em; color: var(--gold); font-weight: 700; letter-spacing: 0.05em; }
+
+@media (max-width: 600px) {
+  .tutorial-tooltip { width: min(260px, 84vw); }
 }
