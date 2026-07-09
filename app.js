@@ -651,7 +651,7 @@ function renderBoard() {
         <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
       </div>
 
-      <div class="bv-buildings card-box tut-buildings">
+      <div class="bv-buildings card-box light-frame tut-buildings">
         <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>
@@ -723,7 +723,7 @@ function renderBotTurn(p) {
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
         </div>
       </div>
-      <div class="bv-buildings card-box">
+      <div class="bv-buildings card-box light-frame">
         <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>

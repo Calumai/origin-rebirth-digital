@@ -830,11 +830,11 @@ input[type=text] {
   grid-area: buildings;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   margin-bottom: 0;
   overflow-y: auto;
   min-height: 0;
+  padding: 12px 18px 14px;
   background: linear-gradient(180deg, rgba(255,253,248,0.98), rgba(255,248,232,0.96));
 }
 .bld-centerpiece-title {
@@ -846,7 +846,14 @@ input[type=text] {
   gap: 8px;
   font-size: 1.1em;
 }
-.bld-centerpiece { display: flex; justify-content: center; padding: 6px 0 4px; }
+.bld-centerpiece {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 6px 0 4px;
+}
 
 .bv-side {
   grid-area: side;
@@ -998,12 +1005,26 @@ input[type=text] {
 .bld-label { font-weight: bold; color: var(--accent); font-size: 0.85em; margin-top: 4px; }
 
 /* 主視覺放大版（本族家屋進度，畫面中央最大元素） */
-.bld-group-big { margin: 0; }
+.bld-group-big {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 拼圖真正撐滿容器：標籤改成疊加在底部的浮動小標籤，不再跟拼圖搶 flex 高度
+   （grid 的 1fr 列需要容器有明確高度才分配得出來，跟 flex-grow 搶版面會互相打架，
+   乾脆讓拼圖直接吃滿 100%，標籤用 absolute 疊上去） */
 .bld-puzzle-big {
-  grid-template-columns: repeat(2, clamp(110px, 15vw, 190px));
-  grid-template-rows: repeat(2, clamp(80px, 11vw, 138px));
-  gap: 5px;
-  padding: 6px;
+  width: min(98%, 980px);
+  height: 100%;
+  max-height: 760px;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6px;
+  padding: 8px;
   border: 3px solid var(--gold);
   box-shadow: var(--shadow-lg);
 }
@@ -1011,7 +1032,22 @@ input[type=text] {
   box-shadow: 0 14px 34px rgba(0,0,0,0.4), 0 0 34px rgba(217,164,65,0.55);
   border-color: var(--gold);
 }
-.bld-group-big .bld-label { font-size: 1.2em; margin-top: 12px; }
+.bld-group-big .bld-label {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 1.05em;
+  white-space: nowrap;
+  background: rgba(20,14,6,0.85);
+  color: #ffe9b0;
+  padding: 4px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--gold);
+  box-shadow: var(--shadow-md);
+  z-index: 2;
+}
 
 /* ── 對戰列 ── */
 .versus-strip {
