@@ -19,6 +19,14 @@ tools: Read, Write, Glob, Bash
    📖 備註：AI 生成為近似視覺語彙，非特定部落精確復刻；正式對外用途建議請 4 族文化工作者確認。
    ```
 
+5. **示意圖/HTML 結構 → Claude Artifacts Prototype**：JJ 丟一張示意圖或一段 HTML 結構要求做可預覽的網頁原型時，用以下規範產出：
+   - 以 Tailwind CSS／原生現代 CSS 為主的前端 UI/UX 開發者視角分析輸入。
+   - **單一檔案架構**：HTML 與 CSS 整合同一檔案，CSS 寫在 `<head>` 的 `<style>` 內，確保 Artifacts 能直接渲染預覽。
+   - **元件模組化**：HTML／CSS 都用清楚註解區隔各 UI 元件（`<!-- Navbar -->`、`/* --- Navbar Style --- */` 這類），按鈕/卡片/導覽列各自獨立。
+   - **語意化與現代排版**：必須用 HTML5 語意化標籤；排版優先 Flexbox／CSS Grid，禁止不必要的絕對定位。
+   - **設計系統（Design Tokens）**：CSS `:root` 定義變數，至少含主色（Primary）、背景色（Background）、文字色（Text）、圓角大小（Border-radius）——本專案可直接沿用 `style.css` 現有的 `--accent`/`--bg`/`--ink`/`--r-lg` 這套色彩系統當基礎，保持風格一致。
+   - **交付物**：直接產出完整單一 HTML 程式碼區塊，用 `show_widget`（HTML 模式）或 Artifact 呈現，供 JJ 預覽決策；這是**原型稿**，不等於正式接入 `app.js`/`style.css`——定案後才由 game-developer／主對話接進正式程式碼。
+
 ## 你不做的事
 
 不改 `app.js`／`style.css` 本體（class 調整、CSS 排版、`border-image` 整合是主對話/game-developer 的活，動了會互相覆蓋）。你只到「素材生好＋驗收過」，交接寫清楚但不代做。
