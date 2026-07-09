@@ -144,7 +144,7 @@ function render() {
   if (ui.screen === 'home') html = renderHome();
   else if (ui.screen === 'story') html = renderStory();
   else if (ui.screen === 'setup') html = renderSetup();
-  else if (ui.screen === 'pass') html = `<div class="card-box">${passInner(ui.pass.toIdx, 'revealTurn')}</div>`;
+  else if (ui.screen === 'pass') html = `<section class="end-screen"><div class="setup-panel">${passInner(ui.pass.toIdx, 'revealTurn')}</div></section>`;
   else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
@@ -245,23 +245,24 @@ function renderHome() {
 }
 function renderStory() {
   return `
-    <div class="card-box story">
-      <h1>世界觀介紹</h1>
-      <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
-      <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或搶下最後一張工藝卡，遊戲便進入結算——分數最高者獲勝。</p>
-      <div class="hero-tribes">
-        ${Object.entries(CARDS.tribes).map(([id, t]) => `
-          <div class="story-tribe">
-            <img src="${t.img}" alt="${t.name}">
-            <div class="muted">${t.name}<br>盛產：${t.produces.join('、')}</div>
-          </div>`).join('')}
+    <section class="end-screen">
+      <div class="setup-panel story-panel">
+        <h2>世界觀介紹</h2>
+        <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
+        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或搶下最後一張工藝卡，遊戲便進入結算——分數最高者獲勝。</p>
+        <div class="story-tribe-row">
+          ${Object.entries(CARDS.tribes).map(([id, t]) => `
+            <div class="story-tribe-card">
+              <img src="${t.img}" alt="${t.name}">
+              <div class="story-tribe-name">${t.name}</div>
+              <div class="story-tribe-produces">盛產：${t.produces.join('、')}</div>
+            </div>`).join('')}
+        </div>
+        <p class="center" style="color:rgba(248,230,190,0.7); font-size:0.85em;">遊戲中還會遇到台灣 16 族的傳說故事文化卡——每一張，都是一段真實流傳的部落故事。</p>
+        <div class="center"><button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button></div>
+        <div class="center" style="margin-top:8px;"><button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button></div>
       </div>
-      <p class="muted">遊戲中還會遇到台灣 16 族的傳說故事文化卡——每一張，都是一段真實流傳的部落故事。</p>
-      <div class="hero-ctas">
-        <button class="cta cta-primary" onclick="gotoSetup()">開始遊戲</button>
-        <button class="cta cta-secondary" onclick="gotoHome()">返回首頁</button>
-      </div>
-    </div>`;
+    </section>`;
 }
 function gotoSetup() { ui.screen = 'setup'; render(); }
 function gotoStory() { ui.screen = 'story'; render(); }

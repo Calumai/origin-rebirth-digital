@@ -285,6 +285,38 @@ input[type=text] {
 .winner-name { font-weight: 800; color: #ffe9bc; font-family: var(--fserif); }
 .winner-score { color: var(--gold); font-weight: 700; }
 
+/* ── 世界觀介紹頁：沿用 .setup-panel 暗色木框，族群卡改小卡陳列 ── */
+.story-panel p { line-height: 1.9; }
+.story-tribe-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 14px 0 10px;
+}
+.story-tribe-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(217,164,65,0.14), rgba(217,164,65,0.04));
+  border: 1.5px solid rgba(217,164,65,0.5);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  text-align: center;
+}
+.story-tribe-card img { width: 100%; max-width: 88px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+.story-tribe-name { font-weight: 800; color: #ffe9bc; font-family: var(--fserif); font-size: 0.95em; margin-top: 4px; }
+.story-tribe-produces { font-size: 0.72em; color: rgba(248,230,190,0.75); }
+
+@media (max-width: 600px) {
+  .story-tribe-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── 傳裝置畫面：套進暗色木框後，.muted 需改亮色維持對比 ── */
+.setup-panel .pass-screen { min-height: auto; padding: 6px 0; }
+.setup-panel .pass-screen .muted { color: rgba(248,230,190,0.7); }
+
 .mat-icon { display: inline-flex; align-items: center; gap: 4px; }
 .mat-coin { width: 26px; height: 26px; display: block; }
 
