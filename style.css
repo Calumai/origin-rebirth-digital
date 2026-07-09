@@ -1,15 +1,26 @@
 :root {
-  --thao: #1976d2;
+  --thao: #1565c0;
   --kavalan: #00897b;
-  --hlaalua: #f57c00;
-  --seediq: #d32f2f;
-  --bg: #faf6ef;
-  --paper: #ffffff;
-  --ink: #2b2016;
-  --line: #d8cdb8;
-  --accent: #a6742d;
-  --danger: #c0392b;
+  --hlaalua: #ef6c00;
+  --seediq: #c62828;
+  --bg: #f3ead9;
+  --bg2: #e8dbc2;
+  --paper: #fffdf8;
+  --ink: #2a1e12;
+  --ink-soft: #6d5c43;
+  --line: #ddceb0;
+  --accent: #b0652a;
+  --accent-dark: #8a4e20;
+  --gold: #d9a441;
+  --danger: #b83227;
   --ok: #2e7d32;
+  --r-lg: 18px;
+  --r-md: 13px;
+  --shadow-sm: 0 2px 6px rgba(60,40,15,0.10);
+  --shadow-md: 0 6px 18px rgba(60,40,15,0.14);
+  --shadow-lg: 0 12px 32px rgba(60,40,15,0.20);
+  --fserif: "Noto Serif TC", "Songti TC", serif;
+  --fsans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -17,39 +28,53 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--ink);
-  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
-  font-size: 20px;
-  line-height: 1.5;
+  font-family: var(--fsans);
+  font-size: 19px;
+  line-height: 1.55;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(217,164,65,0.16), transparent 60%),
+    radial-gradient(1000px 700px at 110% 10%, rgba(176,101,42,0.12), transparent 55%),
+    linear-gradient(180deg, var(--bg), var(--bg2));
+  background-attachment: fixed;
 }
 
 #app {
-  max-width: 900px;
+  max-width: 940px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 20px 18px 40px;
   min-height: 100vh;
 }
 
-h1, h2, h3 { margin: 0.3em 0; }
-h1 { font-size: 1.8em; }
-h2 { font-size: 1.4em; }
+h1, h2, h3 { margin: 0.3em 0; font-family: var(--fserif); letter-spacing: 0.02em; }
+h1 { font-size: 1.9em; font-weight: 900; }
+h2 { font-size: 1.45em; font-weight: 700; }
+h3 { font-weight: 700; }
 
 button {
   font-family: inherit;
   font-size: 1em;
-  padding: 14px 20px;
-  border-radius: 12px;
-  border: 2px solid var(--line);
+  font-weight: 500;
+  padding: 13px 20px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--line);
   background: var(--paper);
   color: var(--ink);
   cursor: pointer;
   margin: 4px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-button:hover:not(:disabled) { border-color: var(--accent); }
-button:disabled { opacity: 0.35; cursor: not-allowed; }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+button:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+button:active:not(:disabled) { transform: translateY(0); box-shadow: var(--shadow-sm); }
+button:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+button.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fff; border-color: var(--accent-dark); font-weight: 700;
+}
+button.primary:hover:not(:disabled) { box-shadow: 0 8px 22px rgba(176,101,42,0.45); }
+button.danger { background: linear-gradient(135deg, #c94436, var(--danger)); color: #fff; border-color: var(--danger); font-weight: 700; }
 
 input[type=text] {
   font-size: 1em;
@@ -61,35 +86,45 @@ input[type=text] {
 
 .card-box {
   background: var(--paper);
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
 }
+.card-box h3 {
+  border-left: 4px solid var(--gold);
+  padding-left: 10px;
+  margin: 16px 0 9px;
+  color: var(--accent-dark);
+}
+.card-box h3:first-child, .card-box > h3:first-of-type { margin-top: 4px; }
 
 .center { text-align: center; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
 .row.between { justify-content: space-between; }
-.muted { color: #7a6e58; font-size: 0.85em; }
+.muted { color: var(--ink-soft); font-size: 0.85em; }
 
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #fff;
-  border: 2px solid var(--line);
+  background: #fbf5e8;
+  border: 1.5px solid var(--line);
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 0.95em;
+  padding: 6px 13px;
+  font-size: 0.92em;
+  box-shadow: var(--shadow-sm);
 }
 
 .tribe-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px 4px 4px;
+  padding: 4px 14px 4px 4px;
   border-radius: 999px;
   color: #fff;
-  font-weight: bold;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 .tribe-thao { background: var(--thao); }
 .tribe-kavalan { background: var(--kavalan); }
@@ -135,14 +170,16 @@ input[type=text] {
 
 .hand-card {
   background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
   cursor: pointer;
-  min-width: 110px;
+  min-width: 116px;
   text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.hand-card:hover { border-color: var(--accent); }
+.hand-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .hand-card.culture { border-color: #8e5aa6; }
 .hand-card.disabled { opacity: 0.4; cursor: not-allowed; }
 .hand-card.selected { border-color: var(--accent); background: #f3e9d3; box-shadow: 0 0 0 2px rgba(166,116,45,0.35); }
@@ -182,22 +219,25 @@ input[type=text] {
 }
 
 .log-box {
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 14px;
-  max-height: 180px;
+  background: linear-gradient(180deg, #2a1e12, #1e150b);
+  border: 1px solid #4a3722;
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  max-height: 200px;
   overflow-y: auto;
   font-size: 0.85em;
-  color: #55493a;
+  color: #d9c6a4;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.45);
 }
-.log-box div { margin: 2px 0; }
+.log-box div { margin: 3px 0; padding-left: 10px; border-left: 2px solid rgba(217,164,65,0.4); }
+.log-box div:last-child { color: #ffe4a8; font-weight: 500; }
 
 .rps-btn { font-size: 2.2em; padding: 18px 26px; }
 
-.score-table { width: 100%; border-collapse: collapse; }
-.score-table th, .score-table td { border-bottom: 1px solid var(--line); padding: 8px; text-align: center; }
-.score-table th { background: #f1e9d8; }
+.score-table { width: 100%; border-collapse: collapse; border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+.score-table th, .score-table td { border-bottom: 1px solid var(--line); padding: 10px 8px; text-align: center; }
+.score-table th { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff; font-family: var(--fserif); }
+.score-table tr:nth-child(even) td { background: #faf3e5; }
 
 .mat-icon { display: inline-flex; align-items: center; gap: 4px; }
 .mat-coin { width: 26px; height: 26px; display: block; }
@@ -389,9 +429,41 @@ input[type=text] {
   .bld-puzzle { grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 52px); }
 }
 
+/* ── 浮動提示（對戰動態）── */
+#toast-layer {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  width: max-content;
+  max-width: 92vw;
+}
+.toast {
+  background: linear-gradient(135deg, #3a2a18, #241a0e);
+  color: #ffe4a8;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 0.92em;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(-14px) scale(0.96);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.toast.show { opacity: 1; transform: translateY(0) scale(1); }
+
 @media (max-width: 600px) {
   body { font-size: 17px; }
   .rps-btn { font-size: 1.6em; padding: 14px 18px; }
   .hero-title { font-size: 1.9em; }
   .hero-tribes img { width: 84px; }
+  .toast { font-size: 0.82em; padding: 8px 16px; }
 }

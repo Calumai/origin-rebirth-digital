@@ -26,6 +26,25 @@ let ui = {
 
 function isBot(idx) { return !!ui.isBot[idx]; }
 
+// ── 浮動提示（對戰動態）───────────────────────────────
+// 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
+function showToast(msg, kind) {
+  const layer = document.getElementById('toast-layer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' toast-' + kind : '');
+  el.textContent = msg;
+  layer.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 350); }, 2200);
+}
+// 執行動作並把期間新增的 log 浮出
+function flashLog(before) {
+  for (let i = before; i < G.log.length; i++) {
+    showToast(G.log[i].replace(/^\[T\d+\]\s*/, ''));
+  }
+}
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -217,10 +236,22 @@ function beginGame() { startPlayerTurn(0); }
 function startPlayerTurn(idx) {
   ui.modal = null;
   if (isBot(idx)) {
-    rollTurnDice(G, idx, rng); // 電腦自動擲骰（A11）
+    // 電腦也「看得到」擲骰動畫，不再靜默（A11）
     ui.screen = 'board';
+    ui.modal = { type: 'dice', phase: 'rolling', face: 0, bot: true };
     render();
-    setTimeout(runBotStep, 700);
+    let ticks = 0;
+    const t = setInterval(() => {
+      ui.modal.face = Math.floor(Math.random() * 6);
+      render();
+      if (++ticks >= 8) {
+        clearInterval(t);
+        const { die, ap } = rollTurnDice(G, idx, rng);
+        ui.modal = { type: 'dice', phase: 'result', die, ap, bot: true };
+        render();
+        setTimeout(() => { ui.modal = null; render(); setTimeout(runBotStep, 450); }, 950);
+      }
+    }, 90);
     return;
   }
   ui.screen = 'pass';
@@ -235,16 +266,17 @@ function revealTurn() {
 }
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 function renderDice(m) {
+  const who = m.bot ? `${currentPlayer().tribeName} ${nickname(G.currentPlayer)} 🤖 ` : '';
   if (m.phase === 'ready') return `<h3 class="center">回合開始，先擲骰子！</h3>
     <div class="center dice-face">🎲</div>
     <div class="center"><button class="cta cta-primary" onclick="diceRoll()">擲骰子</button></div>`;
-  if (m.phase === 'rolling') return `<h3 class="center">擲骰中…</h3>
+  if (m.phase === 'rolling') return `<h3 class="center">${who}擲骰中…</h3>
     <div class="center dice-face dice-rolling">${DICE_FACES[m.face]}</div>`;
-  return `<h3 class="center">擲出 ${m.die} 點！</h3>
+  return `<h3 class="center">${who}擲出 ${m.die} 點！</h3>
     <div class="center dice-face">${DICE_FACES[m.die - 1]}</div>
     <p class="center"><b>本回合 ${m.ap} 行動點</b>${m.ap === 4 ? '，手氣真好！' : m.ap === 2 ? '，將就一下…' : ''}</p>
-    <p class="center muted">（也可以放棄行動點，選「整回合拿素材」）</p>
-    <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`;
+    ${m.bot ? '' : `<p class="center muted">（也可以放棄行動點，選「整回合拿素材」）</p>
+    <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`}`;
 }
 function diceRoll() {
   const m = ui.modal;
@@ -276,8 +308,10 @@ function runBotStep() {
     return;
   }
   const action = chooseAction(G, p.idx, rng);
+  const before = G.log.length;
   try {
     applyAction(G, action, rng); // Bot 猜拳不帶 result，引擎走 RNG 判定（rules-spec A9）
+    flashLog(before); // 讓真人看得到電腦在做什麼（對戰動態）
   } catch (e) {
     p.actionPoints = 0; // Bot 動作異常時直接結束回合，避免卡死
   }
@@ -314,8 +348,10 @@ function finishTurnAndAdvance() {
 }
 
 function doAction(action) {
+  const before = G.log.length;
   try {
     applyAction(G, action, rng);
+    flashLog(before);
   } catch (e) {
     alert('動作失敗：' + e.message);
   }
@@ -653,11 +689,12 @@ function renderForceSwapPick(m) {
   const t = G.players[m.target];
   const mine = p.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
     .map(x => `<div class="hand-card${m.myHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickMine(${x.idx})">${cardThumb(x.c)}<div>${x.c.name}</div></div>`).join('');
+  // rules-spec A12：對方原料卡蓋牌盲選，不公開內容（只以卡背＋編號呈現）
   const theirs = t.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
-    .map(x => `<div class="hand-card${m.theirHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickTheirs(${x.idx})">${cardThumb(x.c)}<div>${x.c.name}</div></div>`).join('');
+    .map((x, i) => `<div class="hand-card back${m.theirHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickTheirs(${x.idx})"><img class="card-thumb" src="${CARDS.cardBacks.raw}" alt="原料卡"><div>原料卡 ${i + 1}</div></div>`).join('');
   return `<h3>強制交換原料卡</h3>
     <p>選擇你要<b>給出</b>的原料卡：</p><div class="row">${mine}</div>
-    <p>選擇你要向 ${t.tribeName} <b>換得</b>的原料卡：</p><div class="row">${theirs}</div>
+    <p>選擇要向 ${t.tribeName} <b>換得</b>的原料卡（對方蓋牌，翻牌後才知道是什麼）：</p><div class="row">${theirs}</div>
     <div class="row"><button onclick="closeModal()">取消</button>
     <button class="primary" ${m.myHandIdx == null || m.theirHandIdx == null ? 'disabled' : ''} onclick="forceSwapConfirm()">確認交換</button></div>`;
 }
