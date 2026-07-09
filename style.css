@@ -786,18 +786,21 @@ input[type=text] {
 }
 .table-surface .muted { color: #6d5c43; }
 
+/* 版面主次：建築拼圖是本遊戲的核心收集目標，佔中央最大視覺區塊；
+   戰場/素材/工藝/服飾這些唯讀資訊縮到左側窄欄；行動/log 在右側窄欄；
+   手牌獨立成下方橫幅，做出「攤牌在桌上」的卡牌遊戲感 */
 .board-viewport {
   position: relative;
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-columns: 1fr 300px;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-columns: 230px 1fr 300px;
+  grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
-    "header header"
-    "versus versus"
-    "battlefield battlefield"
-    "self side";
+    "header    header    header"
+    "versus    versus    versus"
+    "resources buildings side"
+    "hand      hand      hand";
   gap: 8px;
   padding: 10px 12px;
   overflow: hidden;
@@ -808,16 +811,43 @@ input[type=text] {
 .bv-versus .versus-strip { margin-bottom: 0; padding: 6px 8px; }
 .bv-versus .vs-player { padding: 5px 5px; }
 .bv-versus .vs-player img { width: 38px; height: 38px; }
-.bv-battlefield { grid-area: battlefield; margin-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
-.bv-battlefield h3 { margin: 2px 0 6px; }
-.bv-battlefield .chip { padding: 4px 9px; font-size: 0.82em; }
-.bv-battlefield .row { gap: 5px; }
-.bv-self {
-  grid-area: self;
+
+.bv-resources {
+  grid-area: resources;
   margin-bottom: 0;
   overflow-y: auto;
   min-height: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
+.bv-resources h3 { margin: 10px 0 5px; }
+.bv-resources h3:first-of-type { margin-top: 2px; }
+.bv-resources .chip { padding: 4px 9px; font-size: 0.8em; }
+.bv-resources .row { gap: 5px; }
+
+/* ── 主視覺：建築拼圖置中放大（核心收集目標） ── */
+.bv-buildings {
+  grid-area: buildings;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+  overflow-y: auto;
+  min-height: 0;
+  background: linear-gradient(180deg, rgba(255,253,248,0.98), rgba(255,248,232,0.96));
+}
+.bld-centerpiece-title {
+  border-left: none !important;
+  padding-left: 0 !important;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1em;
+}
+.bld-centerpiece { display: flex; justify-content: center; padding: 6px 0 4px; }
+
 .bv-side {
   grid-area: side;
   display: flex;
@@ -827,7 +857,7 @@ input[type=text] {
   overflow: hidden;
 }
 .bv-side .action-menu { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin-bottom: 0; }
-.bv-side .log-box { flex: 0 0 auto; max-height: 180px; }
+.bv-side .log-box { flex: 0 0 auto; max-height: 160px; }
 /* 側欄較窄，行動按鈕改用較緊湊的尺寸，讓固定視窗塞得下更多內容、減少側欄內部捲動需求 */
 .bv-side .action-menu button {
   padding: 7px 10px;
@@ -837,6 +867,39 @@ input[type=text] {
 .bv-side .action-menu h3 { margin: 4px 0 6px; }
 .bv-side .action-group-label { margin: 8px 0 3px; font-size: 0.72em; }
 .bv-side .action-group-label:first-of-type { margin-top: 2px; }
+.bv-side .other-players { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+
+/* ── 手牌橫幅：扇形攤牌，做出真正的「卡牌遊戲感」 ── */
+.bv-hand {
+  grid-area: hand;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 10px 10px 6px;
+  min-height: 92px;
+  overflow-x: auto;
+  overflow-y: visible;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.12));
+  border-radius: var(--r-md);
+}
+.bv-hand .hand-card {
+  flex: 0 0 auto;
+  margin: 0 -16px;
+  transform-origin: bottom center;
+  transition: transform 160ms ease, margin 160ms ease, z-index 0s, box-shadow 160ms ease;
+  position: relative;
+}
+.bv-hand .hand-card:nth-child(odd) { transform: rotate(-3deg) translateY(3px); }
+.bv-hand .hand-card:nth-child(even) { transform: rotate(3deg) translateY(3px); }
+.bv-hand .hand-card:nth-child(3n) { transform: rotate(0deg) translateY(-2px); }
+.bv-hand .hand-card:hover {
+  transform: translateY(-16px) scale(1.08) rotate(0deg);
+  z-index: 5;
+  margin: 0 -4px;
+  box-shadow: var(--shadow-lg);
+}
 
 @media (max-width: 860px) {
   .table-surface { height: auto; overflow: visible; }
@@ -848,11 +911,14 @@ input[type=text] {
     grid-template-areas:
       "header"
       "versus"
-      "battlefield"
-      "self"
+      "buildings"
+      "resources"
+      "hand"
       "side";
   }
-  .bv-self { overflow-y: visible; }
+  .bv-resources { overflow-y: visible; }
+  .bv-buildings { overflow-y: visible; }
+  .bv-hand { overflow-x: auto; }
   .bv-side { overflow: visible; }
   .bv-side .action-menu { overflow-y: visible; }
   .bv-side .log-box { max-height: 200px; }
@@ -930,6 +996,22 @@ input[type=text] {
 .bld-puzzle.complete .bld-cell:nth-child(3) { border-bottom-left-radius: 8px; }
 .bld-puzzle.complete .bld-cell:nth-child(4) { border-bottom-right-radius: 8px; }
 .bld-label { font-weight: bold; color: var(--accent); font-size: 0.85em; margin-top: 4px; }
+
+/* 主視覺放大版（本族家屋進度，畫面中央最大元素） */
+.bld-group-big { margin: 0; }
+.bld-puzzle-big {
+  grid-template-columns: repeat(2, clamp(110px, 15vw, 190px));
+  grid-template-rows: repeat(2, clamp(80px, 11vw, 138px));
+  gap: 5px;
+  padding: 6px;
+  border: 3px solid var(--gold);
+  box-shadow: var(--shadow-lg);
+}
+.bld-puzzle-big.complete {
+  box-shadow: 0 14px 34px rgba(0,0,0,0.4), 0 0 34px rgba(217,164,65,0.55);
+  border-color: var(--gold);
+}
+.bld-group-big .bld-label { font-size: 1.2em; margin-top: 12px; }
 
 /* ── 對戰列 ── */
 .versus-strip {

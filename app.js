@@ -128,24 +128,32 @@ function cardThumb(c, size) {
 }
 // 建築卡＝一族家屋圖切 4 片拼圖（index 1~4 對應 左上/右上/左下/右下）
 // 以 2×2 格盤呈現：已收集的片段拼在正確位置，缺片顯示虛線空格；集滿時縫隙閉合成整張家屋。
-function buildingsArea(p) {
-  if (!p.buildings.length) return '<span class="muted">（無建築）</span>';
-  const byTribe = {};
-  for (const b of p.buildings) (byTribe[b.tribe] = byTribe[b.tribe] || []).push(b);
+function buildingPuzzleHTML(tribe, list, big) {
+  const img = CARDS.buildingImages[tribe];
+  const have = {};
+  for (const b of list) have[b.index] = b;
+  const complete = list.length >= CARDS.buildingsPerTribe;
   const POS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%'];
-  return Object.entries(byTribe).map(([tribe, list]) => {
-    const img = CARDS.buildingImages[tribe];
-    const have = {};
-    for (const b of list) have[b.index] = b;
-    const complete = list.length >= CARDS.buildingsPerTribe;
-    const cells = [1, 2, 3, 4].map(idx => have[idx]
-      ? `<div class="bld-cell filled" style="background-image:url('${img}');background-position:${POS[idx - 1]}" title="${have[idx].name}"></div>`
-      : `<div class="bld-cell empty"></div>`).join('');
-    return `<div class="bld-group">
-      <div class="bld-puzzle${complete ? ' complete' : ''}">${cells}</div>
-      <div class="bld-label">${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}${complete ? '（完整）' : ''}</div>
-    </div>`;
-  }).join('');
+  const cells = [1, 2, 3, 4].map(idx => have[idx]
+    ? `<div class="bld-cell filled" style="background-image:url('${img}');background-position:${POS[idx - 1]}" title="${have[idx].name}"></div>`
+    : `<div class="bld-cell empty"></div>`).join('');
+  return `<div class="bld-group${big ? ' bld-group-big' : ''}">
+    <div class="bld-puzzle${complete ? ' complete' : ''}${big ? ' bld-puzzle-big' : ''}">${cells}</div>
+    <div class="bld-label">${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}${complete ? '（完整）' : ''}</div>
+  </div>`;
+}
+// 主視覺：永遠顯示玩家本族的建築進度（即使 0 片也顯示空拼圖框，提醒目標），用於畫面中央主視覺區
+function buildingsCenterpiece(p) {
+  const ownList = p.buildings.filter(b => b.tribe === p.tribe);
+  return buildingPuzzleHTML(p.tribe, ownList, true);
+}
+// 次要：玩家手上其他族建築（互換得來的），小尺寸列在旁邊，不搶主視覺
+function buildingsOtherArea(p) {
+  const others = p.buildings.filter(b => b.tribe !== p.tribe);
+  if (!others.length) return '';
+  const byTribe = {};
+  for (const b of others) (byTribe[b.tribe] = byTribe[b.tribe] || []).push(b);
+  return Object.entries(byTribe).map(([tribe, list]) => buildingPuzzleHTML(tribe, list, false)).join('');
 }
 function materialsRow(p) {
   return CARDS.materials.map(m => `<span class="chip mat-icon">${matIcon(m)} ${m} ×${p.materials[m] || 0}</span>`).join('');
@@ -620,45 +628,33 @@ function renderBoard() {
 
       <div class="bv-versus">${versusStrip()}</div>
 
-      <div class="bv-battlefield card-box light-frame battle-field">
-        <h3>戰場・公共牌庫</h3>
-        <div class="row center">
-          <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
-          <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
-          <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
-        </div>
-        <div class="row center">
-          ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
-        </div>
-      </div>
-
-      <div class="bv-self card-box zone-self">
+      <div class="bv-resources card-box light-frame">
         <div class="row between">
-          <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
-          <div class="chip tut-ap">剩餘行動點數：${p.actionPoints}</div>
+          <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}</div>
+          <div class="chip tut-ap">行動點數：${p.actionPoints}</div>
+        </div>
+        <h3>戰場・公共牌庫</h3>
+        <div class="row">
+          <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料 ${G.rawDeck.length}</span>
+          <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化 ${G.cultureDeck.length}</span>
+          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築 ${G.buildingDeck.length}</span>
+          <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
+        </div>
+        <div class="row">
+          ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
         </div>
         <h3>我的素材</h3>
         <div class="row tut-materials">${materialsRow(p)}</div>
-        <h3>我的手牌</h3>
-        <div class="row">
-          ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('') || '<span class="muted">（無原料卡）</span>'}
-        </div>
-        <div class="row">
-          ${cultureInHand.map(c => `
-            <div class="hand-card culture">
-              ${cardThumb(c)}
-              <div>${c.name}</div>
-              <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
-              <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
-            </div>`).join('') || '<span class="muted">（無文化卡）</span>'}
-        </div>
         <h3>已擲出 / 工藝</h3>
         <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
-        <h3 class="tut-buildings">建築</h3>
-        <div class="row">${buildingsArea(p)}</div>
         <h3>服飾</h3>
         <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+      </div>
+
+      <div class="bv-buildings card-box tut-buildings">
+        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度</h3>
+        <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
+        <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
 
       <div class="bv-side">
@@ -686,6 +682,18 @@ function renderBoard() {
 
         <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
+
+      <div class="bv-hand">
+        ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('')}
+        ${cultureInHand.map(c => `
+          <div class="hand-card culture">
+            ${cardThumb(c)}
+            <div>${c.name}</div>
+            <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
+            <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
+          </div>`).join('')}
+        ${(!rawInHand.length && !cultureInHand.length) ? '<span class="muted">（手牌是空的，去抽張卡吧）</span>' : ''}
+      </div>
     </div>
   `;
 }
@@ -706,7 +714,7 @@ function renderBotTurn(p) {
           <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
         </div>
       </div>
-      <div class="bv-battlefield card-box light-frame">
+      <div class="bv-resources card-box light-frame">
         <h3>公共區</h3>
         <div class="row">
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
@@ -715,7 +723,12 @@ function renderBotTurn(p) {
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
         </div>
       </div>
-      <div class="bv-self">
+      <div class="bv-buildings card-box">
+        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度</h3>
+        <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
+        <div class="row center">${buildingsOtherArea(p)}</div>
+      </div>
+      <div class="bv-side">
         <div class="other-players">
           ${others.map(pl => `
             <div class="card-box light-frame">
@@ -723,8 +736,6 @@ function renderBotTurn(p) {
               <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
             </div>`).join('')}
         </div>
-      </div>
-      <div class="bv-side">
         <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
     </div>
