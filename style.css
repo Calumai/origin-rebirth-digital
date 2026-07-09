@@ -1175,14 +1175,14 @@ input[type=text] {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .duel-left {
-  /* 比原本飽和藍再刷淡、加一點灰褐調，貼近參考圖的褪色感 */
-  background: linear-gradient(120deg, #35455f, #445d7c 55%, #3a5170);
+  /* 半透明，讓底下的木桌紋理透出來，不是純色實心色塊 */
+  background: linear-gradient(120deg, rgba(53,69,95,0.78), rgba(68,93,124,0.78) 55%, rgba(58,81,112,0.78));
   border-radius: 14px 4px 4px 14px;
   flex-direction: row;
   text-align: left;
 }
 .duel-right {
-  background: linear-gradient(120deg, #6b463f, #85564b 55%, #74463d);
+  background: linear-gradient(120deg, rgba(107,70,63,0.78), rgba(133,86,75,0.78) 55%, rgba(116,70,61,0.78));
   border-radius: 4px 14px 14px 4px;
   flex-direction: row-reverse;
   text-align: right;
