@@ -1,5 +1,5 @@
 import { initGame, mulberry32, CARDS } from './state.js';
-import { applyAction } from './actions.js';
+import { applyAction, rollTurnDice } from './actions.js';
 import { finalScores } from './scoring.js';
 import { chooseAction } from './bot.js';
 
@@ -21,7 +21,7 @@ function runGame(seed, playerCount, verbose = false) {
   while (state.phase === 'playing') {
     if (++guard > 5000) throw new Error(`seed=${seed} 超過 5000 步未結束（疑似死循環）`);
     const p = state.players[state.currentPlayer];
-    p.actionPoints = 3;
+    rollTurnDice(state, state.currentPlayer, rng); // A11：擲骰決定本回合行動點數
 
     // 一名玩家的回合：連續行動直到點數歸零
     let inner = 0;

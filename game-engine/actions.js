@@ -25,6 +25,18 @@ function resolveDuel(state, a, rng) {
   return a.result !== undefined ? a.result : rpsDuel(rng);
 }
 
+// rules-spec A11：回合開始擲骰決定行動點數（1~2→2點、3~4→3點、5~6→4點，期望值 3 與原規則相同）
+// 回傳 { die, ap }；die 可由呼叫端預先擲好傳入（UI 動畫用），未傳則用 rng
+function rollTurnDice(state, playerIdx, rng, die) {
+  const d = die !== undefined ? die : Math.floor(rng() * 6) + 1;
+  const ap = d <= 2 ? 2 : d <= 4 ? 3 : 4;
+  const p = state.players[playerIdx];
+  p.actionPoints = ap;
+  p.turnStartAP = ap;
+  state.log.push(`[T${state.turn}] ${p.tribeName} 擲骰 ${d} 點 → 本回合 ${ap} 行動點`);
+  return { die: d, ap };
+}
+
 function stealRandomMaterial(from, to, rng) {
   const pool = [];
   for (const [m, n] of Object.entries(from.materials)) for (let i = 0; i < n; i++) pool.push(m);
@@ -265,4 +277,4 @@ function applyAction(state, action, rng) {
   return state;
 }
 
-export { applyAction, clothingPairs, ACTIONS, resolveRPSMoves };
+export { applyAction, clothingPairs, ACTIONS, resolveRPSMoves, rollTurnDice };

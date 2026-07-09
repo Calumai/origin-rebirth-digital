@@ -282,6 +282,19 @@ input[type=text] {
 .story-tribe { text-align: center; }
 .story-tribe img { width: 110px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
 
+/* ── 擲骰子 ── */
+.dice-face {
+  font-size: 4.5em;
+  line-height: 1.2;
+  margin: 8px 0;
+}
+.dice-rolling { animation: dice-shake 0.15s infinite; }
+@keyframes dice-shake {
+  0%   { transform: rotate(-12deg) scale(1.05); }
+  50%  { transform: rotate(10deg)  scale(0.95); }
+  100% { transform: rotate(-12deg) scale(1.05); }
+}
+
 /* ── 建築卡拼圖 ── */
 .bld-piece {
   display: inline-block;

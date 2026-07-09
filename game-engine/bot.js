@@ -5,9 +5,10 @@ function chooseAction(state, idx, rng) {
   const p = state.players[idx];
   const others = state.players.filter(x => x.idx !== idx);
 
-  // 回合開始（3 點未動）時，素材貧乏就整回合拿素材
+  // 回合開始（點數未動）時，素材貧乏就整回合拿素材（A11 後點數由擲骰決定，不再固定 3）
+  const atTurnStart = p.actionPoints === (p.turnStartAP ?? 3);
   const total = Object.values(p.materials).reduce((a, b) => a + b, 0);
-  if (p.actionPoints === 3 && total < 4) return { type: 'TAKE_MATERIALS', player: idx };
+  if (atTurnStart && total < 4) return { type: 'TAKE_MATERIALS', player: idx };
 
   // 1. 手上原料能配對 → 換工藝（工藝池還有才做）
   if (p.actionPoints >= 1) {
@@ -63,7 +64,7 @@ function chooseAction(state, idx, rng) {
   }
 
   // 6. 沒牌可抽、又買不了建築 → 整回合拿素材（缺什麼換什麼），推進買建築
-  if (p.actionPoints === 3) {
+  if (atTurnStart) {
     const missing = CARDS.materials.find(m => (p.materials[m] || 0) === 0);
     if (missing) {
       const give = CARDS.tribes[p.tribe].produces.find(m => (p.materials[m] || 0) >= 2);

@@ -1,5 +1,5 @@
 import { initGame, mulberry32, CARDS } from './game-engine/state.js';
-import { applyAction, resolveRPSMoves } from './game-engine/actions.js';
+import { applyAction, resolveRPSMoves, rollTurnDice } from './game-engine/actions.js';
 import { finalScores } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
 
@@ -212,9 +212,9 @@ function beginGame() { startPlayerTurn(0); }
 
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
-  G.players[idx].actionPoints = 3;
   ui.modal = null;
   if (isBot(idx)) {
+    rollTurnDice(G, idx, rng); // 電腦自動擲骰（A11）
     ui.screen = 'board';
     render();
     setTimeout(runBotStep, 700);
@@ -224,7 +224,41 @@ function startPlayerTurn(idx) {
   ui.pass = { toIdx: idx, next: 'board' };
   render();
 }
-function revealTurn() { ui.screen = ui.pass.next; render(); }
+// 真人亮牌後先擲骰決定行動點數（A11）
+function revealTurn() {
+  ui.screen = ui.pass.next;
+  ui.modal = { type: 'dice', phase: 'ready', face: null, ap: null };
+  render();
+}
+const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+function renderDice(m) {
+  if (m.phase === 'ready') return `<h3 class="center">回合開始，先擲骰子！</h3>
+    <div class="center dice-face">🎲</div>
+    <div class="center"><button class="cta cta-primary" onclick="diceRoll()">擲骰子</button></div>`;
+  if (m.phase === 'rolling') return `<h3 class="center">擲骰中…</h3>
+    <div class="center dice-face dice-rolling">${DICE_FACES[m.face]}</div>`;
+  return `<h3 class="center">擲出 ${m.die} 點！</h3>
+    <div class="center dice-face">${DICE_FACES[m.die - 1]}</div>
+    <p class="center"><b>本回合 ${m.ap} 行動點</b>${m.ap === 4 ? '，手氣真好！' : m.ap === 2 ? '，將就一下…' : ''}</p>
+    <p class="center muted">（也可以放棄行動點，選「整回合拿素材」）</p>
+    <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`;
+}
+function diceRoll() {
+  const m = ui.modal;
+  m.phase = 'rolling';
+  let ticks = 0;
+  const t = setInterval(() => {
+    m.face = Math.floor(Math.random() * 6); // 動畫用亂數，不影響正式判定
+    render();
+    if (++ticks >= 10) {
+      clearInterval(t);
+      const { die, ap } = rollTurnDice(G, G.currentPlayer, rng);
+      m.phase = 'result'; m.die = die; m.ap = ap;
+      render();
+    }
+  }, 90);
+}
+function diceDone() { ui.modal = null; render(); }
 
 // 電腦回合：一次做一步，間隔播放讓真人看得到過程
 let botGuard = 0;
@@ -352,7 +386,7 @@ function renderBoard() {
 
     <div class="card-box action-menu">
       <h3>行動</h3>
-      <button ${p.actionPoints !== 3 ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
+      <button ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
       <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
       <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
       <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡<span class="ap-cost">1</span></button>
@@ -425,7 +459,8 @@ function renderModal() {
   if (!ui.modal) return '';
   const m = ui.modal;
   let inner = '';
-  if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
+  if (m.type === 'dice') inner = renderDice(m);
+  else if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
   else if (m.type === 'passOverlay') inner = passInner(m.toIdx, 'passOverlayContinue');
   else if (m.type === 'rps') inner = renderRPS(m);
   else if (m.type === 'materialPicker') inner = renderMaterialPicker(m);
@@ -761,7 +796,7 @@ function actionDrawCulture() { doAction({ type: 'DRAW_CULTURE_CARD', player: G.c
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
 Object.assign(window, {
-  gotoSetup, gotoStory, gotoHome,
+  gotoSetup, gotoStory, gotoHome, diceRoll, diceDone,
   setCount, setName, setBot, startDraw, revealNext, beginGame, revealTurn,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
