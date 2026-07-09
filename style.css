@@ -192,6 +192,24 @@ input[type=text] {
   text-align: left;
   margin: 6px 0;
 }
+/* Hick 定律：11 顆行動按鈕分組（基礎/建造/對抗），降低單次掃視的選項數 */
+.action-group-label {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--accent-dark);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  margin: 14px 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px dashed var(--line);
+}
+.action-group-label:first-of-type { margin-top: 6px; }
+.action-menu .action-suggest {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, #fff8e6, #fbedc7);
+  box-shadow: 0 0 0 1px rgba(217,164,65,0.4), var(--shadow-sm);
+}
+.action-menu .action-suggest:hover:not(:disabled) { box-shadow: 0 0 0 1px rgba(217,164,65,0.6), var(--shadow-md); }
 .ap-cost {
   float: right;
   background: var(--line);
