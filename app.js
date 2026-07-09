@@ -167,17 +167,21 @@ function passInner(toIdx, continueFn) {
 // ── home / story ──────────────────────────────────────────
 function renderHome() {
   return `
-    <div class="hero">
-      <h1 class="hero-title">原地重生・返璞歸真</h1>
-      <p class="hero-subtitle">一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
-      <div class="hero-tribes">
-        ${Object.values(CARDS.tribes).map(t => `<img src="${t.img}" alt="${t.name}">`).join('')}
+    <section class="home-screen">
+      <div class="home-frame">
+        <header class="title-plaque">
+          <h1>原地重生・返璞歸真</h1>
+          <p>一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
+        </header>
+        <div class="tribe-card-stage">
+          ${Object.values(CARDS.tribes).map(t => `<div class="tribe-card"><img src="${t.img}" alt="${t.name}"></div>`).join('')}
+        </div>
+        <div class="home-actions">
+          <button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button>
+          <button class="secondary-lore-button" onclick="gotoStory()">世界觀介紹</button>
+        </div>
       </div>
-      <div class="hero-ctas">
-        <button class="cta cta-primary" onclick="gotoSetup()">開始遊戲</button>
-        <button class="cta cta-secondary" onclick="gotoStory()">世界觀介紹</button>
-      </div>
-    </div>`;
+    </section>`;
 }
 function renderStory() {
   return `
@@ -207,27 +211,27 @@ function gotoHome() { ui.screen = 'home'; render(); }
 function renderSetup() {
   const s = ui.setup;
   return `
-    <h1>原地重生・返璞歸真</h1>
-    <div class="card-box">
-      <h2>設定玩家</h2>
-      <p>人數：</p>
-      <div class="row">
-        ${[2, 3, 4].map(n => `<button class="${s.count === n ? 'primary' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
-      </div>
-      <h3>玩家</h3>
-      ${Array.from({ length: s.count }).map((_, i) => `
-        <div class="row"><span class="chip">P${i + 1}</span>
-        ${i === 0
-          ? `<span class="chip">真人</span>`
-          : `<button class="${!s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, false)">真人</button>
-             <button class="${s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, true)">電腦</button>`}
-        ${s.bots[i]
-          ? `<span class="muted">（電腦自動操作）</span>`
-          : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)" style="flex:1;min-width:140px;width:auto;">`}
+    <section class="setup-screen">
+      <div class="setup-panel">
+        <h2>設定玩家</h2>
+        <div class="player-count-row">
+          ${[2, 3, 4].map(n => `<button class="option-button${s.count === n ? ' is-active' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
         </div>
-      `).join('')}
-      <div class="center"><button class="primary" onclick="startDraw()">開始抽族群卡</button></div>
-    </div>`;
+        ${Array.from({ length: s.count }).map((_, i) => `
+          <div class="player-row">
+            <span class="player-tag">P${i + 1}</span>
+            ${i === 0
+              ? `<span class="player-tag-fixed">真人</span>`
+              : `<button class="player-type-button${!s.bots[i] ? ' is-active' : ''}" onclick="setBot(${i}, false)">真人</button>
+                 <button class="player-type-button${s.bots[i] ? ' is-active' : ''}" onclick="setBot(${i}, true)">電腦</button>`}
+            ${s.bots[i]
+              ? `<span class="player-tag-fixed">電腦自動操作</span>`
+              : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)">`}
+          </div>
+        `).join('')}
+        <div class="center"><button class="primary-start-button" onclick="startDraw()">開始抽族群卡</button></div>
+      </div>
+    </section>`;
 }
 function setCount(n) { ui.setup.count = n; render(); }
 function setName(i, val) { ui.setup.names[i] = val; }
