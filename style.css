@@ -351,18 +351,36 @@ input[type=text] {
 .story-tribe { text-align: center; }
 .story-tribe img { width: 110px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
 
-/* ── 擲骰子 ── */
-.dice-face {
-  font-size: 4.5em;
-  line-height: 1.2;
-  margin: 8px 0;
+/* ── 擲骰子（純 CSS 立體骰，取代 emoji） ── */
+.dice-face { margin: 14px 0; }
+.die-cube {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  padding: 12px;
+  background: linear-gradient(145deg, #fffdf8, #f0e6d0);
+  border: 2px solid var(--accent-dark);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg), inset 0 0 0 2px rgba(255,255,255,0.6);
 }
-.dice-rolling { animation: dice-shake 0.15s infinite; }
+.die-cube .pip { border-radius: 50%; }
+.die-cube .pip.on {
+  background: radial-gradient(circle at 35% 30%, #6b4a24, var(--ink));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+}
+.die-cube.dice-rolling { animation: dice-shake 0.15s infinite; }
 @keyframes dice-shake {
-  0%   { transform: rotate(-12deg) scale(1.05); }
-  50%  { transform: rotate(10deg)  scale(0.95); }
-  100% { transform: rotate(-12deg) scale(1.05); }
+  0%   { transform: rotate(-8deg) scale(1.05); }
+  50%  { transform: rotate(8deg)  scale(0.95); }
+  100% { transform: rotate(-8deg) scale(1.05); }
 }
+
+/* ── 猜拳圖示 ── */
+.rps-icon { display: block; width: 44px; height: 44px; margin: 0 auto 4px; object-fit: contain; }
 
 /* ── 建築卡拼圖：2×2 格盤，缺片顯示虛線空格，集滿縫隙閉合成整張家屋 ── */
 .bld-group { display: inline-block; text-align: center; margin: 6px 14px 6px 0; vertical-align: top; }
@@ -444,7 +462,19 @@ input[type=text] {
 .vs-name { font-weight: bold; font-size: 0.9em; margin-top: 4px; }
 .vs-score { font-size: 1.15em; font-weight: bold; color: #ffd98a; }
 .vs-stats { font-size: 0.72em; opacity: 0.85; }
-.vs-crown { position: absolute; top: -6px; right: 8px; font-size: 1.2em; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.vs-crown {
+  position: absolute;
+  top: -9px;
+  right: 6px;
+  background: linear-gradient(135deg, var(--gold), var(--accent));
+  color: #2a1e12;
+  font-size: 0.68em;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  letter-spacing: 0.05em;
+}
 .vs-sep { align-self: center; color: #a6742d; font-size: 1.3em; padding: 0 2px; flex: 0 0 auto; }
 
 @media (max-width: 600px) {

@@ -111,7 +111,7 @@ function buildingsArea(p) {
       : `<div class="bld-cell empty"></div>`).join('');
     return `<div class="bld-group">
       <div class="bld-puzzle${complete ? ' complete' : ''}">${cells}</div>
-      <div class="bld-label">${complete ? '🏠 ' : ''}${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}</div>
+      <div class="bld-label">${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}${complete ? '（完整）' : ''}</div>
     </div>`;
   }).join('');
 }
@@ -174,8 +174,8 @@ function renderHome() {
         ${Object.values(CARDS.tribes).map(t => `<img src="${t.img}" alt="${t.name}">`).join('')}
       </div>
       <div class="hero-ctas">
-        <button class="cta cta-primary" onclick="gotoSetup()">🎮 開始遊戲</button>
-        <button class="cta cta-secondary" onclick="gotoStory()">📖 世界觀介紹</button>
+        <button class="cta cta-primary" onclick="gotoSetup()">開始遊戲</button>
+        <button class="cta cta-secondary" onclick="gotoStory()">世界觀介紹</button>
       </div>
     </div>`;
 }
@@ -194,7 +194,7 @@ function renderStory() {
       </div>
       <p class="muted">遊戲中還會遇到台灣 16 族的傳說故事文化卡——每一張，都是一段真實流傳的部落故事。</p>
       <div class="hero-ctas">
-        <button class="cta cta-primary" onclick="gotoSetup()">🎮 開始遊戲</button>
+        <button class="cta cta-primary" onclick="gotoSetup()">開始遊戲</button>
         <button class="cta cta-secondary" onclick="gotoHome()">返回首頁</button>
       </div>
     </div>`;
@@ -218,9 +218,9 @@ function renderSetup() {
       ${Array.from({ length: s.count }).map((_, i) => `
         <div class="row"><span class="chip">P${i + 1}</span>
         ${i === 0
-          ? `<span class="chip">👤 真人</span>`
-          : `<button class="${!s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, false)">👤 真人</button>
-             <button class="${s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, true)">🤖 電腦</button>`}
+          ? `<span class="chip">真人</span>`
+          : `<button class="${!s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, false)">真人</button>
+             <button class="${s.bots[i] ? 'primary' : ''}" onclick="setBot(${i}, true)">電腦</button>`}
         ${s.bots[i]
           ? `<span class="muted">（電腦自動操作）</span>`
           : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)" style="flex:1;min-width:140px;width:auto;">`}
@@ -296,16 +296,22 @@ function revealTurn() {
   ui.modal = { type: 'dice', phase: 'ready', face: null, ap: null };
   render();
 }
-const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+// 骰子點數方格（CSS 畫，取代 unicode 骰子符號）：3×3 格取標準點位
+const DIE_PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+function dieCube(n, extraClass) {
+  const active = new Set(DIE_PIPS[n] || []);
+  const cells = Array.from({ length: 9 }, (_, i) => `<span class="pip${active.has(i + 1) ? ' on' : ''}"></span>`).join('');
+  return `<div class="die-cube${extraClass ? ' ' + extraClass : ''}">${cells}</div>`;
+}
 function renderDice(m) {
-  const who = m.bot ? `${currentPlayer().tribeName} ${nickname(G.currentPlayer)} 🤖 ` : '';
+  const who = m.bot ? `${currentPlayer().tribeName} ${nickname(G.currentPlayer)}（電腦） ` : '';
   if (m.phase === 'ready') return `<h3 class="center">回合開始，先擲骰子！</h3>
-    <div class="center dice-face">🎲</div>
+    <div class="center dice-face">${dieCube(1)}</div>
     <div class="center"><button class="cta cta-primary" onclick="diceRoll()">擲骰子</button></div>`;
   if (m.phase === 'rolling') return `<h3 class="center">${who}擲骰中…</h3>
-    <div class="center dice-face dice-rolling">${DICE_FACES[m.face]}</div>`;
+    <div class="center dice-face">${dieCube(m.face + 1, 'dice-rolling')}</div>`;
   return `<h3 class="center">${who}擲出 ${m.die} 點！</h3>
-    <div class="center dice-face">${DICE_FACES[m.die - 1]}</div>
+    <div class="center dice-face">${dieCube(m.die)}</div>
     <p class="center"><b>本回合 ${m.ap} 行動點</b>${m.ap === 4 ? '，手氣真好！' : m.ap === 2 ? '，將就一下…' : ''}</p>
     ${m.bot ? '' : `<p class="center muted">（也可以放棄行動點，選「整回合拿素材」）</p>
     <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`}`;
@@ -402,14 +408,14 @@ function versusStrip() {
     const leading = scores[i].total === maxTotal && maxTotal > 0;
     const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
     return `<div class="vs-player tribe-${pl.tribe}${active ? ' active' : ''}">
-      ${leading ? '<div class="vs-crown">👑</div>' : ''}
+      ${leading ? '<div class="vs-crown">領先</div>' : ''}
       <img src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
-      <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? ' 🤖' : ''}</div>
+      <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
       <div class="vs-score">${scores[i].total} 分</div>
-      <div class="vs-stats">🏠${pl.buildings.length}・🎴${pl.hand.length}・◈${matN}</div>
+      <div class="vs-stats">建${pl.buildings.length}・牌${pl.hand.length}・材${matN}</div>
     </div>`;
   });
-  return `<div class="versus-strip">${cells.join('<div class="vs-sep">⚔️</div>')}</div>`;
+  return `<div class="versus-strip">${cells.join('<div class="vs-sep"></div>')}</div>`;
 }
 
 // ── board ──────────────────────────────────────────
@@ -428,17 +434,17 @@ function renderBoard() {
     </div>
     ${versusStrip()}
 
-    <div class="zone-label">⬆ 對手</div>
+    <div class="zone-label">對手</div>
     <div class="zone-opponents">
       ${others.map(pl => `
         <div class="opp-card" style="border-top-color:var(--${pl.tribe})">
-          <div class="opp-head"><img class="tribe-icon" src="${CARDS.tribes[pl.tribe].img}" alt="">${nickname(pl.idx)}${isBot(pl.idx) ? ' 🤖' : ''}</div>
-          <div class="opp-stats">🏠${pl.buildings.length}｜🎴${pl.hand.length}｜👘${pl.clothing.length}｜⚒${pl.played.filter(c => c.kind === 'craft').length}｜◈${Object.values(pl.materials).reduce((a, b) => a + b, 0)}</div>
+          <div class="opp-head"><img class="tribe-icon" src="${CARDS.tribes[pl.tribe].img}" alt="">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
+          <div class="opp-stats">建${pl.buildings.length}｜牌${pl.hand.length}｜服${pl.clothing.length}｜藝${pl.played.filter(c => c.kind === 'craft').length}｜材${Object.values(pl.materials).reduce((a, b) => a + b, 0)}</div>
         </div>`).join('')}
     </div>
 
     <div class="card-box battle-field">
-      <h3>⚔️ 戰場・公共牌庫</h3>
+      <h3>戰場・公共牌庫</h3>
       <div class="row center">
         <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
         <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
@@ -450,7 +456,7 @@ function renderBoard() {
       </div>
     </div>
 
-    <div class="zone-label">⬇ 我方</div>
+    <div class="zone-label">我方</div>
     <div class="card-box zone-self">
       <div class="row between">
         <div>${tribeBadge(p.tribe)} ${nickname(p.idx)} 的回合</div>
@@ -508,7 +514,7 @@ function renderBotTurn(p) {
     </div>
     ${versusStrip()}
     <div class="card-box center">
-      <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（🤖 電腦）思考中…</div>
+      <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（電腦）思考中…</div>
       <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
     </div>
     <div class="card-box">
@@ -589,11 +595,15 @@ function startRPS(attackerIdx, defenderIdx, onDone) {
   ui.modal = { type: 'rps', phase: 'attacker', attackerIdx, defenderIdx, attackerMove: null, defenderMove: null, result: null, onDone };
   render();
 }
+// 猜拳圖示（assets/ui/rps-*.png，見小畫家工作單）；圖未就緒前先顯示中文字，img 載入失敗自動隱藏不留破圖
+const RPS_ICONS = ['rock', 'paper', 'scissors'];
+const RPS_LABELS = ['石頭', '布', '剪刀'];
+function rpsIcon(i) { return `<img class="rps-icon" src="assets/ui/rps-${RPS_ICONS[i]}.png" alt="" onerror="this.style.display='none'">`; }
 function rpsButtons() {
   return `<div class="row center">
-    <button class="rps-btn" onclick="rpsPick(0)">🪨 石頭</button>
-    <button class="rps-btn" onclick="rpsPick(1)">📄 布</button>
-    <button class="rps-btn" onclick="rpsPick(2)">✂️ 剪刀</button>
+    <button class="rps-btn" onclick="rpsPick(0)">${rpsIcon(0)}石頭</button>
+    <button class="rps-btn" onclick="rpsPick(1)">${rpsIcon(1)}布</button>
+    <button class="rps-btn" onclick="rpsPick(2)">${rpsIcon(2)}剪刀</button>
   </div>`;
 }
 function renderRPS(m) {
@@ -603,7 +613,7 @@ function renderRPS(m) {
   if (m.phase === 'tie') return `<h3>平手！雙方重新出拳</h3><button class="primary" onclick="rpsAfterTie()">繼續</button>`;
   if (m.phase === 'pass_to_attacker_retry') return passInner(m.attackerIdx, 'rpsRevealAttackerReady');
   if (m.phase === 'reveal') {
-    const label = ['🪨 石頭', '📄 布', '✂️ 剪刀'];
+    const label = RPS_LABELS;
     const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
     return `<h3>結果揭曉</h3>
       <p>${G.players[m.attackerIdx].tribeName}：${label[m.attackerMove]}　vs　${G.players[m.defenderIdx].tribeName}：${label[m.defenderMove]}</p>
@@ -834,7 +844,7 @@ function renderTradeRejected(m) {
     ${canForce
       ? `<p>不甘心嗎？可以發起猜拳搶——<b>贏了就強制成交</b>。</p>
          <div class="row"><button onclick="tradeGiveUp()">算了</button>
-         <button class="primary" onclick="tradeChallengeRPS()">✊ 剪刀石頭布！</button></div>`
+         <button class="primary" onclick="tradeChallengeRPS()">剪刀石頭布！</button></div>`
       : `<p>但對方沒有你要換的素材，無法強制成交。</p>
          <div class="row"><button class="primary" onclick="tradeGiveUp()">知道了</button></div>`}`;
 }
