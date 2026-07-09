@@ -283,6 +283,7 @@ function diceRoll() {
   m.phase = 'rolling';
   let ticks = 0;
   const t = setInterval(() => {
+    if (ui.modal !== m) { clearInterval(t); return; } // 防競態：modal 已關或換人就停，避免誤對他人擲骰
     m.face = Math.floor(Math.random() * 6); // 動畫用亂數，不影響正式判定
     render();
     if (++ticks >= 10) {
