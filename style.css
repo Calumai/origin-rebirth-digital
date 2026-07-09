@@ -587,6 +587,41 @@ input[type=text] {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 238, 180, 0.35);
 }
 
+/* ── 設定畫面：選族群（A14） ── */
+.tribe-pick-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: -6px 0 18px;
+}
+.tribe-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(218, 171, 90, 0.4);
+  background: rgba(0,0,0,0.18);
+  color: #f7ddb0;
+  font-size: 0.78em;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: auto;
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+.tribe-pick img { width: 100%; max-width: 64px; border-radius: 7px; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
+.tribe-pick:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-2px); }
+.tribe-pick.is-active {
+  background: linear-gradient(180deg, #d99a35, #8f5415);
+  color: #fff3d3;
+  border-color: rgba(255, 226, 154, 0.9);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.35), inset 0 2px 0 rgba(255,238,180,0.35);
+}
+.tribe-pick:disabled { opacity: 0.3; cursor: not-allowed; }
+.primary-start-button:disabled { filter: grayscale(0.6) brightness(0.75); cursor: not-allowed; }
+.primary-start-button:disabled:hover { transform: none; }
+
 /* ── 對戰桌牌桌墊 ── */
 .table-surface {
   background: url('assets/ui/table-wood.jpg') center/cover no-repeat;

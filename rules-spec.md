@@ -69,6 +69,19 @@ if (result === null) {
 
 **實作**：`actions.js` `TRADE` 新增 `forced`／`failedChallenge` 參數：`accepted || forced` 才成交，`forced` 時 log「猜拳勝，強制成交」；素材不足改為 log 失敗而非丟例外（容錯）。UI：`tradeRespondDecide(false)`／電腦拒絕 → `tradeRejected` modal → 「剪刀石頭布！」走 `startRPS`（沿用 A9 真人出拳／對電腦隨機），勝帶 `forced:true`、敗帶 `failedChallenge:true`。Bot/`simulate.js` 不產生 TRADE 動作，既有驗收不受影響。
 
+## A14：族群改玩家自選，取消抽卡畫面（2026-07-09 JJ 決議）
+
+**背景**：JJ 指示「一開始就點選卡片選族群就好了，不要麻煩了」。M1 引擎原本用 `shuffle(rng)` 隨機抽取族群，M2 UI 再包一層逐位揭曉的抽卡畫面，兩層都不是玩家自己選。
+
+**平衡分析（game-designer 角度）**：查 `cards.js` 四族盛產設定——每族都盛產「4 種素材中的 3 種」，缺哪 1 種而已（邵族／賽德克族缺石頭、噶瑪蘭族缺木頭、拉阿魯哇族缺竹子；邵族與賽德克族甚至完全相同）。**資源面完全對稱**，改成玩家自選不會產生強弱失衡，純屬體驗選擇，可直接執行不需額外平衡機制。
+
+**決議內容**：
+- 取消獨立的「抽族群卡」畫面，**合併進設定玩家畫面**：每個真人玩家在自己那一列直接點卡選族群，選走的族群會從其他玩家可選清單中移除（再點一次可取消重選）。
+- 電腦玩家不手動選，**開始遊戲時從剩餘族群中隨機分配**（沿用 seed 對應的 rng，非另開亂數源）。
+- 所有真人玩家都選完才能按「開始遊戲」，否則按鈕停用並提示。
+
+**實作**：`state.js` `initGame(playerCount, seed, chosenTribeIds?)` 新增可選第三參數；**未帶時**（Bot／`simulate.js` 自動對局路徑）完全沿用原本 `shuffle` 隨機抽取，既有壓測結果不受影響。`app.js` `renderSetup` 加入 `.tribe-pick-row`，`startGame()` 取代原本 `startDraw()`／`renderDraw()`／`revealNext()`／`beginGame()` 整組抽卡流程，計算完 `tribeIds`（真人已選 ＋ 電腦隨機分配剩餘）後直接呼叫 `initGame` 並開局。
+
 ## 待補（尚未決議，暫依交接文件假設開發，不擋 M2 進度）
 - 交接文件 §8「待 JJ 提供」項目：族語會話內容（部落戰爭 P.29–P.44，規則書已再次確認此頁碼範圍）、正式族語會話大字體排版。
 - 建築卡各卡實際分數：正式素材裡沒有找到建築卡卡面圖或分數資料，暫沿用假設 A3 一律 3 分，待 JJ 提供。

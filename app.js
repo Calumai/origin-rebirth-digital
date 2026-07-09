@@ -1,4 +1,4 @@
-import { initGame, mulberry32, CARDS } from './game-engine/state.js';
+import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves, rollTurnDice } from './game-engine/actions.js';
 import { finalScores } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
@@ -16,11 +16,10 @@ let G = null;
 let rng = null;
 let ui = {
   screen: 'home',
-  setup: { count: 2, names: ['', '', '', ''], bots: [false, false, false, false] },
+  setup: { count: 2, names: ['', '', '', ''], bots: [false, false, false, false], tribes: [null, null, null, null] },
   nicknames: [],
   isBot: [],
   pass: null,
-  draw: null,
   modal: null
 };
 
@@ -144,7 +143,6 @@ function render() {
   if (ui.screen === 'home') html = renderHome();
   else if (ui.screen === 'story') html = renderStory();
   else if (ui.screen === 'setup') html = renderSetup();
-  else if (ui.screen === 'draw') html = renderDraw();
   else if (ui.screen === 'pass') html = `<div class="card-box">${passInner(ui.pass.toIdx, 'revealTurn')}</div>`;
   else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
@@ -208,8 +206,10 @@ function gotoStory() { ui.screen = 'story'; render(); }
 function gotoHome() { ui.screen = 'home'; render(); }
 
 // ── setup / draw ──────────────────────────────────────────
+// rules-spec A14：族群改玩家自選，直接在設定玩家畫面點卡選，不再另開抽卡畫面
 function renderSetup() {
   const s = ui.setup;
+  const allPicked = Array.from({ length: s.count }).every((_, i) => s.bots[i] || s.tribes[i]);
   return `
     <section class="setup-screen">
       <div class="setup-panel">
@@ -228,45 +228,48 @@ function renderSetup() {
               ? `<span class="player-tag-fixed">電腦自動操作</span>`
               : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)">`}
           </div>
+          ${s.bots[i] ? '' : `
+          <div class="tribe-pick-row">
+            ${Object.entries(CARDS.tribes).map(([id, t]) => {
+              const takenByOther = s.tribes.some((x, j) => x === id && j !== i && j < s.count);
+              const selected = s.tribes[i] === id;
+              return `<button class="tribe-pick${selected ? ' is-active' : ''}" ${takenByOther ? 'disabled' : ''} onclick="pickTribe(${i}, '${id}')" title="${t.name}">
+                <img src="${t.img}" alt="${t.name}"><span>${t.name}</span>
+              </button>`;
+            }).join('')}
+          </div>`}
         `).join('')}
-        <div class="center"><button class="primary-start-button" onclick="startDraw()">開始抽族群卡</button></div>
+        <div class="center"><button class="primary-start-button" ${allPicked ? '' : 'disabled'} onclick="startGame()">開始遊戲</button></div>
+        ${allPicked ? '' : '<p class="muted center" style="color:#f7ddb0">請所有真人玩家先選擇族群</p>'}
       </div>
     </section>`;
 }
 function setCount(n) { ui.setup.count = n; render(); }
 function setName(i, val) { ui.setup.names[i] = val; }
-function setBot(i, val) { ui.setup.bots[i] = val; render(); }
-function startDraw() {
+function setBot(i, val) { ui.setup.bots[i] = val; if (val) ui.setup.tribes[i] = null; render(); }
+function pickTribe(i, tribeId) {
+  const s = ui.setup;
+  if (s.tribes.some((x, j) => x === tribeId && j !== i && j < s.count)) return; // 已被其他玩家選走
+  s.tribes[i] = s.tribes[i] === tribeId ? null : tribeId; // 再點一次取消選擇
+  render();
+}
+function startGame() {
+  const s = ui.setup;
+  for (let i = 0; i < s.count; i++) if (!s.bots[i] && !s.tribes[i]) return; // 未選完不可開始
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-  G = initGame(ui.setup.count, seed);
   rng = mulberry32(seed ^ 0x9e3779b9);
-  ui.isBot = ui.setup.bots.slice(0, ui.setup.count);
+  const chosen = s.tribes.slice(0, s.count);
+  const remaining = shuffle(Object.keys(CARDS.tribes).filter(id => !chosen.includes(id)), rng);
+  let ri = 0;
+  const tribeIds = chosen.map(id => id || remaining[ri++]); // 電腦玩家隨機分配剩餘族群
+  G = initGame(s.count, seed, tribeIds);
+  ui.isBot = s.bots.slice(0, s.count);
   let botN = 0;
   ui.nicknames = G.players.map((_, i) => ui.isBot[i]
     ? `電腦${++botN}`
-    : ((ui.setup.names[i] || '').trim() || `玩家${i + 1}`));
-  ui.screen = 'draw';
-  ui.draw = { revealed: 0 };
-  render();
+    : ((s.names[i] || '').trim() || `玩家${i + 1}`));
+  startPlayerTurn(0);
 }
-function renderDraw() {
-  const d = ui.draw;
-  const allRevealed = d.revealed >= G.players.length;
-  return `
-    <h1>抽取族群卡</h1>
-    <div class="card-box">
-      ${G.players.map((p, i) => i < d.revealed
-        ? `<div class="row"><img class="tribe-icon-lg" src="${CARDS.tribes[p.tribe].img}" alt="">${tribeBadge(p.tribe)} ${nickname(i)}</div>`
-        : `<div class="row muted">P${i + 1}（尚未抽取）</div>`).join('')}
-    </div>
-    <div class="center">
-      ${allRevealed
-        ? `<button class="primary" onclick="beginGame()">開始遊戲</button>`
-        : `<button class="primary" onclick="revealNext()">抽下一位族群卡</button>`}
-    </div>`;
-}
-function revealNext() { ui.draw.revealed++; render(); }
-function beginGame() { startPlayerTurn(0); }
 
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
@@ -980,7 +983,7 @@ function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer 
 
 Object.assign(window, {
   gotoSetup, gotoStory, gotoHome, diceRoll, diceDone,
-  setCount, setName, setBot, startDraw, revealNext, beginGame, revealTurn,
+  setCount, setName, setBot, pickTribe, startGame, revealTurn,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
   forceSwapPickMine, forceSwapPickTheirs, forceSwapConfirm,

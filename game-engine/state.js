@@ -57,10 +57,14 @@ function buildDecks(rng) {
   };
 }
 
-function initGame(playerCount, seed) {
+// rules-spec A14：hot-seat 版族群改玩家自選；chosenTribeIds 由 UI 帶入（設定畫面點卡選擇的結果）。
+// 未帶時（Bot／simulate.js 自動對局路徑）完全沿用原本隨機抽取，既有驗收結果不受影響。
+function initGame(playerCount, seed, chosenTribeIds) {
   if (playerCount < 2 || playerCount > 4) throw new Error('players must be 2-4');
   const rng = mulberry32(seed);
-  const tribeIds = shuffle(Object.keys(CARDS.tribes), rng).slice(0, playerCount);
+  const tribeIds = chosenTribeIds && chosenTribeIds.length === playerCount
+    ? chosenTribeIds.slice()
+    : shuffle(Object.keys(CARDS.tribes), rng).slice(0, playerCount);
   const decks = buildDecks(rng);
 
   const players = tribeIds.map((tribe, i) => {
