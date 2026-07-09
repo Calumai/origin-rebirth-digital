@@ -1175,13 +1175,14 @@ input[type=text] {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .duel-left {
-  background: linear-gradient(120deg, #16294f, #22406f 55%, #1a3258);
+  /* 比原本飽和藍再刷淡、加一點灰褐調，貼近參考圖的褪色感 */
+  background: linear-gradient(120deg, #35455f, #445d7c 55%, #3a5170);
   border-radius: 14px 4px 4px 14px;
   flex-direction: row;
   text-align: left;
 }
 .duel-right {
-  background: linear-gradient(120deg, #5a1c1c, #7e2a24 55%, #601e1e);
+  background: linear-gradient(120deg, #6b463f, #85564b 55%, #74463d);
   border-radius: 4px 14px 14px 4px;
   flex-direction: row-reverse;
   text-align: right;
