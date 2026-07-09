@@ -235,6 +235,27 @@ input[type=text] {
   box-shadow: 0 0 12px rgba(var(--gold-rgb), 0.5);
 }
 .action-menu .action-suggest:hover:not(:disabled) { box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.75); }
+
+/* 行動選單改暗色戰情面板，按鈕改成扁平列表列（貼近參考圖），貼身標籤/建議動作維持發光外框凸顯 */
+.card-box.light-frame.action-menu {
+  background: linear-gradient(180deg, rgba(42,30,15,0.94), rgba(20,14,6,0.96));
+  color: #f0e2c4;
+}
+.action-menu h3 { color: #ffe4a3; border-left-color: var(--gold); }
+.action-menu .action-group-label { color: var(--gold); border-bottom-color: rgba(217,164,65,0.3); }
+.action-menu button:not(.action-suggest):not(.danger) {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #f0e2c4;
+  box-shadow: none;
+}
+.action-menu button:not(.action-suggest):not(.danger):hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  transform: none;
+  box-shadow: none;
+}
+.action-menu .ap-cost { background: rgba(var(--gold-rgb), 0.28); color: #ffe4a3; }
 .ap-cost {
   float: right;
   background: var(--line);
@@ -812,17 +833,38 @@ input[type=text] {
 .bv-versus .vs-player { padding: 5px 5px; }
 .bv-versus .vs-player img { width: 38px; height: 38px; }
 
+/* 左側資訊欄改暗色戰情面板，資源改直式列表（貼近參考圖） */
 .bv-resources {
   grid-area: resources;
   margin-bottom: 0;
   overflow-y: auto;
   min-height: 0;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding: 10px 14px 12px;
+  background: linear-gradient(180deg, rgba(42,30,15,0.94), rgba(20,14,6,0.96));
+  color: #f0e2c4;
 }
-.bv-resources h3 { margin: 10px 0 5px; }
+.bv-resources h3 {
+  margin: 12px 0 6px;
+  color: #ffe4a3;
+  border-left-color: var(--gold);
+}
 .bv-resources h3:first-of-type { margin-top: 2px; }
-.bv-resources .chip { padding: 4px 9px; font-size: 0.8em; }
+.bv-resources .row { flex-direction: column; align-items: stretch; gap: 3px; }
+.bv-resources .chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.85em;
+  color: #f0e2c4;
+  box-shadow: none;
+}
+.bv-resources .tribe-badge { box-shadow: none; }
+.bv-resources .muted { color: rgba(240,226,196,0.6); }
 .bv-resources .row { gap: 5px; }
 
 /* ── 主視覺：建築拼圖置中放大（核心收集目標） ── */
@@ -994,7 +1036,11 @@ input[type=text] {
 }
 .bld-cell.filled { background-color: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
 .bld-cell.empty {
-  background: repeating-linear-gradient(45deg, #e8dec6, #e8dec6 6px, #ddd0b3 6px, #ddd0b3 12px);
+  /* 浮水印圖到位前疊在斜線底紋之上；圖檔還沒生成時 background-image 直接載入失敗、
+     不影響下面的斜線底紋圖層，優雅降級 */
+  background:
+    url('assets/ui/bld-empty-watermark.png') center/62% no-repeat,
+    repeating-linear-gradient(45deg, #e8dec6, #e8dec6 6px, #ddd0b3 6px, #ddd0b3 12px);
   border: 1px dashed #c3b48f;
 }
 .bld-puzzle.complete .bld-cell { border-radius: 0; box-shadow: none; }
@@ -1105,6 +1151,101 @@ input[type=text] {
   letter-spacing: 0.05em;
 }
 .vs-sep { align-self: center; color: #a6742d; font-size: 1.3em; padding: 0 2px; flex: 0 0 auto; }
+
+/* ── 雙人局：寬版對峙橫幅（左藍右紅）+ 中央金色回合徽章 ── */
+.versus-duel {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  overflow: visible;
+  box-shadow: var(--shadow-lg);
+}
+.duel-side {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px;
+  color: #eef2fb;
+  border: 2px solid transparent;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.duel-left {
+  background: linear-gradient(120deg, #16294f, #22406f 55%, #1a3258);
+  border-radius: 14px 4px 4px 14px;
+  flex-direction: row;
+  text-align: left;
+}
+.duel-right {
+  background: linear-gradient(120deg, #5a1c1c, #7e2a24 55%, #601e1e);
+  border-radius: 4px 14px 14px 4px;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.duel-side.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 22px rgba(var(--gold-rgb), 0.65), inset 0 0 18px rgba(var(--gold-rgb), 0.12);
+}
+.duel-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
+  border: 3px solid var(--gold);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+  flex: 0 0 auto;
+}
+.duel-info { display: flex; flex-direction: column; gap: 2px; }
+.duel-name { font-weight: 800; font-family: var(--fserif); font-size: 1.02em; }
+.duel-score { font-size: 1.3em; font-weight: 900; color: #ffd98a; text-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.duel-stats { font-size: 0.72em; opacity: 0.85; }
+.duel-flag {
+  position: absolute;
+  top: -10px;
+  background: linear-gradient(135deg, var(--gold), var(--accent));
+  color: #2a1e12;
+  font-size: 0.68em;
+  font-weight: 900;
+  padding: 3px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.duel-left .duel-flag { left: 14px; }
+.duel-right .duel-flag { right: 14px; }
+.duel-medal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  z-index: 2;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, var(--gold) 55%, var(--accent-dark) 100%);
+  border: 3px solid #fff3cf;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.55), inset 0 0 8px rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.duel-medal-inner {
+  font-family: var(--fserif);
+  font-weight: 900;
+  font-size: 0.82em;
+  color: #4a2f11;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+}
+
+@media (max-width: 640px) {
+  .versus-duel { flex-direction: column; }
+  .duel-left, .duel-right { border-radius: 12px; flex-direction: row; text-align: left; }
+  .duel-medal { position: static; transform: none; margin: -14px auto; }
+}
 
 @media (max-width: 600px) {
   .versus-strip { gap: 0; padding: 8px 4px; }

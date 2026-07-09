@@ -590,6 +590,10 @@ function flyMaterialGain(matName, count, originEl, targetEl) {
 
 // 對戰列：所有玩家一字排開互相對峙，標出當前行動者與即時領先者，營造對戰感
 function versusStrip() {
+  return G.players.length === 2 ? versusStripDuel() : versusStripMulti();
+}
+// 3-4 人局：維持小圓形頭像橫排
+function versusStripMulti() {
   const scores = finalScores(G); // 依 player index 排列（含即時盤面分）
   const maxTotal = Math.max(...scores.map(s => s.total));
   const cells = G.players.map((pl, i) => {
@@ -605,6 +609,31 @@ function versusStrip() {
     </div>`;
   });
   return `<div class="versus-strip">${cells.join('<div class="vs-sep"></div>')}</div>`;
+}
+// 2 人局：寬版雙色對峙橫幅（左藍右紅），中央金色回合徽章
+function versusStripDuel() {
+  const scores = finalScores(G);
+  const maxTotal = Math.max(...scores.map(s => s.total));
+  const side = (i, cls) => {
+    const pl = G.players[i];
+    const active = pl.idx === G.currentPlayer;
+    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
+    return `<div class="duel-side ${cls}${active ? ' active' : ''}">
+      ${leading ? '<div class="duel-flag">領先</div>' : ''}
+      <img class="duel-badge" src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
+      <div class="duel-info">
+        <div class="duel-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
+        <div class="duel-score">${scores[i].total} 分</div>
+        <div class="duel-stats">建${pl.buildings.length}・原${matN}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}</div>
+      </div>
+    </div>`;
+  };
+  return `<div class="versus-duel">
+    ${side(0, 'duel-left')}
+    <div class="duel-medal"><div class="duel-medal-inner">回合</div></div>
+    ${side(1, 'duel-right')}
+  </div>`;
 }
 
 // ── board ──────────────────────────────────────────
