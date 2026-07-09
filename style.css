@@ -477,12 +477,15 @@ input[type=text] {
   line-height: 1.05;
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: #ffe9b0;
-  text-shadow:
-    2px 2px 4px rgba(0, 0, 0, 0.8),
-    0 0 10px rgba(229, 193, 88, 0.3),
-    0 3px 0 #4d2b0d,
-    0 12px 28px rgba(0, 0, 0, 0.72);
+  /* 文字漸層雕刻感：金亮到金銅漸層 + drop-shadow（transparent 文字用 filter 而非 text-shadow，避免陰影跟裁切衝突） */
+  background: linear-gradient(to bottom, #fff3c4, #d4af37);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8))
+    drop-shadow(0 0 10px rgba(229, 193, 88, 0.3))
+    drop-shadow(0 12px 28px rgba(0, 0, 0, 0.72));
 }
 .title-plaque p {
   margin: 14px 0 0;
@@ -537,11 +540,18 @@ input[type=text] {
   background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 65%, transparent 100%);
   text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
 }
+/* .tribe-thao 等 class 原本是給 .tribe-badge 上純色底，套到卡片上要先中和背景副作用 */
+.tribe-card.tribe-thao, .tribe-card.tribe-kavalan, .tribe-card.tribe-hlaalua, .tribe-card.tribe-seediq { background: none; }
 .tribe-card:hover {
   transform: translateY(-8px) scale(1.035);
   border-color: rgba(255, 226, 154, 0.7);
   filter: drop-shadow(0 22px 24px rgba(0, 0, 0, 0.62)) drop-shadow(0 0 16px rgba(255, 197, 96, 0.28));
 }
+/* 卡片 hover 依族色發光（沿用現有 --thao/--kavalan/--hlaalua/--seediq 色票，不改動色彩對應） */
+.tribe-card.tribe-thao:hover    { border-color: var(--thao);    filter: drop-shadow(0 22px 24px rgba(0,0,0,0.62)) drop-shadow(0 0 18px var(--thao)); }
+.tribe-card.tribe-kavalan:hover { border-color: var(--kavalan); filter: drop-shadow(0 22px 24px rgba(0,0,0,0.62)) drop-shadow(0 0 18px var(--kavalan)); }
+.tribe-card.tribe-hlaalua:hover { border-color: var(--hlaalua); filter: drop-shadow(0 22px 24px rgba(0,0,0,0.62)) drop-shadow(0 0 18px var(--hlaalua)); }
+.tribe-card.tribe-seediq:hover  { border-color: var(--seediq);  filter: drop-shadow(0 22px 24px rgba(0,0,0,0.62)) drop-shadow(0 0 18px var(--seediq)); }
 
 .home-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 

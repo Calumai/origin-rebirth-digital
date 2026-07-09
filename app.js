@@ -233,7 +233,7 @@ function renderHome() {
           <p>一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
         </header>
         <div class="tribe-card-stage">
-          ${Object.values(CARDS.tribes).map(t => `<div class="tribe-card"><img src="${t.img}" alt="${t.name}"><div class="tribe-card-caption">${t.name}</div></div>`).join('')}
+          ${Object.entries(CARDS.tribes).map(([id, t]) => `<div class="tribe-card tribe-${id}"><img src="${t.img}" alt="${t.name}"><div class="tribe-card-caption">${t.name}</div></div>`).join('')}
         </div>
         <div class="home-actions">
           <button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button>
