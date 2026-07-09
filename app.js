@@ -21,7 +21,8 @@ let ui = {
   isBot: [],
   pass: null,
   modal: null,
-  tutorial: null
+  tutorial: null,
+  homeSelectedTribe: 0 // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
@@ -278,23 +279,79 @@ function passInner(toIdx, continueFn) {
 }
 
 // ── home / story ──────────────────────────────────────────
+// 首頁族群 carousel：純瀏覽/預覽用，實際選族群在設定畫面（A14），不從這裡帶值
+function homeCarouselPrev() {
+  const n = Object.keys(CARDS.tribes).length;
+  ui.homeSelectedTribe = ((ui.homeSelectedTribe ?? 0) - 1 + n) % n;
+  render();
+}
+function homeCarouselNext() {
+  const n = Object.keys(CARDS.tribes).length;
+  ui.homeSelectedTribe = ((ui.homeSelectedTribe ?? 0) + 1) % n;
+  render();
+}
+function homeCarouselSelect(i) { ui.homeSelectedTribe = i; render(); }
+function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+
 function renderHome() {
+  const tribeEntries = Object.entries(CARDS.tribes);
+  const selIdx = ui.homeSelectedTribe ?? 0;
   return `
-    <section class="home-screen">
-      <div class="home-frame">
-        <header class="title-plaque">
+    <main class="ps5-home">
+      <div class="ps5-bg"></div>
+      <div class="ps5-vignette"></div>
+
+      <aside class="ps5-sidebar">
+        <button class="side-item active" onclick="gotoHome()">
+          <span class="side-icon">⌂</span>
+          <span><b>首頁</b><small>HOME</small></span>
+        </button>
+        <button class="side-item" onclick="gotoStory()">
+          <span class="side-icon">▣</span>
+          <span><b>故事</b><small>STORY</small></span>
+        </button>
+        <button class="side-item" onclick="comingSoonToast()">
+          <span class="side-icon">□</span>
+          <span><b>資料庫</b><small>ARCHIVE</small></span>
+        </button>
+        <button class="side-item" onclick="comingSoonToast()">
+          <span class="side-icon">⚙</span>
+          <span><b>設定</b><small>OPTION</small></span>
+        </button>
+      </aside>
+
+      <header class="ps5-topbar">
+        <button onclick="comingSoonToast()">⚙ 設定</button>
+        <button onclick="comingSoonToast()">? 操作說明</button>
+        <button onclick="comingSoonToast()">☰ 選項</button>
+      </header>
+
+      <section class="ps5-content">
+        <div class="game-title-block">
           <h1>原地重生・返璞歸真</h1>
           <p>一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
-        </header>
-        <div class="tribe-card-stage">
-          ${Object.entries(CARDS.tribes).map(([id, t]) => `<div class="tribe-card tribe-${id}"><img src="${t.img}" alt="${t.name}"><div class="tribe-card-caption">${t.name}</div></div>`).join('')}
         </div>
-        <div class="home-actions">
-          <button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button>
-          <button class="secondary-lore-button" onclick="gotoStory()">世界觀介紹</button>
+
+        <section class="tribe-carousel" aria-label="選擇族群">
+          <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">‹</button>
+          ${tribeEntries.map(([id, t], i) => `
+            <article class="ps5-tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})">
+              <img src="${t.img}" alt="${t.name}">
+              <div class="ps5-tribe-name">${t.name}</div>
+            </article>`).join('')}
+          <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">›</button>
+        </section>
+
+        <div class="ps5-actions">
+          <button class="start-btn" onclick="gotoSetup()">開始遊戲</button>
+          <button class="intro-btn" onclick="gotoStory()">世界觀介紹</button>
         </div>
-      </div>
-    </section>`;
+      </section>
+
+      <footer class="ps5-hints">
+        <span>選擇部族，開啟你的冒險旅程</span>
+      </footer>
+    </main>`;
 }
 function renderStory() {
   return `
@@ -1246,7 +1303,8 @@ Object.assign(window, {
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
-  startTutorial, tutorialNext, tutorialPrev, closeTutorial
+  startTutorial, tutorialNext, tutorialPrev, closeTutorial,
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, comingSoonToast
 });
 
 render();

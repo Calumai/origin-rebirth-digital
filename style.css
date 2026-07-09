@@ -776,6 +776,220 @@ input[type=text] {
 .primary-start-button:disabled { filter: grayscale(0.6) brightness(0.75); cursor: not-allowed; }
 .primary-start-button:disabled:hover { transform: none; }
 
+/* ── 首頁 v2：PS5 風格主選單 ── */
+.ps5-home {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: -20px;
+  margin-bottom: -40px;
+  width: 100vw;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar content"
+    "sidebar hints";
+  color: #f8e6b8;
+  font-family: var(--fserif);
+}
+.ps5-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255, 190, 100, 0.12), transparent 45%),
+    linear-gradient(160deg, #14210f 0%, #1c1408 45%, #0d0904 100%);
+}
+.ps5-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.82) 100%);
+  pointer-events: none;
+}
+
+.ps5-sidebar {
+  grid-area: sidebar;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 28px 10px;
+  background: linear-gradient(180deg, rgba(20, 14, 6, 0.55), rgba(10, 7, 3, 0.7));
+  border-right: 1px solid rgba(229, 176, 85, 0.25);
+}
+.ps5-sidebar .side-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(248, 230, 184, 0.7);
+  text-align: left;
+  cursor: pointer;
+  min-height: auto;
+  transition: background 140ms ease, color 140ms ease;
+}
+.ps5-sidebar .side-item:hover { background: rgba(255, 255, 255, 0.06); color: #ffe9b0; }
+.ps5-sidebar .side-item.active {
+  background: rgba(var(--gold-rgb), 0.16);
+  color: #ffe9b0;
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.5);
+}
+.ps5-sidebar .side-icon { font-size: 1.3em; width: 1.3em; text-align: center; }
+.ps5-sidebar .side-item b { display: block; font-size: 0.95em; }
+.ps5-sidebar .side-item small { display: block; font-size: 0.68em; opacity: 0.7; letter-spacing: 0.08em; }
+
+.ps5-topbar {
+  grid-area: topbar;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 28px 0;
+}
+.ps5-topbar button {
+  min-height: auto;
+  padding: 8px 16px;
+  font-size: 0.85em;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 176, 85, 0.3);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(248, 230, 184, 0.85);
+}
+.ps5-topbar button:hover { border-color: var(--gold); box-shadow: 0 0 10px rgba(var(--gold-rgb), 0.4); }
+
+.ps5-content {
+  grid-area: content;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 3vw, 40px);
+  padding: 20px clamp(20px, 5vw, 64px);
+}
+
+.game-title-block { text-align: center; }
+.game-title-block h1 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 54px);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  background: linear-gradient(to bottom, #fff3c4, #d4af37);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 10px rgba(229, 193, 88, 0.3));
+}
+.game-title-block p {
+  margin: 10px 0 0;
+  font-size: clamp(14px, 1.6vw, 18px);
+  color: rgba(255, 239, 205, 0.85);
+}
+
+.tribe-carousel {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 24px);
+  width: 100%;
+  max-width: 980px;
+}
+.carousel-arrow {
+  min-height: auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(229, 176, 85, 0.4);
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffe9b0;
+  font-size: 1.6em;
+  line-height: 1;
+  flex: none;
+}
+.carousel-arrow:hover { border-color: var(--gold); box-shadow: 0 0 14px rgba(var(--gold-rgb), 0.5); }
+.ps5-tribe-card {
+  position: relative;
+  flex: 1 1 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  opacity: 0.6;
+  transform: scale(0.92) translateY(0);
+  transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.ps5-tribe-card img { display: block; width: 100%; }
+.ps5-tribe-name {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 8px 6px 7px;
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(12px, 1.4vw, 15px);
+  color: #ffe9b0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent 100%);
+}
+.ps5-tribe-card:hover { opacity: 0.85; transform: scale(0.96) translateY(-4px); }
+.ps5-tribe-card.selected {
+  opacity: 1;
+  transform: scale(1.06) translateY(-10px);
+  border-color: rgba(255, 226, 154, 0.8);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.55), 0 0 20px rgba(255, 197, 96, 0.35);
+  z-index: 1;
+}
+
+.ps5-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ps5-actions .start-btn {
+  min-width: 240px;
+  min-height: 60px;
+  padding: 0 36px;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.ps5-actions .intro-btn {
+  min-width: 200px;
+  min-height: 48px;
+  padding: 0 28px;
+  font-size: clamp(14px, 1.6vw, 18px);
+}
+
+.ps5-hints {
+  grid-area: hints;
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 14px;
+  font-size: 0.82em;
+  color: rgba(248, 230, 184, 0.55);
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 900px) {
+  .ps5-home {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "content"
+      "hints";
+  }
+  .ps5-sidebar { display: none; }
+  .tribe-carousel { flex-wrap: wrap; justify-content: center; }
+  .carousel-arrow { display: none; }
+  .ps5-tribe-card { flex: 1 1 40%; max-width: 44%; }
+}
+
 /* ── 對戰桌牌桌墊 ── */
 /* table-wood.jpg 是張可平鋪的正方形木紋圖，改用 repeat 平鋪＋固定磚塊尺寸，
    避免 cover 把方形圖硬拉伸成超長畫面而糊成一片放大木紋特寫 */
