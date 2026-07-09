@@ -182,6 +182,20 @@ function render() {
   html += renderModal();
   app.innerHTML = html;
   positionTutorial();
+  triggerRPSShake();
+}
+
+// 猜拳結果揭曉時，讓輸家在對戰列的頭像震動一下（跟 .rps-stamp 印章搭配的動態回饋）
+function triggerRPSShake() {
+  const m = ui.modal;
+  if (!m || m.type !== 'rps' || m.phase !== 'reveal') return;
+  const loserIdx = m.result ? m.defenderIdx : m.attackerIdx;
+  const loserTribe = G.players[loserIdx] && G.players[loserIdx].tribe;
+  const el = loserTribe && document.querySelector('.vs-player.tribe-' + loserTribe);
+  if (el && !el.classList.contains('rps-shake')) {
+    el.classList.add('rps-shake');
+    setTimeout(() => el.classList.remove('rps-shake'), 450);
+  }
 }
 
 // ── 新手互動教學（A15，2026-07-09 改為每局都自動觸發，不記憶跳過狀態）────
@@ -489,15 +503,81 @@ function finishTurnAndAdvance() {
 
 function doAction(action) {
   const before = G.log.length;
+  const matBefore = G.players.map(p => ({ ...p.materials }));
+  const buildingsBefore = G.players.map(p => p.buildings.length);
   try {
     applyAction(G, action, rng);
     flashLog(before);
   } catch (e) {
     alert('動作失敗：' + e.message);
+    ui.modal = null; render();
+    return;
   }
   ui.modal = null;
-  if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance();
-  else render();
+  render(); // 先渲染出最終狀態，飛行動畫在畫面上疊加視覺回饋
+  const played = animateGains(action, matBefore, buildingsBefore);
+  const advance = () => { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); };
+  if (played) setTimeout(advance, 420); else advance();
+}
+
+// 動作結束後比對素材/建築變化，飛出對應的動態獲得回饋；回傳是否有播放動畫（供 doAction 決定要不要延遲換手）
+function animateGains(action, matBefore, buildingsBefore) {
+  if (ui.screen !== 'board') return false; // 畫面已經離開對局板就不播
+  const idx = action.player;
+  const p = G.players[idx];
+  if (!p || isBot(idx) || currentPlayer().idx !== idx) return false; // 電腦回合或畫面已換人不播
+  let played = false;
+
+  const matTarget = document.querySelector('.tut-materials');
+  if (matTarget) {
+    const before = matBefore[idx];
+    for (const m of CARDS.materials) {
+      const delta = (p.materials[m] || 0) - (before[m] || 0);
+      if (delta > 0) { flyMaterialGain(m, delta, materialGainOriginEl(action), matTarget); played = true; }
+    }
+  }
+
+  if (p.buildings.length > buildingsBefore[idx]) {
+    const cells = document.querySelectorAll('.bld-cell.filled');
+    const lastCell = cells[cells.length - 1];
+    const b = p.buildings[p.buildings.length - 1];
+    if (lastCell && b) { flyDrawnCard('.deck-building', null, lastCell, { img: b.img, name: b.name }); played = true; }
+  }
+  return played;
+}
+// 素材飛行的起點：偷襲成功從對方頭像飛出，其餘一律從戰場區飛出
+function materialGainOriginEl(action) {
+  if (action.type === 'RAID' && action.target != null) {
+    const t = G.players[action.target];
+    const el = t && document.querySelector('.vs-player.tribe-' + t.tribe);
+    if (el) return el;
+  }
+  return document.querySelector('.bv-battlefield') || document.querySelector('.bv-versus');
+}
+// 素材幣飛行動畫：從 originEl 飛到 targetEl，count>1 時錯開時間依序飛出（最多同時 4 枚避免洗版）
+function flyMaterialGain(matName, count, originEl, targetEl) {
+  const layer = document.getElementById('toast-layer');
+  const img = CARDS.materialImages[matName];
+  if (!layer || !originEl || !targetEl || !img) return;
+  const sr = originEl.getBoundingClientRect();
+  const er = targetEl.getBoundingClientRect();
+  if (!sr.width || !er.width) return;
+  const n = Math.min(count, 4);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const coin = document.createElement('img');
+      coin.className = 'coin-flight';
+      coin.src = img;
+      layer.appendChild(coin);
+      const jitter = (Math.random() - 0.5) * 22;
+      const anim = coin.animate([
+        { left: (sr.left + sr.width / 2 - 13 + jitter) + 'px', top: (sr.top + sr.height / 2 - 13) + 'px', opacity: 0.7, transform: 'scale(0.6)', offset: 0 },
+        { left: (sr.left + sr.width / 2 - 13 + jitter) + 'px', top: (sr.top + sr.height / 2 - 13) + 'px', opacity: 1, transform: 'scale(1.15)', offset: 0.15 },
+        { left: (er.left + er.width / 2 - 13) + 'px', top: (er.top + er.height / 2 - 13) + 'px', opacity: 1, transform: 'scale(0.85)', offset: 1 }
+      ], { duration: 420, easing: 'cubic-bezier(.3,.6,.3,1)', fill: 'forwards' });
+      anim.onfinish = () => coin.remove();
+    }, i * 80);
+  }
 }
 
 // 對戰列：所有玩家一字排開互相對峙，標出當前行動者與即時領先者，營造對戰感
@@ -744,7 +824,7 @@ function renderRPS(m) {
     const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
     return `<h3>結果揭曉</h3>
       <p>${G.players[m.attackerIdx].tribeName}：${label[m.attackerMove]}　vs　${G.players[m.defenderIdx].tribeName}：${label[m.defenderMove]}</p>
-      <p><b>${G.players[winnerIdx].tribeName} 勝出！</b></p>
+      <p class="center"><span class="rps-stamp">${G.players[winnerIdx].tribeName} 勝出！</span></p>
       <button class="primary" onclick="rpsFinish()">繼續</button>`;
   }
   return '';
