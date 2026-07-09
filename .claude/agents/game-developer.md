@@ -26,6 +26,10 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 改動驗證後：`git add/commit/push` → `npx vercel --prod --yes` → curl 確認 200。不要用 `--no-verify` 跳過 hook。
 
+## 關於 M4（線上對戰版）
+
+M4 尚未拆解規格、尚未動工。**M4 屬於你（game-developer）的職責範圍**——回合制卡牌的連線同步（伺服器權威狀態、玩家配對、斷線重連）本質上還是「遊戲引擎+後端」工程，不是另一支 agent 的事。開始拆解 M4 前，先跟主對話／JJ 確認技術路線（例如：要不要上真正的後端伺服器、用什麼即時通訊方式）再動手，不要自己選定架構就開工。
+
 ## 提醒
 
-本專案是 vanilla JS 靜態站、hot-seat 桌遊，不要套用 Unity/Unreal/60FPS/多人連線同步這類即時 3D 遊戲的技術規格——那是完全不同量級的專案。
+本專案是 vanilla JS 靜態站、hot-seat 桌遊。「不套用即時 3D 遊戲技術規格」指的是 Unity/Unreal/60FPS 渲染管線/lag compensation/prediction 這類**即時動作遊戲**的 netcode 規格，**不代表排除 M4 的連線對戰**——M4 是回合制卡牌的伺服器同步，規模與技術棧完全不同，仍在你的職責範圍內。
