@@ -686,11 +686,10 @@ function renderBoard() {
       <div class="bv-hand">
         ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('')}
         ${cultureInHand.map(c => `
-          <div class="hand-card culture">
+          <div class="hand-card culture${p.actionPoints < 1 ? ' disabled' : ''}" ${p.actionPoints < 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`} title="${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}">
             ${cardThumb(c)}
             <div>${c.name}</div>
             <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
-            <button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayCulture('${c.id}')">擲出</button>
           </div>`).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? '<span class="muted">（手牌是空的，去抽張卡吧）</span>' : ''}
       </div>
