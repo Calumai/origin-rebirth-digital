@@ -42,7 +42,7 @@ function buildDecks(rng) {
   const buildings = [];
   for (const tribe of Object.keys(CARDS.tribes))
     for (let i = 1; i <= CARDS.buildingsPerTribe; i++)
-      buildings.push({ kind: 'building', tribe, index: i, score: CARDS.buildingScore, name: `${CARDS.tribes[tribe].name}建築${i}` });
+      buildings.push({ kind: 'building', tribe, index: i, score: CARDS.buildingScore, name: `${CARDS.tribes[tribe].name}建築${i}`, img: CARDS.buildingImages[tribe] });
 
   const craftPool = [];
   for (const [id, c] of Object.entries(CARDS.crafts))

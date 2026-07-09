@@ -15,7 +15,7 @@ const EFFECT_LABEL = {
 let G = null;
 let rng = null;
 let ui = {
-  screen: 'setup',
+  screen: 'home',
   setup: { count: 2, names: ['', '', '', ''], bots: [false, false, false, false] },
   nicknames: [],
   isBot: [],
@@ -43,6 +43,24 @@ function cardThumb(c, size) {
   if (!c.img) return '';
   return `<img class="card-thumb${size === 'sm' ? '-sm' : ''}" src="${c.img}" alt="${c.name}">`;
 }
+// 建築卡＝一族家屋圖切 4 片拼圖（index 1~4 對應 左上/右上/左下/右下）
+function buildingsArea(p) {
+  if (!p.buildings.length) return '<span class="muted">（無建築）</span>';
+  const byTribe = {};
+  for (const b of p.buildings) (byTribe[b.tribe] = byTribe[b.tribe] || []).push(b);
+  return Object.entries(byTribe).map(([tribe, list]) => {
+    if (list.length >= CARDS.buildingsPerTribe) {
+      return `<div class="bld-complete">
+        <img src="${CARDS.buildingImages[tribe]}" alt="${CARDS.tribes[tribe].name}家屋">
+        <div class="bld-label">🏠 ${CARDS.tribes[tribe].name}家屋（完整）</div>
+      </div>`;
+    }
+    return list.map(b => {
+      const pos = [['0%', '0%'], ['100%', '0%'], ['0%', '100%'], ['100%', '100%']][b.index - 1];
+      return `<span class="chip card-chip"><span class="bld-piece" style="background-image:url('${b.img}');background-position:${pos[0]} ${pos[1]}"></span>${b.name}</span>`;
+    }).join('');
+  }).join('');
+}
 function materialsRow(p) {
   return CARDS.materials.map(m => `<span class="chip mat-icon">${matIcon(m)} ${m} ×${p.materials[m] || 0}</span>`).join('');
 }
@@ -69,7 +87,9 @@ function endReasonLabel(reason) {
 function render() {
   const app = document.getElementById('app');
   let html = '';
-  if (ui.screen === 'setup') html = renderSetup();
+  if (ui.screen === 'home') html = renderHome();
+  else if (ui.screen === 'story') html = renderStory();
+  else if (ui.screen === 'setup') html = renderSetup();
   else if (ui.screen === 'draw') html = renderDraw();
   else if (ui.screen === 'pass') html = `<div class="card-box">${passInner(ui.pass.toIdx, 'revealTurn')}</div>`;
   else if (ui.screen === 'board') html = renderBoard();
@@ -89,6 +109,45 @@ function passInner(toIdx, continueFn) {
     <button class="primary" onclick="${continueFn}()">我準備好了，開始</button>
   </div>`;
 }
+
+// ── home / story ──────────────────────────────────────────
+function renderHome() {
+  return `
+    <div class="hero">
+      <h1 class="hero-title">原地重生・返璞歸真</h1>
+      <p class="hero-subtitle">一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
+      <div class="hero-tribes">
+        ${Object.values(CARDS.tribes).map(t => `<img src="${t.img}" alt="${t.name}">`).join('')}
+      </div>
+      <div class="hero-ctas">
+        <button class="cta cta-primary" onclick="gotoSetup()">🎮 開始遊戲</button>
+        <button class="cta cta-secondary" onclick="gotoStory()">📖 世界觀介紹</button>
+      </div>
+    </div>`;
+}
+function renderStory() {
+  return `
+    <div class="card-box story">
+      <h1>世界觀介紹</h1>
+      <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
+      <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或搶下最後一張工藝卡，遊戲便進入結算——分數最高者獲勝。</p>
+      <div class="hero-tribes">
+        ${Object.entries(CARDS.tribes).map(([id, t]) => `
+          <div class="story-tribe">
+            <img src="${t.img}" alt="${t.name}">
+            <div class="muted">${t.name}<br>盛產：${t.produces.join('、')}</div>
+          </div>`).join('')}
+      </div>
+      <p class="muted">遊戲中還會遇到台灣 16 族的傳說故事文化卡——每一張，都是一段真實流傳的部落故事。</p>
+      <div class="hero-ctas">
+        <button class="cta cta-primary" onclick="gotoSetup()">🎮 開始遊戲</button>
+        <button class="cta cta-secondary" onclick="gotoHome()">返回首頁</button>
+      </div>
+    </div>`;
+}
+function gotoSetup() { ui.screen = 'setup'; render(); }
+function gotoStory() { ui.screen = 'story'; render(); }
+function gotoHome() { ui.screen = 'home'; render(); }
 
 // ── setup / draw ──────────────────────────────────────────
 function renderSetup() {
@@ -265,7 +324,7 @@ function renderBoard() {
       <h3>已擲出 / 工藝</h3>
       <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
       <h3>建築</h3>
-      <div class="row">${p.buildings.map(b => `<span class="chip">${b.name}</span>`).join('') || '<span class="muted">（無建築）</span>'}</div>
+      <div class="row">${buildingsArea(p)}</div>
       <h3>服飾</h3>
       <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
     </div>
@@ -702,6 +761,7 @@ function actionDrawCulture() { doAction({ type: 'DRAW_CULTURE_CARD', player: G.c
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
 Object.assign(window, {
+  gotoSetup, gotoStory, gotoHome,
   setCount, setName, setBot, startDraw, revealNext, beginGame, revealTurn,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,

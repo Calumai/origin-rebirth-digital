@@ -49,6 +49,12 @@ export const CARDS = {
   ],
   buildingsPerTribe: 4,
   buildingScore: 3,
+  buildingImages: {
+    thao: 'assets/buildings/thao.jpg',
+    kavalan: 'assets/buildings/kavalan.jpg',
+    hlaalua: 'assets/buildings/hlaalua.jpg',
+    seediq: 'assets/buildings/seediq.jpg'
+  },
   clothing: {
     parts: { head: 2, body: 3 },
     genders: ['male', 'female'],

@@ -226,7 +226,83 @@ input[type=text] {
 .other-players { display: flex; flex-wrap: wrap; gap: 10px; }
 .other-players .card-box { flex: 1 1 200px; margin-bottom: 0; }
 
+/* ── 首頁 Hero ── */
+.hero {
+  min-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 18px;
+}
+.hero-title { font-size: 2.6em; margin: 0; }
+.hero-subtitle { font-size: 1.15em; color: #55493a; margin: 0; }
+.hero-tribes { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 10px 0; }
+.hero-tribes img {
+  width: 120px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  transition: transform 0.25s ease;
+}
+.hero-tribes img:hover { transform: translateY(-6px) scale(1.05); }
+.hero-ctas { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+
+/* ── CTA 按鈕視覺強化：hover 動畫＋發光＋陰影＋放大 ── */
+.cta {
+  font-size: 1.25em;
+  font-weight: bold;
+  padding: 16px 44px;
+  border-radius: 999px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cta-primary {
+  background: linear-gradient(135deg, #c8862f, #a6742d);
+  color: #fff;
+  border: 2px solid #a6742d;
+  box-shadow: 0 4px 14px rgba(166, 116, 45, 0.45);
+}
+.cta-primary:hover:not(:disabled) {
+  transform: scale(1.07);
+  box-shadow: 0 6px 24px rgba(166, 116, 45, 0.65), 0 0 22px rgba(255, 196, 92, 0.75);
+  border-color: #ffc45c;
+}
+.cta-secondary {
+  background: #fff;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+}
+.cta-secondary:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 5px 18px rgba(166, 116, 45, 0.4), 0 0 14px rgba(255, 196, 92, 0.5);
+}
+
+.story p { line-height: 1.9; }
+.story-tribe { text-align: center; }
+.story-tribe img { width: 110px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+
+/* ── 建築卡拼圖 ── */
+.bld-piece {
+  display: inline-block;
+  width: 48px;
+  height: 34px;
+  border-radius: 4px;
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  border: 1px solid var(--line);
+}
+.bld-complete { text-align: center; }
+.bld-complete img {
+  width: 220px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+.bld-label { font-weight: bold; color: var(--accent); }
+
 @media (max-width: 600px) {
   body { font-size: 17px; }
   .rps-btn { font-size: 1.6em; padding: 14px 18px; }
+  .hero-title { font-size: 1.9em; }
+  .hero-tribes img { width: 84px; }
 }
