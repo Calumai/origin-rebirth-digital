@@ -1134,7 +1134,7 @@ function exchangeGetPick(get) {
 
 // RAID / SWAP_BUILDING
 function actionRaid() {
-  if (ui.net) { const target = 1 - ui.net.myIdx; netRPS('raid', target, (win) => doAction({ type: 'RAID', player: G.currentPlayer, target, result: win })); return; }
+  if (ui.net) { const target = (ui.net.myIdx + 1) % G.players.length; netRPS('raid', target, (win) => doAction({ type: 'RAID', player: G.currentPlayer, target, result: win })); return; }
   chooseTargetModal('選擇偷襲目標', (targetIdx) => {
     startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
       doAction({ type: 'RAID', player: G.currentPlayer, target: targetIdx, result: attackerWins });
@@ -1142,7 +1142,7 @@ function actionRaid() {
   });
 }
 function actionSwapBuilding() {
-  if (ui.net) { const target = 1 - ui.net.myIdx; netRPS('swap', target, (win) => doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target, result: win })); return; }
+  if (ui.net) { const target = (ui.net.myIdx + 1) % G.players.length; netRPS('swap', target, (win) => doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target, result: win })); return; }
   chooseTargetModal('選擇建築互換對象', (targetIdx) => {
     startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
       doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target: targetIdx, result: attackerWins });
@@ -1154,7 +1154,7 @@ function actionForceSwapRaw() {
   if (!p.hand.some(c => c.kind === 'raw')) { alert('你手上沒有原料卡可交換'); return; }
   // 連線版：對方原料卡由發起方盲選，不需對方輸入 → 直接開選卡（跳過選對象，2 人局對象唯一）
   if (ui.net) {
-    const targetIdx = 1 - ui.net.myIdx;
+    const targetIdx = (ui.net.myIdx + 1) % G.players.length;
     const t = G.players[targetIdx];
     if (!t.hand.some(c => c.kind === 'raw')) { alert(`${t.tribeName} 手上沒有原料卡可交換`); return; }
     ui.modal = { type: 'forceSwapPick', target: targetIdx, myHandIdx: null, theirHandIdx: null };
@@ -1194,7 +1194,7 @@ function forceSwapConfirm() {
 
 // TRADE
 function actionTrade() {
-  if (ui.net) { ui.modal = { type: 'tradeOffer', target: 1 - ui.net.myIdx, give: [], get: [] }; render(); return; }
+  if (ui.net) { ui.modal = { type: 'tradeOffer', target: (ui.net.myIdx + 1) % G.players.length, give: [], get: [] }; render(); return; }
   chooseTargetModal('選擇交易對象', (targetIdx) => {
     ui.modal = { type: 'tradeOffer', target: targetIdx, give: [], get: [] };
     render();
@@ -1455,17 +1455,18 @@ function makeRoomCode() {
   return s;
 }
 const Net = {
-  peer: null, conn: null, role: null, connected: false,
+  peer: null, conn: null, conns: [], role: null, connected: false,
   reset() {
     try { if (this.conn) this.conn.close(); } catch (e) {}
+    try { this.conns.forEach(c => c.close()); } catch (e) {}
     try { if (this.peer) this.peer.destroy(); } catch (e) {}
-    this.peer = null; this.conn = null; this.role = null; this.connected = false;
+    this.peer = null; this.conn = null; this.conns = []; this.role = null; this.connected = false;
   },
   host(code, onReady, onConnect, onError) {
     this.role = 'host';
     this.peer = new Peer(ROOM_PREFIX + code, { config: ICE_CONFIG });
     this.peer.on('open', () => onReady(code));
-    this.peer.on('connection', (c) => { this.conn = c; this._wire(c, onConnect); });
+    this.peer.on('connection', (c) => { this.conns.push(c); this.conn = c; this._wire(c, onConnect); });
     this.peer.on('error', (e) => onError(e));
   },
   join(code, onConnect, onError) {
@@ -1476,15 +1477,23 @@ const Net = {
   },
   _wire(c, onConnect) {
     c.on('open', () => { this.connected = true; onConnect(); });
-    c.on('data', (d) => { try { netOnMessage(typeof d === 'string' ? JSON.parse(d) : d); } catch (e) {} });
+    c.on('data', (d) => { try { netOnMessage(typeof d === 'string' ? JSON.parse(d) : d, c); } catch (e) {} });
     c.on('close', () => netOnClose());
   },
-  send(msg) { if (this.conn && this.connected) { try { this.conn.send(JSON.stringify(msg)); } catch (e) {} } }
+  send(msg) {
+    const payload = JSON.stringify(msg);
+    if (this.role === 'host') this.conns.forEach(c => { try { if (c.open) c.send(payload); } catch (e) {} });
+    else if (this.conn && this.connected) { try { this.conn.send(payload); } catch (e) {} }
+  },
+  sendExcept(msg, except) {
+    const payload = JSON.stringify(msg);
+    this.conns.forEach(c => { if (c !== except) try { if (c.open) c.send(payload); } catch (e) {} });
+  }
 };
 
 function gotoNetLobby() {
   if (typeof Peer === 'undefined') { showToast('連線元件尚未載入，請稍後再試'); return; }
-  ui.netLobby = { status: 'form', name: (ui.setup.names[0] || '').trim(), tribe: null, codeInput: '', roomCode: '', error: '' };
+  ui.netLobby = { status: 'form', name: (ui.setup.names[0] || '').trim(), tribe: null, count: 2, players: [], codeInput: '', roomCode: '', error: '' };
   ui.screen = 'netLobby';
   render();
 }
@@ -1495,6 +1504,7 @@ function netCancel() {
 function netSetName(v) { if (ui.netLobby) ui.netLobby.name = v; }
 function netSetTribe(id) { if (ui.netLobby) { ui.netLobby.tribe = ui.netLobby.tribe === id ? null : id; render(); } }
 function netSetCode(v) { if (ui.netLobby) ui.netLobby.codeInput = v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); }
+function netSetCount(n) { if (ui.netLobby && ui.netLobby.status === 'form') { ui.netLobby.count = Math.max(2, Math.min(4, +n)); render(); } }
 function netReadyName() { const L = ui.netLobby; return (L.name || '').trim() || '玩家'; }
 function netInviteURL(code) { return location.origin + location.pathname + '?room=' + code; }
 function netCopyInvite() {
@@ -1513,6 +1523,8 @@ function netCreateRoom() {
   const L = ui.netLobby;
   if (!L.tribe) { showToast('請先選擇你的族群'); return; }
   L.name = netReadyName();
+  L.count = Math.max(2, Math.min(4, L.count || 2));
+  L.players = [{ name: L.name, tribe: L.tribe }];
   const code = makeRoomCode();
   L.status = 'waiting'; L.roomCode = code; L.error = ''; render();
   Net.host(code,
@@ -1541,7 +1553,7 @@ function netJoinRoom() {
 }
 
 // 房主收到 guest 的 join：解決族群衝突、決定 seed、通知雙方開局
-function netOnMessage(msg) {
+function netOnMessage(msg, sourceConn) {
   if (!msg || !msg.t) return;
   if (msg.t === 'join' && Net.role === 'host') {
     const L = ui.netLobby;
@@ -1549,19 +1561,24 @@ function netOnMessage(msg) {
     if (guestTribe === L.tribe) { // 撞族群：自動改派 guest 到第一個沒被選的族群
       guestTribe = Object.keys(CARDS.tribes).find(id => id !== L.tribe) || guestTribe;
     }
+    L.players = L.players || [{ name: L.name, tribe: L.tribe }];
+    if (L.players.length >= L.count) return;
+    L.players.push({ name: msg.name || '玩家', tribe: guestTribe });
+    if (L.players.length < L.count) { render(); return; }
+    const players = L.players;
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-    const players = [{ name: L.name, tribe: L.tribe }, { name: msg.name || '對手', tribe: guestTribe }];
     Net.send({ t: 'start', seed, players, guestReassigned: guestTribe !== msg.tribe });
     netStartGame(seed, players, 0);
     return;
   }
   if (msg.t === 'start' && Net.role === 'guest') {
     if (msg.guestReassigned) showToast('你選的族群跟對方一樣，已自動改成別族');
-    netStartGame(msg.seed, msg.players, 1);
+    const myIdx = Math.max(1, msg.players.findIndex(p => p.name === ui.netLobby?.name));
+    netStartGame(msg.seed, msg.players, myIdx);
     return;
   }
-  if (msg.t === 'dice') { netApplyDice(); return; }
-  if (msg.t === 'act') { doAction(msg.action, true); return; }
+  if (msg.t === 'dice') { netApplyDice(); if (Net.role === 'host') Net.sendExcept(msg, sourceConn); return; }
+  if (msg.t === 'act') { doAction(msg.action, true); if (Net.role === 'host') Net.sendExcept(msg, sourceConn); return; }
   // ── A18 雙向互動 ──
   if (msg.t === 'ask') { netShowAsk(msg.askId, msg.kind, msg.data); return; }
   if (msg.t === 'answer') { const cb = netPending[msg.askId]; delete netPending[msg.askId]; if (cb) cb(msg.value); return; }
@@ -1579,8 +1596,8 @@ function netOnClose() {
 }
 function netStartGame(seed, players, myIdx) {
   rng = mulberry32(seed ^ 0x9e3779b9);
-  G = initGame(2, seed, players.map(p => p.tribe));
-  ui.isBot = [false, false];
+  G = initGame(players.length, seed, players.map(p => p.tribe));
+  ui.isBot = players.map(() => false);
   ui.nicknames = players.map(p => p.name);
   ui.net = { role: Net.role, myIdx, players };
   ui.netLobby = null;
@@ -1713,6 +1730,8 @@ function renderNetLobby() {
         <span class="name-field-label">你的名字</span>
         <input type="text" value="${esc(L.name)}" placeholder="輸入你的名字" maxlength="12" oninput="netSetName(this.value)">
       </label>
+      <div class="net-section-label">遊戲人數</div>
+      <div class="net-player-count">${[2,3,4].map(n => `<button class="option-button${(L.count || 2) === n ? ' is-active' : ''}" onclick="netSetCount(${n})">${n} 人</button>`).join('')}</div>
       <div class="net-section-label">選擇你的族群</div>
       ${picker}
       <div class="net-actions">
@@ -1753,7 +1772,7 @@ Object.assign(window, {
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
-  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom, netCopyInvite,
+  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
 
@@ -1763,7 +1782,7 @@ Object.assign(window, {
     const params = new URLSearchParams(location.search);
     const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     if (room && typeof Peer !== 'undefined') {
-      ui.netLobby = { status: 'form', name: '', tribe: null, codeInput: room, roomCode: '', error: '', invited: true };
+      ui.netLobby = { status: 'form', name: '', tribe: null, count: 2, codeInput: room, roomCode: '', error: '', invited: true };
       ui.screen = 'netLobby';
       history.replaceState(null, '', location.pathname); // 清掉網址參數，避免重整又觸發
     }
