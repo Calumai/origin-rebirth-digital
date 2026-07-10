@@ -174,6 +174,35 @@ function availablePairs(p) {
 function canBuyBuilding(p) {
   return CARDS.materials.filter(m => (p.materials[m] || 0) >= 1).length >= 4;
 }
+// 目標提示面板：把「怎麼贏」變成看得見的檢查清單，治「不知道要幹嘛、淪為一直抽卡」
+function goalPanel(p) {
+  const ownCount = p.buildings.filter(b => b.tribe === p.tribe).length;
+  const remain = Math.max(0, CARDS.buildingsPerTribe - ownCount);
+  const missing = CARDS.materials.filter(m => (p.materials[m] || 0) < 1);
+  const produces = CARDS.tribes[p.tribe].produces;
+  let next;
+  if (remain === 0) {
+    next = '<b>你已蓋滿 4 間家屋！</b>撐到遊戲結束就能贏。';
+  } else if (missing.length === 0) {
+    next = '<b>四種素材到齊了！</b>去下面按〈蓋家屋〉抽家屋卡。';
+  } else {
+    const notProduced = missing.filter(m => !produces.includes(m));
+    next = notProduced.length
+      ? `你還缺 <b>${missing.join('、')}</b>。<b>${notProduced.join('、')}</b> 本族不盛產 → 用「拿素材」裡的 2 換 1，或去「交易 / 偷襲」跟別人拿。`
+      : `你還缺 <b>${missing.join('、')}</b> → 按「拿素材」補齊。`;
+  }
+  const dots = CARDS.materials.map(m => {
+    const has = (p.materials[m] || 0) >= 1;
+    return `<span class="goal-mat${has ? ' ok' : ' miss'}">${matIcon(m)}<span class="goal-mat-name">${m}</span><span class="goal-mat-mark">${has ? '✓' : '缺'}</span></span>`;
+  }).join('');
+  return `
+    <div class="goal-panel tut-goal">
+      <div class="goal-head">目標：蓋滿 <b>4</b> 間家屋${remain > 0 ? `（還差 <b>${remain}</b> 間）` : '（已完成）'}</div>
+      <div class="goal-mats-label">蓋 1 間家屋要「4 種素材各 1」：</div>
+      <div class="goal-mats">${dots}</div>
+      <div class="goal-next">${next}</div>
+    </div>`;
+}
 function endReasonLabel(reason) {
   if (!reason) return '（未知）';
   if (reason === 'craft_pool_empty') return '工藝池已抽光';
@@ -225,11 +254,12 @@ function triggerRPSShake() {
 
 // ── 新手互動教學（A15，2026-07-09 改為每局都自動觸發，不記憶跳過狀態）────
 const TUTORIAL_STEPS = [
-  { target: 'tut-ap', title: '行動點數', text: '每回合會先擲骰子，決定你這回合有幾點行動點數可以用！' },
-  { target: 'tut-materials', title: '你的素材', text: '這些是你現在擁有的素材，可以用來換工藝卡、蓋家屋。' },
-  { target: 'tut-actions', title: '怎麼行動', text: '點下面的按鈕做事情：「拿素材」最簡單安全；也可以去偷襲或跟別人交易喔！' },
-  { target: 'tut-buildings', title: '獲勝條件', text: '集滿本族的 4 張建築卡，或搶下最後一張工藝卡，遊戲就結束、比總分！' },
-  { target: 'tut-endturn', title: '結束回合', text: '行動點數用完了，或想提前結束，按這裡換下一位玩家繼續玩！' }
+  { target: 'tut-ap', title: '行動點數', text: '每回合會先擲骰子，點數就是你這回合能做幾件事！' },
+  { target: 'tut-goal', title: '你的目標（最重要）', text: '要贏就是「蓋滿 4 間家屋」。這裡會一直告訴你：蓋家屋要 4 種素材，你現在缺哪一種、該去換什麼。跟著這裡做就對了！' },
+  { target: 'tut-materials', title: '你的素材', text: '左下角這 4 個圓幣是你的素材。蓋家屋要 4 種各至少 1 個——你這族只產 3 種，缺的那種要靠「2 換 1」或跟別人交易/偷襲拿。' },
+  { target: 'tut-actions', title: '怎麼行動', text: '按鈕分三組：〈蓋家屋〉是贏的路、〈賺加分〉做工藝文化卡、〈搞對手〉去偷襲交易。不知道做什麼就先「拿素材」。' },
+  { target: 'tut-buildings', title: '家屋進度', text: '這是你的家屋拼圖，蓋一間補一塊，集滿 4 塊就贏。' },
+  { target: 'tut-endturn', title: '結束回合', text: '行動點數用完了，或想提前結束，按這裡換下一位繼續玩！' }
 ];
 function maybeStartTutorial() {
   if (G.turn === 0 && G.currentPlayer === 0 && !isBot(0)) startTutorial();
@@ -778,7 +808,7 @@ function renderBoard() {
       </div>
 
       <div class="bv-buildings card-box light-frame tut-buildings">
-        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度</h3>
+        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度${(() => { const r = CARDS.buildingsPerTribe - p.buildings.filter(b => b.tribe === p.tribe).length; return r > 0 ? `<span class="bld-remain">還差 ${r} 間就贏</span>` : '<span class="bld-remain done">已蓋滿！</span>'; })()}</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
@@ -793,16 +823,18 @@ function renderBoard() {
             <div class="ap-pips">${apPips(p.actionPoints, Math.max(p.turnStartAP ?? p.actionPoints, p.actionPoints))}</div>
           </div>
 
-          <div class="action-group-label">基礎行動</div>
-          <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
-          <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡<span class="ap-cost">1</span></button>
+          ${goalPanel(p)}
+
+          <div class="action-group-label">蓋家屋（贏的路）</div>
+          <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">拿素材（本族 3 種各 1，或 2 換 1 補缺）<span class="ap-cost">整回合</span></button>
+          <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">蓋家屋：4 種素材換抽家屋卡<span class="ap-cost">2</span></button>
+
+          <div class="action-group-label">賺加分</div>
+          <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡（湊對做工藝用）<span class="ap-cost">1</span></button>
+          ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">湊對換工藝「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
           <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
-          ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">擲出配對換「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
 
-          <div class="action-group-label">建造</div>
-          <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">4種素材換抽建築卡<span class="ap-cost">2</span></button>
-
-          <div class="action-group-label">對抗行動（進階）${remoteBlock ? '<span class="muted" style="font-weight:400"> — 連線版暫不支援</span>' : ''}</div>
+          <div class="action-group-label">搞對手（進階）${remoteBlock ? '<span class="muted" style="font-weight:400"> — 連線版暫不支援</span>' : ''}</div>
           <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
           <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
           <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>

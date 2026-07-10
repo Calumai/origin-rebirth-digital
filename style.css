@@ -294,6 +294,51 @@ input[type=text] {
 .dice-ap-line b { color: var(--accent); font-size: 1.2em; }
 .log-title { margin: 10px 0 4px; font-size: 0.82em; color: rgba(217, 164, 65, 0.85); letter-spacing: 0.04em; }
 
+/* 目標提示面板：治「不知道要幹嘛」，把贏的路變成看得見的清單 */
+.goal-panel {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(46, 92, 40, 0.34), rgba(28, 60, 24, 0.28));
+  border: 1px solid rgba(126, 196, 96, 0.5);
+}
+.goal-head { font-weight: 800; color: #d6f0c0; font-size: 0.98em; }
+.goal-head b { color: #ffe066; }
+.goal-mats-label { margin-top: 6px; font-size: 0.78em; color: rgba(240, 240, 210, 0.75); }
+.goal-mats { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.goal-mat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 0.68em;
+  min-width: 44px;
+}
+.goal-mat img { width: 24px; height: 24px; }
+.goal-mat-name { color: rgba(255, 245, 220, 0.8); }
+.goal-mat.ok { background: rgba(126, 196, 96, 0.22); }
+.goal-mat.ok .goal-mat-mark { color: #8fe06a; font-weight: 800; }
+.goal-mat.miss { background: rgba(184, 60, 50, 0.22); opacity: 0.85; }
+.goal-mat.miss img { filter: grayscale(0.7) opacity(0.6); }
+.goal-mat.miss .goal-mat-mark { color: #ff9a7a; font-weight: 800; }
+.goal-next { margin-top: 4px; font-size: 0.82em; line-height: 1.5; color: #ffe9c4; }
+.goal-next b { color: #ffd76a; }
+
+.bld-remain {
+  margin-left: 10px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 0.62em;
+  font-weight: 800;
+  vertical-align: middle;
+  background: rgba(126, 196, 96, 0.25);
+  border: 1px solid rgba(126, 196, 96, 0.55);
+  color: #d6f0c0;
+}
+.bld-remain.done { background: rgba(var(--gold-rgb), 0.28); border-color: rgba(var(--gold-rgb), 0.6); color: #ffe9b0; }
+
 .overlay {
   position: fixed;
   inset: 0;
