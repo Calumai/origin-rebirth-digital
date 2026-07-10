@@ -179,6 +179,7 @@ function endReasonLabel(reason) {
 }
 
 // ── render ──────────────────────────────────────────
+let lastRenderedScreen = null;
 function render() {
   const app = document.getElementById('app');
   let html = '';
@@ -190,6 +191,16 @@ function render() {
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
   app.innerHTML = html;
+  // 切換畫面時才播進場動畫；同畫面的重繪（如出牌後更新）不重播，避免每次操作都閃一輪
+  if (ui.screen !== lastRenderedScreen) {
+    const first = app.firstElementChild;
+    if (first) {
+      first.classList.add('screen-enter');
+      // 編排播完就移除，讓 idle 動畫（選中卡浮動等）接手，也避免殘留 class 蓋掉後續狀態
+      setTimeout(() => first.classList.remove('screen-enter'), 2000);
+    }
+    lastRenderedScreen = ui.screen;
+  }
   positionTutorial();
   triggerRPSShake();
 }
@@ -282,15 +293,17 @@ function passInner(toIdx, continueFn) {
 // 首頁族群 carousel：純瀏覽/預覽用，實際選族群在設定畫面（A14），不從這裡帶值
 function homeCarouselPrev() {
   const n = Object.keys(CARDS.tribes).length;
-  ui.homeSelectedTribe = ((ui.homeSelectedTribe ?? 0) - 1 + n) % n;
-  render();
+  homeCarouselSelect(((ui.homeSelectedTribe ?? 0) - 1 + n) % n);
 }
 function homeCarouselNext() {
   const n = Object.keys(CARDS.tribes).length;
-  ui.homeSelectedTribe = ((ui.homeSelectedTribe ?? 0) + 1) % n;
-  render();
+  homeCarouselSelect(((ui.homeSelectedTribe ?? 0) + 1) % n);
 }
-function homeCarouselSelect(i) { ui.homeSelectedTribe = i; render(); }
+function homeCarouselSelect(i) {
+  ui.homeSelectedTribe = i;
+  // 直接改 class 不整頁重繪，讓卡片的 CSS transition 有機會播放（重繪會瞬間跳格）
+  document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
+}
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
 
 function renderHome() {
@@ -299,6 +312,8 @@ function renderHome() {
   return `
     <main class="ps5-home">
       <div class="ps5-bg"></div>
+      <div class="ps5-embers"></div>
+      <div class="ps5-embers ps5-embers-2"></div>
       <div class="ps5-vignette"></div>
       <div class="ps5-focus-glow"></div>
 

@@ -1112,6 +1112,124 @@ input[type=text] {
   .ps5-home .ps5-hints { display: none; }
 }
 
+/* ── 首頁動態：PS5 史詩感（環境動態＋進場編排）── */
+/* 背景緩慢推移（Ken Burns），讓靜態照片活起來 */
+.ps5-home .ps5-bg {
+  animation: ps5BgDrift 46s ease-in-out infinite alternate;
+}
+@keyframes ps5BgDrift {
+  from { transform: scale(1.04) translate(0, 0); }
+  to   { transform: scale(1.12) translate(-1.2%, -1.6%); }
+}
+
+/* 火星粒子：兩層小光點以不同速度上飄，模擬篝火餘燼 */
+.ps5-home .ps5-embers {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image:
+    radial-gradient(2px 2px at 12% 88%, rgba(255, 190, 90, 0.85), transparent 60%),
+    radial-gradient(1.6px 1.6px at 28% 74%, rgba(255, 160, 60, 0.7), transparent 60%),
+    radial-gradient(2.4px 2.4px at 44% 92%, rgba(255, 205, 110, 0.8), transparent 60%),
+    radial-gradient(1.4px 1.4px at 63% 80%, rgba(255, 175, 70, 0.65), transparent 60%),
+    radial-gradient(2px 2px at 81% 87%, rgba(255, 195, 95, 0.75), transparent 60%),
+    radial-gradient(1.5px 1.5px at 92% 70%, rgba(255, 165, 65, 0.6), transparent 60%);
+  background-repeat: repeat;
+  background-size: 100% 100%;
+  opacity: 0;
+  animation: ps5EmberRise 16s linear infinite;
+}
+.ps5-home .ps5-embers-2 {
+  background-image:
+    radial-gradient(1.6px 1.6px at 20% 95%, rgba(255, 200, 100, 0.7), transparent 60%),
+    radial-gradient(2.2px 2.2px at 37% 82%, rgba(255, 170, 65, 0.6), transparent 60%),
+    radial-gradient(1.4px 1.4px at 55% 90%, rgba(255, 210, 120, 0.75), transparent 60%),
+    radial-gradient(2px 2px at 72% 78%, rgba(255, 180, 75, 0.6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 88% 93%, rgba(255, 195, 90, 0.7), transparent 60%);
+  animation-duration: 23s;
+  animation-delay: -9s;
+}
+@keyframes ps5EmberRise {
+  0%   { transform: translateY(6vh) scale(1);    opacity: 0; }
+  12%  { opacity: 0.9; }
+  70%  { opacity: 0.5; }
+  100% { transform: translateY(-58vh) scale(0.7); opacity: 0; }
+}
+
+/* 標題金光呼吸 */
+.ps5-home .game-title-block h1 {
+  animation: ps5TitleGlow 5.5s ease-in-out infinite alternate;
+}
+@keyframes ps5TitleGlow {
+  from { text-shadow: 0 3px 0 rgba(54, 31, 8, 0.92), 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 22px rgba(255, 209, 112, 0.16); }
+  to   { text-shadow: 0 3px 0 rgba(54, 31, 8, 0.92), 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 42px rgba(255, 209, 112, 0.42); }
+}
+
+/* 選中卡片微微浮動（idle 動態，像遊戲主選單等待輸入） */
+.ps5-home .tribe-card.selected {
+  animation: ps5CardIdle 3.6s ease-in-out infinite alternate;
+}
+@keyframes ps5CardIdle {
+  from { transform: translateY(-8px) scale(1.08); }
+  to   { transform: translateY(-14px) scale(1.08); }
+}
+
+/* 開始遊戲按鈕：光暈呼吸，全頁最亮的「等你按」訊號 */
+.ps5-home .start-btn {
+  animation: ps5BtnBreath 3.2s ease-in-out infinite alternate;
+}
+@keyframes ps5BtnBreath {
+  from { box-shadow: 0 0 0 1px rgba(255, 196, 82, 0.16), 0 0 26px rgba(255, 183, 65, 0.2), 0 18px 36px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+  to   { box-shadow: 0 0 0 1px rgba(255, 205, 100, 0.3), 0 0 48px rgba(255, 183, 65, 0.42), 0 18px 36px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+}
+
+/* ── 進場編排：切換到此畫面時，元素依序浮現（只播一次，由 render() 加 .screen-enter）── */
+.screen-enter .ps5-sidebar { animation: ps5SlideRight 600ms cubic-bezier(.22,.7,.24,1) both; }
+.screen-enter .ps5-topbar { animation: ps5FadeDown 600ms cubic-bezier(.22,.7,.24,1) 150ms both; }
+.screen-enter .game-title-block { animation: ps5RiseIn 800ms cubic-bezier(.22,.7,.24,1) 100ms both; }
+.screen-enter .tribe-carousel { animation: ps5RiseIn 800ms cubic-bezier(.22,.7,.24,1) 300ms both; }
+.screen-enter .tribe-carousel .tribe-card:nth-child(2) { animation: ps5CardDeal 640ms cubic-bezier(.22,.7,.24,1) 360ms both; }
+.screen-enter .tribe-carousel .tribe-card:nth-child(3) { animation: ps5CardDeal 640ms cubic-bezier(.22,.7,.24,1) 460ms both; }
+.screen-enter .tribe-carousel .tribe-card:nth-child(4) { animation: ps5CardDeal 640ms cubic-bezier(.22,.7,.24,1) 560ms both; }
+.screen-enter .tribe-carousel .tribe-card:nth-child(5) { animation: ps5CardDeal 640ms cubic-bezier(.22,.7,.24,1) 660ms both; }
+.screen-enter .ps5-actions { animation: ps5RiseIn 800ms cubic-bezier(.22,.7,.24,1) 750ms both; }
+.screen-enter .ps5-hints { animation: ps5Fade 900ms ease 1000ms both; }
+/* 進場時卡片的 deal 動畫會覆蓋 idle 浮動，播完（fill:both 結束）後 idle 動畫自然接手 */
+
+@keyframes ps5RiseIn {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ps5FadeDown {
+  from { opacity: 0; transform: translateY(-14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ps5SlideRight {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes ps5Fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ps5CardDeal {
+  from { opacity: 0; transform: translateY(34px) scale(0.86); }
+  to   { opacity: 1; }
+}
+
+/* 其他畫面（設定/故事/對局/結算）切換時的通用淡入，讓整站換頁都有轉場感 */
+.setup-screen.screen-enter, .end-screen.screen-enter { animation: ps5Fade 450ms ease both; }
+.setup-screen.screen-enter .setup-panel, .end-screen.screen-enter .setup-panel { animation: ps5RiseIn 600ms cubic-bezier(.22,.7,.24,1) 80ms both; }
+.table-surface.screen-enter { animation: ps5Fade 500ms ease both; }
+
+/* 尊重使用者的減少動態偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .ps5-home .ps5-bg, .ps5-home .ps5-embers, .ps5-home .game-title-block h1,
+  .ps5-home .tribe-card.selected, .ps5-home .start-btn,
+  .screen-enter, .screen-enter * { animation: none !important; }
+}
+
 /* ── 對戰桌牌桌墊 ── */
 /* table-wood.jpg 是張可平鋪的正方形木紋圖，改用 repeat 平鋪＋固定磚塊尺寸，
    避免 cover 把方形圖硬拉伸成超長畫面而糊成一片放大木紋特寫 */
