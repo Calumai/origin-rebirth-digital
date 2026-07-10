@@ -157,9 +157,6 @@ function buildingsOtherArea(p) {
   for (const b of others) (byTribe[b.tribe] = byTribe[b.tribe] || []).push(b);
   return Object.entries(byTribe).map(([tribe, list]) => buildingPuzzleHTML(tribe, list, false)).join('');
 }
-function materialsRow(p) {
-  return CARDS.materials.map(m => `<span class="chip mat-icon">${matIcon(m)} ${m} ×${p.materials[m] || 0}</span>`).join('');
-}
 function availablePairs(p) {
   return Object.entries(CARDS.crafts).filter(([craftId]) => {
     if (!G.craftPool.some(c => c.id === craftId)) return false;
@@ -606,11 +603,13 @@ function animateGains(action, matBefore, buildingsBefore) {
   if (!p || isBot(idx) || currentPlayer().idx !== idx) return false; // 電腦回合或畫面已換人不播
   let played = false;
 
-  const matTarget = document.querySelector('.tut-materials');
-  if (matTarget) {
+  const matDock = document.querySelector('.tut-materials');
+  if (matDock) {
     const before = matBefore[idx];
     for (const m of CARDS.materials) {
       const delta = (p.materials[m] || 0) - (before[m] || 0);
+      // 優先飛向該素材自己的圓幣，找不到才退回整個素材區
+      const matTarget = document.querySelector(`.mat-dock-coin[data-mat="${m}"]`) || matDock;
       if (delta > 0) { flyMaterialGain(m, delta, materialGainOriginEl(action), matTarget); played = true; }
     }
   }
@@ -742,8 +741,6 @@ function renderBoard() {
         <div class="row">
           ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
         </div>
-        <h3>我的素材</h3>
-        <div class="row tut-materials">${materialsRow(p)}</div>
         <h3>已擲出 / 工藝</h3>
         <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
         <h3>服飾</h3>
@@ -783,14 +780,25 @@ function renderBoard() {
       </div>
 
       <div class="bv-hand">
-        ${rawInHand.map(c => `<div class="hand-card">${cardThumb(c)}<div>${c.name}</div></div>`).join('')}
-        ${cultureInHand.map(c => `
-          <div class="hand-card culture${p.actionPoints < 1 ? ' disabled' : ''}" ${p.actionPoints < 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`} title="${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}">
+        ${rawInHand.map(c => `
+          <div class="hand-card">
             ${cardThumb(c)}
-            <div>${c.name}</div>
-            <div class="muted">${EFFECT_LABEL[c.effect] || ''}</div>
+            <div class="hand-card-info"><b>${c.name}</b><span>原料卡・湊對換工藝</span></div>
+          </div>`).join('')}
+        ${cultureInHand.map(c => `
+          <div class="hand-card culture${p.actionPoints < 1 ? ' disabled' : ''}" ${p.actionPoints < 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
+            ${cardThumb(c)}
+            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}</em></div>
           </div>`).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? '<span class="muted">（手牌是空的，去抽張卡吧）</span>' : ''}
+      </div>
+
+      <div class="mat-dock tut-materials">
+        ${CARDS.materials.map(m => `
+          <div class="mat-dock-coin" data-mat="${m}" title="${m}">
+            <img src="${CARDS.materialImages[m]}" alt="${m}">
+            <span class="mat-dock-num">${p.materials[m] || 0}</span>
+          </div>`).join('')}
       </div>
     </div>
   `;

@@ -1387,12 +1387,25 @@ input[type=text] {
   background: transparent;
   border-radius: var(--r-md);
 }
+/* 手牌＝純卡面＋淡金邊發光；名稱/效果收進 hover 浮出的說明框 */
 .bv-hand .hand-card {
   flex: 0 0 auto;
   margin: 0 -16px;
   transform-origin: bottom center;
-  transition: transform 160ms ease, margin 160ms ease, z-index 0s, box-shadow 160ms ease;
+  transition: transform 160ms ease, margin 160ms ease, z-index 0s;
   position: relative;
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-width: auto;
+  box-shadow: none;
+}
+.bv-hand .hand-card .card-thumb {
+  display: block;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--gold-rgb), 0.55);
+  box-shadow: 0 0 10px rgba(var(--gold-rgb), 0.3), 0 6px 14px rgba(0, 0, 0, 0.4);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 .bv-hand .hand-card:nth-child(odd) { transform: rotate(-3deg) translateY(3px); }
 .bv-hand .hand-card:nth-child(even) { transform: rotate(3deg) translateY(3px); }
@@ -1401,7 +1414,71 @@ input[type=text] {
   transform: translateY(-16px) scale(1.08) rotate(0deg);
   z-index: 5;
   margin: 0 -4px;
-  box-shadow: var(--shadow-lg);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.bv-hand .hand-card:hover .card-thumb {
+  border-color: rgba(255, 226, 154, 0.95);
+  box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.65), 0 12px 22px rgba(0, 0, 0, 0.5);
+}
+.bv-hand .hand-card.disabled:hover .card-thumb {
+  border-color: rgba(var(--gold-rgb), 0.55);
+  box-shadow: 0 0 10px rgba(var(--gold-rgb), 0.3), 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.bv-hand .hand-card-info {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%) translateY(4px);
+  min-width: 160px;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(20, 14, 6, 0.94);
+  border: 1px solid rgba(var(--gold-rgb), 0.5);
+  color: #ffe9b0;
+  font-size: 0.78em;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 9;
+}
+.bv-hand .hand-card:hover .hand-card-info { opacity: 1; transform: translateX(-50%) translateY(0); }
+.bv-hand .hand-card-info b { display: block; font-size: 1.05em; }
+.bv-hand .hand-card-info span { display: block; color: rgba(255, 239, 205, 0.78); }
+.bv-hand .hand-card-info em { display: block; font-style: normal; color: var(--gold); margin-top: 2px; }
+
+/* 我的素材：左下角 4 枚圓形素材幣，數字淡淡疊在幣面上 */
+.mat-dock {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 6;
+  display: flex;
+  gap: 10px;
+}
+.mat-dock-coin { position: relative; width: 54px; height: 54px; }
+.mat-dock-coin img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), 0 0 8px rgba(var(--gold-rgb), 0.25);
+}
+.mat-dock-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: rgba(255, 250, 235, 0.82);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 
 @media (max-width: 860px) {
@@ -1425,6 +1502,8 @@ input[type=text] {
   .bv-side { overflow: visible; }
   .bv-side .action-menu { overflow-y: visible; }
   .bv-side .log-box { max-height: 200px; }
+  /* 手機版直向堆疊，素材幣不固定角落、改成置中一列 */
+  .mat-dock { position: static; justify-content: center; margin: 4px auto; }
 }
 
 .story p { line-height: 1.9; }
