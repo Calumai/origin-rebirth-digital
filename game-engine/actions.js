@@ -58,17 +58,26 @@ function drawCulture(state, p) {
 }
 function drawBuilding(state, p) {
   const c = state.buildingDeck.pop();
-  if (c) p.buildings.push(c);
+  if (c) {
+    p.buildings.push(c);
+    checkBuildingSetWin(state, p);
+  }
   return c;
+}
+function checkBuildingSetWin(state, p) {
+  const own = p.buildings.filter(b => b.tribe === p.tribe).length;
+  if (own >= CARDS.buildingsPerTribe && !state.endTriggeredBy) {
+    state.endTriggeredBy = `player_${p.idx}_building_set`; state.endTriggerTurn = state.turn;
+  }
+}
+function requireActionPoints(p, cost) {
+  if (p.actionPoints < cost) throw new Error('點數不足');
 }
 function takeCraft(state, p, craftId) {
   const i = state.craftPool.findIndex(c => c.id === craftId);
   if (i < 0) return null;
   const c = state.craftPool.splice(i, 1)[0];
   p.played.push(c);
-  if (state.craftPool.length === 0 && !state.endTriggeredBy) {
-    state.endTriggeredBy = 'craft_pool_empty'; state.endTriggerTurn = state.turn;
-  }
   return c;
 }
 
@@ -107,6 +116,7 @@ const ACTIONS = {
   RAID(state, a, rng) {
     const p = P(state, a.player), t = P(state, a.target);
     if (a.player === a.target) throw new Error('不能偷自己');
+    requireActionPoints(p, 1);
     p.actionPoints -= 1;
     if (tryDefend(state, t)) { log(state, `${p.tribeName} 偷襲 ${t.tribeName} 被防禦`); return; }
     if (resolveDuel(state, a, rng)) {
@@ -120,16 +130,19 @@ const ACTIONS = {
   // accepted / forced / failedChallenge 皆由呼叫端（UI）帶入。
   TRADE(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
-    p.actionPoints -= 1;
     if (!a.accepted && !a.forced) {
+      requireActionPoints(p, 1);
+      p.actionPoints -= 1;
       log(state, a.failedChallenge ? `${p.tribeName} 猜拳搶交易失敗` : `${t.tribeName} 拒絕交易`);
       return;
     }
     if (a.give.length > 2 || a.get.length > 2) throw new Error('交易上限各 2 枚');
     const count = arr => arr.reduce((o, m) => (o[m] = (o[m] || 0) + 1, o), {});
     const gc = count(a.give), tc = count(a.get);
-    for (const [m, n] of Object.entries(gc)) if ((p.materials[m] || 0) < n) { log(state, `交易失敗：${p.tribeName} ${m} 不足`); return; }
-    for (const [m, n] of Object.entries(tc)) if ((t.materials[m] || 0) < n) { log(state, `交易失敗：${t.tribeName} ${m} 不足`); return; }
+    for (const [m, n] of Object.entries(gc)) if ((p.materials[m] || 0) < n) throw new Error(`交易素材不足: ${m}`);
+    for (const [m, n] of Object.entries(tc)) if ((t.materials[m] || 0) < n) throw new Error(`對方交易素材不足: ${m}`);
+    requireActionPoints(p, 1);
+    p.actionPoints -= 1;
     for (const m of a.give) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     for (const m of a.get)  { t.materials[m]--; p.materials[m] = (p.materials[m] || 0) + 1; }
     log(state, a.forced ? `${p.tribeName} 猜拳勝，強制與 ${t.tribeName} 成交` : `${p.tribeName} ⇄ ${t.tribeName} 交易成立`);
@@ -138,6 +151,7 @@ const ACTIONS = {
   // 1 點：抽原料卡
   DRAW_MATERIAL_CARD(state, a) {
     const p = P(state, a.player);
+    requireActionPoints(p, 1);
     p.actionPoints -= 1;
     const c = drawRaw(state, p);
     log(state, `${p.tribeName} 抽原料卡${c ? '' : '（牌庫已空）'}`);
@@ -146,6 +160,7 @@ const ACTIONS = {
   // 1 點：抽文化卡
   DRAW_CULTURE_CARD(state, a) {
     const p = P(state, a.player);
+    requireActionPoints(p, 1);
     p.actionPoints -= 1;
     const c = drawCulture(state, p);
     log(state, `${p.tribeName} 抽文化卡${c ? '' : '（牌庫已空）'}`);
@@ -154,11 +169,14 @@ const ACTIONS = {
   // 1 點：擲出配對原料卡 → 換工藝卡
   PLAY_RAW_PAIR(state, a) {
     const p = P(state, a.player);
-    p.actionPoints -= 1;
     const craftId = a.craftId;
+    if (!CARDS.crafts[craftId]) throw new Error('未知工藝');
+    if (!state.craftPool.some(c => c.id === craftId)) throw new Error('工藝池已無此卡');
     const need = CARDS.rawCardTypes.filter(t => t.craft === craftId).map(t => t.id);
     const idxs = need.map(id => p.hand.findIndex(c => c.kind === 'raw' && c.id === id));
     if (idxs.some(i => i < 0)) throw new Error('原料未配對');
+    requireActionPoints(p, 1);
+    p.actionPoints -= 1;
     idxs.sort((x, y) => y - x).forEach(i => p.hand.splice(i, 1));
     const c = takeCraft(state, p, craftId);
     log(state, `${p.tribeName} 配對原料換得工藝「${c ? c.name : '（池已空）'}」`);
@@ -167,9 +185,10 @@ const ACTIONS = {
   // 1 點：擲出文化卡（觸發特效）
   PLAY_CULTURE(state, a, rng) {
     const p = P(state, a.player);
-    p.actionPoints -= 1;
     const i = p.hand.findIndex(c => c.kind === 'culture' && c.id === a.cardId);
     if (i < 0) throw new Error('手上無此文化卡');
+    requireActionPoints(p, 1);
+    p.actionPoints -= 1;
     const card = p.hand.splice(i, 1)[0];
     p.played.push(card);
     log(state, `${p.tribeName} 擲出「${card.name}」`);
@@ -198,7 +217,7 @@ const ACTIONS = {
   // 2 點：4 種不同素材換抽建築卡
   BUY_BUILDING(state, a) {
     const p = P(state, a.player);
-    if (p.actionPoints < 2) throw new Error('點數不足');
+    requireActionPoints(p, 2);
     const four = a.spend; // 4 個不同素材名
     if (new Set(four).size !== 4) throw new Error('需 4 種不同素材');
     for (const m of four) if ((p.materials[m] || 0) < 1) throw new Error(`素材不足: ${m}`);
@@ -206,22 +225,21 @@ const ACTIONS = {
     for (const m of four) p.materials[m]--;
     const c = drawBuilding(state, p);
     log(state, `${p.tribeName} 換抽建築卡「${c ? c.name : '（庫空）'}」`);
-    // 結束條件：集滿本族建築
-    const own = p.buildings.filter(b => b.tribe === p.tribe).length;
-    if (own >= CARDS.buildingsPerTribe && !state.endTriggeredBy) {
-      state.endTriggeredBy = `player_${p.idx}_building_set`; state.endTriggerTurn = state.turn;
+    if (!c && !state.endTriggeredBy) {
+      state.endTriggeredBy = 'building_deck_empty'; state.endTriggerTurn = state.turn;
     }
   },
 
   // 2 點：用 2 素材向玩家購買原料卡或服飾卡（對方強制指定素材）
   BUY_FROM_PLAYER(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
-    if (p.actionPoints < 2) throw new Error('點數不足');
-    p.actionPoints -= 2;
     const ci = t.hand.findIndex(c => (c.kind === 'raw' || c.kind === 'clothing') && (a.cardId ? c.id === a.cardId : true));
-    if (ci < 0) { log(state, `${t.tribeName} 無可購卡片`); return; }
+    if (ci < 0) throw new Error(`${t.tribeName} 無可購卡片`);
     const pay = a.pay; // 對方指定 2 素材
-    for (const m of pay) if ((p.materials[m] || 0) < 1) { log(state, `素材不足，購買失敗`); return; }
+    if (!Array.isArray(pay) || pay.length !== 2) throw new Error('需支付 2 枚素材');
+    for (const m of pay) if ((p.materials[m] || 0) < 1) throw new Error(`購買素材不足: ${m}`);
+    requireActionPoints(p, 2);
+    p.actionPoints -= 2;
     for (const m of pay) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     const card = t.hand.splice(ci, 1)[0];
     if (card.kind === 'clothing') p.clothing.push(card); else p.hand.push(card);
@@ -231,14 +249,15 @@ const ACTIONS = {
   // 2 點：建築卡互換（猜拳）
   SWAP_BUILDING(state, a, rng) {
     const p = P(state, a.player), t = P(state, a.target);
-    if (p.actionPoints < 2) throw new Error('點數不足');
+    if (!t.buildings.length) throw new Error(`${t.tribeName} 無建築卡`);
+    requireActionPoints(p, 2);
     p.actionPoints -= 2;
-    if (!t.buildings.length) { log(state, `${t.tribeName} 無建築卡`); return; }
     if (resolveDuel(state, a, rng)) {
       const want = t.buildings.findIndex(b => b.tribe === p.tribe);
       const bi = want >= 0 ? want : 0;
       const b = t.buildings.splice(bi, 1)[0];
       p.buildings.push(b);
+      checkBuildingSetWin(state, p);
       log(state, `${p.tribeName} 猜拳勝，取得「${b.name}」`);
     } else log(state, `${p.tribeName} 建築互換猜拳敗`);
   },
@@ -249,14 +268,14 @@ const ACTIONS = {
   FORCE_SWAP_RAW(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
     if (a.player === a.target) throw new Error('不能與自己交換');
-    if (p.actionPoints < 2) throw new Error('點數不足');
-    p.actionPoints -= 2;
     const mi = a.myHandIdx !== undefined ? a.myHandIdx : p.hand.findIndex(c => c.kind === 'raw');
     const ti = a.theirHandIdx !== undefined ? a.theirHandIdx : t.hand.findIndex(c => c.kind === 'raw');
     if (mi < 0 || ti < 0 || !p.hand[mi] || p.hand[mi].kind !== 'raw'
         || !t.hand[ti] || t.hand[ti].kind !== 'raw') {
-      log(state, `強制交換失敗（一方無原料卡或選擇無效）`); return;
+      throw new Error('強制交換失敗（一方無原料卡或選擇無效）');
     }
+    requireActionPoints(p, 2);
+    p.actionPoints -= 2;
     const mine = p.hand.splice(mi, 1)[0], theirs = t.hand.splice(ti, 1)[0];
     p.hand.push(theirs); t.hand.push(mine);
     log(state, `${p.tribeName} 以「${mine.name}」強制換得 ${t.tribeName} 的「${theirs.name}」`);

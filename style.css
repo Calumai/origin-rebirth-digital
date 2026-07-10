@@ -235,6 +235,26 @@ input[type=text] {
   box-shadow: 0 0 12px rgba(var(--gold-rgb), 0.5);
 }
 .action-menu .action-suggest:hover:not(:disabled) { box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.75); }
+.action-menu button.action-ready:not(.danger) {
+  position: relative;
+  border-left: 3px solid rgba(255, 215, 106, 0.88);
+  background: rgba(255, 255, 255, 0.06);
+}
+.action-menu button.action-ready:not(.danger)::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd76a;
+  box-shadow: 0 0 9px rgba(255, 215, 106, 0.78);
+  transform: translateY(-50%);
+}
+.action-menu button.action-ready:not(.danger) {
+  padding-left: 22px;
+}
 
 /* 行動選單改暗色戰情面板，按鈕改成扁平列表列（貼近參考圖），貼身標籤/建議動作維持發光外框凸顯 */
 .card-box.light-frame.action-menu {
@@ -293,6 +313,16 @@ input[type=text] {
 .dice-ap-line { font-size: 1.15em; margin: 10px 0 2px; }
 .dice-ap-line b { color: var(--accent); font-size: 1.2em; }
 .log-title { margin: 10px 0 4px; font-size: 0.82em; color: rgba(217, 164, 65, 0.85); letter-spacing: 0.04em; }
+.turn-hint {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 106, 0.34);
+  background: rgba(255, 215, 106, 0.11);
+  color: #ffe9b0;
+  font-size: 0.88em;
+  line-height: 1.45;
+}
 
 /* 目標提示面板：治「不知道要幹嘛」，把贏的路變成看得見的清單 */
 .goal-panel {

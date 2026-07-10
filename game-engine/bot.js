@@ -10,7 +10,13 @@ function chooseAction(state, idx, rng) {
   const total = Object.values(p.materials).reduce((a, b) => a + b, 0);
   if (atTurnStart && total < 4) return { type: 'TAKE_MATERIALS', player: idx };
 
-  // 1. 手上原料能配對 → 換工藝（工藝池還有才做）
+  // 1. 4 種不同素材齊 → 優先買建築，讓 Bot 策略符合主勝利路線
+  if (p.actionPoints >= 2) {
+    const have = CARDS.materials.filter(m => (p.materials[m] || 0) >= 1);
+    if (have.length >= 4 && state.buildingDeck.length) return { type: 'BUY_BUILDING', player: idx, spend: have.slice(0, 4) };
+  }
+
+  // 2. 手上原料能配對 → 換工藝（工藝池還有才做）
   if (p.actionPoints >= 1) {
     for (const [craftId] of Object.entries(CARDS.crafts)) {
       if (!state.craftPool.some(c => c.id === craftId)) continue;
@@ -20,7 +26,7 @@ function chooseAction(state, idx, rng) {
     }
   }
 
-  // 2. 手上有文化卡且非防禦卡 → 擲出得分/特效（防禦卡留著擋偷襲）
+  // 3. 手上有文化卡且非防禦卡 → 擲出得分/特效（防禦卡留著擋偷襲）
   if (p.actionPoints >= 1) {
     const c = p.hand.find(c => c.kind === 'culture' && c.effect !== 'defend_raid');
     if (c) {
@@ -38,12 +44,6 @@ function chooseAction(state, idx, rng) {
       }
       return a;
     }
-  }
-
-  // 3. 4 種不同素材齊 → 買建築
-  if (p.actionPoints >= 2) {
-    const have = CARDS.materials.filter(m => (p.materials[m] || 0) >= 1);
-    if (have.length >= 4) return { type: 'BUY_BUILDING', player: idx, spend: have.slice(0, 4) };
   }
 
   // 4. 偶爾偷襲素材最多的人

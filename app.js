@@ -175,6 +175,21 @@ function availablePairs(p) {
 function canBuyBuilding(p) {
   return CARDS.materials.filter(m => (p.materials[m] || 0) >= 1).length >= 4;
 }
+function turnHint(p) {
+  if (p.actionPoints <= 0) return '行動點用完了，請結束回合。';
+  if (canBuyBuilding(p) && p.actionPoints >= 2) return '四種素材到齊了，現在可以優先蓋家屋。';
+  const pairs = availablePairs(p);
+  if (pairs.length && p.actionPoints >= 1) return `你手上有可配對原料，可以換工藝「${pairs[0].name}」。`;
+  const missing = CARDS.materials.filter(m => (p.materials[m] || 0) < 1);
+  if (p.actionPoints === (p.turnStartAP ?? p.actionPoints) && missing.length) return `先補素材吧，目前缺 ${missing.join('、')}。`;
+  if (p.actionPoints < 2) return '剩 1 點行動，適合抽卡、打出文化卡或結束回合。';
+  return '還有行動點，可以補素材、抽卡，或嘗試干擾對手。';
+}
+function actionButton(label, onClick, cost, disabled, reason = '', extraClass = '') {
+  const title = disabled && reason ? ` title="${esc(reason)}"` : '';
+  const classes = [extraClass, !disabled ? 'action-ready' : ''].filter(Boolean).join(' ');
+  return `<button class="${classes}" ${disabled ? 'disabled' : ''}${title} onclick="${onClick}">${label}<span class="ap-cost">${cost}</span></button>`;
+}
 // 目標提示面板：把「怎麼贏」變成看得見的檢查清單，治「不知道要幹嘛、淪為一直抽卡」
 function goalPanel(p) {
   const ownCount = p.buildings.filter(b => b.tribe === p.tribe).length;
@@ -207,6 +222,7 @@ function goalPanel(p) {
 function endReasonLabel(reason) {
   if (!reason) return '（未知）';
   if (reason === 'craft_pool_empty') return '工藝池已抽光';
+  if (reason === 'building_deck_empty') return '建築牌庫已抽光';
   if (reason === 'decks_exhausted') return '三個牌庫全空，且無人可再配對工藝';
   const m = reason.match(/^player_(\d+)_building_set$/);
   if (m) return `${G.players[+m[1]].tribeName} 集滿本族建築`;
@@ -618,6 +634,10 @@ function finishTurnAndAdvance() {
     render();
     return;
   }
+  if (!G.buildingDeck.length && !G.endTriggeredBy) {
+    G.endTriggeredBy = 'building_deck_empty';
+    G.endTriggerTurn = G.turn;
+  }
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
   if (G.currentPlayer === 0) G.turn++;
 
@@ -823,24 +843,25 @@ function renderBoard() {
             </div>
             <div class="ap-pips">${apPips(p.actionPoints, Math.max(p.turnStartAP ?? p.actionPoints, p.actionPoints))}</div>
           </div>
+          <div class="turn-hint">${turnHint(p)}</div>
 
           ${goalPanel(p)}
 
           <div class="action-group-label">蓋家屋（贏的路）</div>
-          <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">拿素材（本族 3 種各 1，或 2 換 1 補缺）<span class="ap-cost">整回合</span></button>
-          <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">蓋家屋：4 種素材換抽家屋卡<span class="ap-cost">2</span></button>
+          ${actionButton('拿素材（本族 3 種各 1，或 2 換 1 補缺）', 'actionTakeMaterialsPrompt()', '整回合', p.actionPoints !== (p.turnStartAP ?? 3), '拿素材是整回合行動，只能在還沒做其他事時使用', 'action-suggest')}
+          ${actionButton('蓋家屋：4 種素材換抽家屋卡', 'actionBuyBuilding()', '2', p.actionPoints < 2 || !canBuyBuilding(p), p.actionPoints < 2 ? '需要 2 點行動點' : '需要 4 種素材各 1')}
 
           <div class="action-group-label">賺加分</div>
-          <button ${p.actionPoints < 1 || !G.rawDeck.length ? 'disabled' : ''} onclick="actionDrawMaterial()">抽原料卡（湊對做工藝用）<span class="ap-cost">1</span></button>
-          ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">湊對換工藝「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
-          <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
+          ${actionButton('抽原料卡（湊對做工藝用）', 'actionDrawMaterial()', '1', p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
+          ${pairs.map(pr => actionButton(`湊對換工藝「${pr.name}」`, `actionPlayRawPair('${pr.craftId}')`, '1', p.actionPoints < 1, '行動點數不足')).join('')}
+          ${actionButton('抽文化卡', 'actionDrawCulture()', '1', p.actionPoints < 1 || !G.cultureDeck.length, p.actionPoints < 1 ? '行動點數不足' : '文化牌庫已空')}
 
           <div class="action-group-label">搞對手（進階）</div>
-          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
-          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
-          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()" ${remoteBlock ? 'title="連線版暫不支援向玩家購卡"' : ''}>向玩家購卡${remoteBlock ? '（連線版暫停）' : ''}<span class="ap-cost">2</span></button>
-          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
-          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
+          ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
+          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
+          ${actionButton(`向玩家購卡${remoteBlock ? '（連線版暫停）' : ''}`, 'actionBuyFromPlayer()', '2', remoteBlock || p.actionPoints < 2 || !others.length, remoteBlock ? '連線版暫不支援向玩家購卡' : (p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家'))}
+          ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
+          ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
 
           <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
         </div>

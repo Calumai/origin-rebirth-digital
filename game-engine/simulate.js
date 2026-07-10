@@ -37,6 +37,10 @@ function runGame(seed, playerCount, verbose = false) {
       state.phase = 'ended';
       break;
     }
+    if (!state.buildingDeck.length && !state.endTriggeredBy) {
+      state.endTriggeredBy = 'building_deck_empty';
+      state.endTriggerTurn = state.turn;
+    }
     state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
     if (state.currentPlayer === 0) state.turn++;
 
