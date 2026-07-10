@@ -29,7 +29,8 @@ function resolveDuel(state, a, rng) {
 // 回傳 { die, ap }；die 可由呼叫端預先擲好傳入（UI 動畫用），未傳則用 rng
 function rollTurnDice(state, playerIdx, rng, die) {
   const d = die !== undefined ? die : Math.floor(rng() * 6) + 1;
-  const ap = d <= 2 ? 2 : d <= 4 ? 3 : 4;
+  // A19：上限由 4 砍到 3，避免骰高點一回合做太多事（1-2 點→2、3-6 點→3；期望值 2.67）
+  const ap = d <= 2 ? 2 : 3;
   const p = state.players[playerIdx];
   p.actionPoints = ap;
   p.turnStartAP = ap;
@@ -57,11 +58,13 @@ function drawCulture(state, p) {
   return c;
 }
 function drawBuilding(state, p) {
-  const c = state.buildingDeck.pop();
-  if (c) {
-    p.buildings.push(c);
-    checkBuildingSetWin(state, p);
-  }
+  // A19：每族專屬——蓋家屋只抽「自己這族」的家屋，確保每個玩家都湊得滿本族 4 棟，
+  // 不會被別人抽走、也不會抽到別族的（對自己不算分）。回傳 null 代表本族 4 棟已抽完（即已蓋滿＝已獲勝）。
+  const i = state.buildingDeck.findIndex(b => b.tribe === p.tribe);
+  if (i < 0) return null;
+  const c = state.buildingDeck.splice(i, 1)[0];
+  p.buildings.push(c);
+  checkBuildingSetWin(state, p);
   return c;
 }
 function checkBuildingSetWin(state, p) {

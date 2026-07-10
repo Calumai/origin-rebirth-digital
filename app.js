@@ -856,7 +856,7 @@ function renderBoard() {
         <div class="row">
           <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料 ${G.rawDeck.length}</span>
           <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化 ${G.cultureDeck.length}</span>
-          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築 ${G.buildingDeck.length}</span>
+          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
         </div>
         <div class="row">
@@ -963,7 +963,7 @@ function renderBotTurn(p) {
         <div class="row">
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
         </div>
       </div>
@@ -1089,8 +1089,18 @@ function renderRPS(m) {
   if (m.phase === 'reveal') {
     const label = RPS_LABELS;
     const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
-    return `<h3>結果揭曉</h3>
-      <p>${G.players[m.attackerIdx].tribeName}：${label[m.attackerMove]}　vs　${G.players[m.defenderIdx].tribeName}：${label[m.defenderMove]}</p>
+    const revealSide = idx => `
+      <div class="rps-reveal-side${idx === winnerIdx ? ' win' : ''}">
+        <div class="rps-reveal-name">${G.players[idx].tribeName}</div>
+        ${rpsIcon(idx === m.attackerIdx ? m.attackerMove : m.defenderMove)}
+        <div class="rps-reveal-move">${label[idx === m.attackerIdx ? m.attackerMove : m.defenderMove]}</div>
+      </div>`;
+    return `<h3 class="center">結果揭曉</h3>
+      <div class="rps-reveal">
+        ${revealSide(m.attackerIdx)}
+        <div class="rps-reveal-vs">VS</div>
+        ${revealSide(m.defenderIdx)}
+      </div>
       <p class="center"><span class="rps-stamp">${G.players[winnerIdx].tribeName} 勝出！</span></p>
       <button class="primary" onclick="rpsFinish()">繼續</button>`;
   }

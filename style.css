@@ -406,7 +406,24 @@ input[type=text] {
 .log-box div { margin: 3px 0; padding-left: 10px; border-left: 2px solid rgba(217,164,65,0.4); }
 .log-box div:last-child { color: #ffe4a8; font-weight: 500; }
 
-.rps-btn { font-size: 2.2em; padding: 18px 26px; }
+.rps-btn {
+  width: 104px;
+  padding: 14px 8px 12px;
+  font-size: 1.15em;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+/* 揭曉：雙方出拳並排，勝方發光 */
+.rps-reveal { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 14px 0 6px; }
+.rps-reveal-side { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 14px; border-radius: 12px; border: 2px solid transparent; min-width: 96px; }
+.rps-reveal-side.win { border-color: var(--gold); background: rgba(255, 207, 105, 0.12); box-shadow: 0 0 18px rgba(255, 196, 92, 0.4); }
+.rps-reveal-side .rps-icon { width: 56px; height: 56px; }
+.rps-reveal-name { font-size: 0.82em; opacity: 0.85; }
+.rps-reveal-move { font-weight: 700; font-size: 1.05em; }
+.rps-reveal-vs { font-weight: 900; font-size: 1.2em; color: var(--gold); opacity: 0.8; }
 
 /* score-table 只用在結算畫面（暗色木雕面板內），直接做深色主題不影響其他頁 */
 .score-table { width: 100%; border-collapse: collapse; border-radius: var(--r-md); overflow: hidden; margin: 4px 0 8px; }
@@ -2542,7 +2559,7 @@ input[type=text] {
 
 @media (max-width: 600px) {
   body { font-size: 17px; }
-  .rps-btn { font-size: 1.6em; padding: 14px 18px; }
+  .rps-btn { width: 92px; font-size: 1.05em; padding: 12px 6px 10px; }
   .hero-tribes img { width: 84px; }
   .toast { font-size: 0.82em; padding: 8px 16px; }
 }
