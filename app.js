@@ -16,7 +16,8 @@ let G = null;
 let rng = null;
 let ui = {
   screen: 'home',
-  setup: { count: 2, names: ['', '', '', ''], bots: [false, false, false, false], tribes: [null, null, null, null] },
+  // A16：單機固定「1 位真人 vs 電腦」，P2-P4 一律電腦（多真人是未來的線上連線功能，不做同機交接）
+  setup: { count: 2, names: ['', '', '', ''], bots: [false, true, true, true], tribes: [null, null, null, null] },
   nicknames: [],
   isBot: [],
   pass: null,
@@ -186,7 +187,6 @@ function render() {
   if (ui.screen === 'home') html = renderHome();
   else if (ui.screen === 'story') html = renderStory();
   else if (ui.screen === 'setup') html = renderSetup();
-  else if (ui.screen === 'pass') html = `<section class="end-screen"><div class="setup-panel">${passInner(ui.pass.toIdx, 'revealTurn')}</div></section>`;
   else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
@@ -416,12 +416,9 @@ function renderSetup() {
           <div class="player-row">
             <span class="player-tag">P${i + 1}</span>
             ${i === 0
-              ? `<span class="player-tag-fixed">真人</span>`
-              : `<button class="player-type-button${!s.bots[i] ? ' is-active' : ''}" onclick="setBot(${i}, false)">真人</button>
-                 <button class="player-type-button${s.bots[i] ? ' is-active' : ''}" onclick="setBot(${i}, true)">電腦</button>`}
-            ${s.bots[i]
-              ? `<span class="player-tag-fixed">電腦自動操作</span>`
-              : `<input type="text" value="${esc(s.names[i] || '')}" placeholder="玩家 ${i + 1} 暱稱" oninput="setName(${i}, this.value)">`}
+              ? `<span class="player-tag-fixed">你</span>
+                 <input type="text" value="${esc(s.names[0] || '')}" placeholder="你的暱稱" oninput="setName(0, this.value)">`
+              : `<span class="player-tag-fixed">電腦自動操作</span>`}
           </div>
           ${s.bots[i] ? '' : `
           <div class="tribe-pick-row">
@@ -435,13 +432,12 @@ function renderSetup() {
           </div>`}
         `).join('')}
         <div class="center"><button class="primary-start-button" ${allPicked ? '' : 'disabled'} onclick="startGame()">開始遊戲</button></div>
-        ${allPicked ? '' : '<p class="muted center" style="color:#f7ddb0">請所有真人玩家先選擇族群</p>'}
+        ${allPicked ? '' : '<p class="muted center" style="color:#f7ddb0">請先選擇你的族群</p>'}
       </div>
     </section>`;
 }
 function setCount(n) { ui.setup.count = n; render(); }
 function setName(i, val) { ui.setup.names[i] = val; }
-function setBot(i, val) { ui.setup.bots[i] = val; if (val) ui.setup.tribes[i] = null; render(); }
 function pickTribe(i, tribeId) {
   const s = ui.setup;
   if (s.tribes.some((x, j) => x === tribeId && j !== i && j < s.count)) return; // 已被其他玩家選走
@@ -488,13 +484,8 @@ function startPlayerTurn(idx) {
     }, 90);
     return;
   }
-  ui.screen = 'pass';
-  ui.pass = { toIdx: idx, next: 'board' };
-  render();
-}
-// 真人亮牌後先擲骰決定行動點數（A11）
-function revealTurn() {
-  ui.screen = ui.pass.next;
+  // A16：只有一位真人，不再走「請把電腦交給下一位」交接畫面，直接進擲骰（A11）
+  ui.screen = 'board';
   ui.modal = { type: 'dice', phase: 'ready', face: null, ap: null };
   render();
 }
@@ -1313,7 +1304,7 @@ function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer 
 
 Object.assign(window, {
   gotoSetup, gotoStory, gotoHome, diceRoll, diceDone,
-  setCount, setName, setBot, pickTribe, startGame, revealTurn,
+  setCount, setName, pickTribe, startGame,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
   forceSwapPickMine, forceSwapPickTheirs, forceSwapConfirm,

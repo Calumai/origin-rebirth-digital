@@ -92,6 +92,18 @@ if (result === null) {
 
 **實作**：`app.js` 新增 `TUTORIAL_STEPS`（含 target class／標題／說明文字）、`positionTutorial()`（每次 `render()` 後執行，用 `getBoundingClientRect` 動態定位提示框並替目標元件加 `.tutorial-highlight` 發光動畫）。目標元件用固定 class 標記（`tut-ap`／`tut-materials`／`tut-actions`／`tut-buildings`／`tut-endturn`），純加法式標記，不影響原有邏輯或 Bot 路徑。
 
+## A16：取消同機多真人（hot-seat），固定「1 位真人 vs 電腦」（2026-07-10 JJ 決議）
+
+**背景**：JJ 指出實際使用情境不會有「把電腦交給下一位玩家」的時刻——真正的多人對戰未來應該走線上連線（輸入連線代碼）形式，現階段就是一個玩家跟電腦比賽。原本 M2 的 hot-seat 交接畫面（passInner「請把電腦交給 P2」）成了每回合都要多按一次的阻礙。
+
+**決議內容**：
+- 設定畫面：P1 固定真人（暱稱＋選族群），P2-P4 一律電腦，移除「真人/電腦」切換按鈕。人數選擇（2-4 人）保留，意義變成「跟 1~3 個電腦比賽」。
+- 真人回合開始不再經過交接畫面，直接跳擲骰（A11 流程不變）。
+- 引擎不動：`initGame`／Bot／`simulate.js` 路徑完全不受影響。原本針對「真人對真人」的交接流程（RPS 出拳互猜的 pass 階段、強制交換/交易的 passOverlay 盲選）因對手必為電腦而不再觸發，程式碼保留（未來線上版可沿用其狀態機），僅入口不可達。
+- 未來若做多人：走線上連線（連線代碼配對），不回頭做同機交接。
+
+**實作**：`app.js` `ui.setup.bots` 預設 `[false, true, true, true]`；`renderSetup` 移除切換鈕；`startPlayerTurn` 真人路徑直接 `screen='board'` + 擲骰 modal，刪除 `'pass'` screen 分支與 `revealTurn()`／`setBot()`。
+
 ## 待補（尚未決議，暫依交接文件假設開發，不擋 M2 進度）
 - 交接文件 §8「待 JJ 提供」項目：族語會話內容（部落戰爭 P.29–P.44，規則書已再次確認此頁碼範圍）、正式族語會話大字體排版。
 - 建築卡各卡實際分數：正式素材裡沒有找到建築卡卡面圖或分數資料，暫沿用假設 A3 一律 3 分，待 JJ 提供。
