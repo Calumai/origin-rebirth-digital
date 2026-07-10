@@ -1041,6 +1041,30 @@ input[type=text] {
   text-align: center;
   width: 160px;
 }
+/* 浮動靜音／配樂切換鈕（右下角常駐） */
+.audio-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 90;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 224, 148, 0.3);
+  background: rgba(18, 16, 12, 0.72);
+  backdrop-filter: blur(8px);
+  color: #ffe9c4;
+  font-size: 20px;
+  line-height: 44px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.audio-toggle:hover { transform: scale(1.08); border-color: rgba(255, 224, 148, 0.6); }
+.audio-toggle.is-muted { opacity: 0.6; }
+
 .net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
 .net-error { color: #ff9a7a; text-align: center; }
 /* 大廳入座名單 */

@@ -36,6 +36,7 @@ function isBot(idx) { return !!ui.isBot[idx]; }
 function showToast(msg, kind) {
   const layer = document.getElementById('toast-layer');
   if (!layer) return;
+  window.Sound?.sfx('toast');
   const el = document.createElement('div');
   el.className = 'toast' + (kind ? ' toast-' + kind : '');
   el.textContent = msg;
@@ -604,6 +605,7 @@ function diceRoll() {
       clearInterval(t);
       const { die, ap } = rollTurnDice(G, G.currentPlayer, rng);
       m.phase = 'result'; m.die = die; m.ap = ap;
+      window.Sound?.sfx('dice');
       render();
       if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
     }
@@ -644,6 +646,7 @@ function finishTurnAndAdvance() {
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
     G.phase = 'ended';
     ui.screen = 'end';
+    window.Sound?.sfx('victory');
     render();
     return;
   }
@@ -663,7 +666,7 @@ function finishTurnAndAdvance() {
     if (!anyPair) { G.endTriggeredBy = 'decks_exhausted'; G.phase = 'ended'; }
   }
 
-  if (G.phase === 'ended') { ui.screen = 'end'; render(); return; }
+  if (G.phase === 'ended') { ui.screen = 'end'; window.Sound?.sfx('victory'); render(); return; }
   startPlayerTurn(G.currentPlayer);
 }
 
@@ -1126,6 +1129,11 @@ function rpsPick(move) {
     if (res === null) m.phase = 'tie';
     else { m.result = res; m.phase = 'reveal'; }
   }
+  if (m.phase === 'reveal') {
+    const humanIdx = ui.net ? ui.net.myIdx : 0;
+    const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
+    window.Sound?.sfx(winnerIdx === humanIdx ? 'win' : 'lose');
+  }
   render();
 }
 function rpsRevealDefenderReady() { ui.modal.phase = 'defender'; render(); }
@@ -1452,6 +1460,7 @@ function buyBuildingToggle(mat) {
 function buyBuildingConfirm() {
   const picks = ui.modal.picks.slice();
   ui.modal = null;
+  window.Sound?.sfx('build');
   doAction({ type: 'BUY_BUILDING', player: G.currentPlayer, spend: picks });
 }
 
@@ -1474,6 +1483,7 @@ function actionPlayCulture(cardId) {
   }
 }
 function actionDrawMaterial() {
+  window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
   const p = currentPlayer();
   const drawn = p.hand.filter(c => c.kind === 'raw').slice(-1)[0];
@@ -1481,6 +1491,7 @@ function actionDrawMaterial() {
   if (drawn && cards.length) flyDrawnCard('.deck-raw', CARDS.cardBacks.raw, cards[cards.length - 1], drawn);
 }
 function actionDrawCulture() {
+  window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
   const p = currentPlayer();
   const drawn = p.hand.filter(c => c.kind === 'culture').slice(-1)[0];
