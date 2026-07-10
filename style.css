@@ -1026,6 +1026,23 @@ input[type=text] {
 }
 .net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
 .net-error { color: #ff9a7a; text-align: center; }
+/* 大廳入座名單 */
+.net-roster { list-style: none; margin: 14px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.net-seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 220, 140, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+.net-seat.filled { border-color: rgba(255, 211, 116, 0.42); }
+.net-seat.empty { opacity: 0.55; border-style: dashed; }
+.net-seat img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+.net-seat span { font-weight: 700; color: #ffe9c4; }
+.net-seat em { font-style: normal; color: rgba(255, 233, 196, 0.72); font-size: 0.85em; }
+.net-seat .net-seat-host { margin-left: auto; font-size: 0.72em; font-weight: 700; color: #1b1420; background: #f9e5b1; padding: 2px 8px; border-radius: 999px; }
 .invite-url {
   display: block;
   width: 100%;
