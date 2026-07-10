@@ -464,6 +464,59 @@ input[type=text] {
   .story-tribe-row { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── 桌面視覺重整 v2：資源、牌架、資訊層級統一 ── */
+.table-surface { background-color: #17110b; }
+.board-viewport {
+  grid-template-columns: 244px minmax(420px, 1fr) 320px;
+  gap: 12px;
+  padding: 14px 18px 12px;
+}
+.bv-header { padding: 6px 10px; }
+.bv-header h1 { letter-spacing: .04em; font-size: clamp(1.1rem, 1.8vw, 1.55rem); }
+.bv-versus .versus-strip { border: 1px solid rgba(255,220,145,.34); background: rgba(18,12,6,.76); box-shadow: 0 10px 28px rgba(0,0,0,.25); }
+.bv-resources, .bv-buildings, .bv-side .card-box { border: 1px solid rgba(255,220,145,.3); border-radius: 16px; }
+.bv-resources { background: linear-gradient(180deg, rgba(37,24,12,.97), rgba(19,12,6,.98)); }
+.bv-buildings { background: linear-gradient(180deg, rgba(255,251,241,.98), rgba(244,232,207,.98)); }
+.bv-side { gap: 10px; }
+.bv-side .action-menu { border: 1px solid rgba(255,220,145,.34); border-radius: 16px; }
+.bv-hand { min-height: 190px; border-radius: 16px; }
+
+/* 素材數量改為圖示下方的數量牌，不再覆蓋圖片 */
+.mat-dock {
+  left: 24px;
+  bottom: 18px;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 10px 6px;
+  border: 1px solid rgba(255,220,145,.24);
+  border-radius: 16px;
+  background: rgba(18,11,5,.74);
+  box-shadow: 0 10px 24px rgba(0,0,0,.34);
+}
+.mat-dock-coin { width: 58px; height: 82px; text-align: center; }
+.mat-dock-coin img { width: 52px; height: 52px; margin: 0 auto 4px; }
+.mat-dock-num {
+  position: static;
+  width: 100%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #f4e3bc;
+  color: #2b1a0c;
+  font-size: 15px;
+  line-height: 1;
+  text-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(108,70,25,.35), 0 2px 5px rgba(0,0,0,.3);
+}
+.mat-dock-coin::after { content: attr(data-mat); display: block; margin-top: 3px; color: #f4e5c7; font-size: 10px; white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .board-viewport { grid-template-columns: 1fr; padding: 10px; }
+  .mat-dock { position: static; margin: 8px auto; }
+}
+
 /* ── 傳裝置畫面：套進暗色木框後，.muted 需改亮色維持對比 ── */
 .setup-panel .pass-screen { min-height: auto; padding: 6px 0; }
 .setup-panel .pass-screen .muted { color: rgba(248,230,190,0.7); }
