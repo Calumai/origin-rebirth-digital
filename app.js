@@ -120,6 +120,11 @@ function currentPlayer() { return G.players[G.currentPlayer]; }
 function matIcon(m) {
   return `<img class="mat-coin" src="${CARDS.materialImages[m]}" alt="${m}">`;
 }
+// 行動點數用圓點呈現：亮＝還可以用，暗＝已用掉。total 給幾顆點、remaining 給亮幾顆
+function apPips(remaining, total) {
+  const n = Math.max(total, remaining, 0);
+  return Array.from({ length: n }, (_, i) => `<span class="ap-pip${i < remaining ? '' : ' used'}"></span>`).join('');
+}
 function tribeBadge(tribeId) {
   const t = CARDS.tribes[tribeId];
   return `<span class="tribe-badge tribe-${tribeId}"><img class="tribe-icon" src="${t.img}" alt="">${t.name}</span>`;
@@ -497,13 +502,16 @@ function renderDice(m) {
   const who = m.bot ? `${currentPlayer().tribeName} ${nickname(G.currentPlayer)}（電腦） ` : '';
   if (m.phase === 'ready') return `<h3 class="center">回合開始，先擲骰子！</h3>
     <div class="center dice-face">${dieCube(1)}</div>
+    <p class="center muted">骰子點數會變成你這回合能做幾件事（行動點）</p>
     <div class="center"><button class="cta cta-primary" onclick="diceRoll()">擲骰子</button></div>`;
   if (m.phase === 'rolling') return `<h3 class="center">${who}擲骰中…</h3>
     <div class="center dice-face">${dieCube(m.face + 1, 'dice-rolling')}</div>`;
-  return `<h3 class="center">${who}擲出 ${m.die} 點！</h3>
+  return `<h3 class="center">${who}骰到 ${m.die} 點！</h3>
     <div class="center dice-face">${dieCube(m.die)}</div>
-    <p class="center"><b>本回合 ${m.ap} 行動點</b>${m.ap === 4 ? '，手氣真好！' : m.ap === 2 ? '，將就一下…' : ''}</p>
-    ${m.bot ? '' : `<p class="center muted">（也可以放棄行動點，選「整回合拿素材」）</p>
+    <p class="center dice-ap-line">骰子 <b>${m.die}</b> 點　→　這回合可以做 <b>${m.ap}</b> 件事</p>
+    <div class="center ap-pips ap-pips-lg">${apPips(m.ap, m.ap)}</div>
+    ${m.ap === 4 ? '<p class="center muted">手氣真好！</p>' : m.ap === 2 ? '<p class="center muted">將就一下…</p>' : ''}
+    ${m.bot ? '' : `<p class="center muted">（也可以放棄行動，選「整回合拿素材」）</p>
     <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`}`;
 }
 function diceRoll() {
@@ -729,7 +737,6 @@ function renderBoard() {
       <div class="bv-resources card-box light-frame">
         <div class="row between">
           <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}</div>
-          <div class="chip tut-ap">行動點數：${p.actionPoints}</div>
         </div>
         <h3>戰場・公共牌庫</h3>
         <div class="row">
@@ -755,7 +762,13 @@ function renderBoard() {
 
       <div class="bv-side">
         <div class="card-box light-frame action-menu tut-actions">
-          <h3>行動</h3>
+          <div class="ap-tracker tut-ap">
+            <div class="ap-tracker-top">
+              <span class="ap-tracker-label">本回合還能做</span>
+              <span class="ap-tracker-count"><b>${p.actionPoints}</b> 件事</span>
+            </div>
+            <div class="ap-pips">${apPips(p.actionPoints, Math.max(p.turnStartAP ?? p.actionPoints, p.actionPoints))}</div>
+          </div>
 
           <div class="action-group-label">基礎行動</div>
           <button class="action-suggest" ${p.actionPoints !== (p.turnStartAP ?? 3) ? 'disabled' : ''} onclick="actionTakeMaterialsPrompt()">整回合：拿素材<span class="ap-cost">全部</span></button>
@@ -775,8 +788,6 @@ function renderBoard() {
 
           <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
         </div>
-
-        <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
 
       <div class="bv-hand">
@@ -842,6 +853,7 @@ function renderBotTurn(p) {
               <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
             </div>`).join('')}
         </div>
+        <h3 class="log-title">電腦做了什麼</h3>
         <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
     </div>
