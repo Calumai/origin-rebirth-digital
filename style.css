@@ -1762,6 +1762,29 @@ input[type=text] {
 .table-surface .action-menu button:disabled { color: rgba(245,231,200,0.42); }
 .table-surface .bv-resources .chip,
 .table-surface .bv-resources .muted { color: #f6e8ca; }
+.empty-hand-state {
+  width: min(620px, 92%);
+  min-height: 148px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 14px 22px;
+  border: 1px dashed rgba(255,220,145,0.45);
+  border-radius: 14px;
+  background: rgba(20,12,5,0.42);
+  color: #f8e8c7;
+}
+.empty-hand-decks { display: flex; gap: 12px; }
+.empty-deck { width: 74px; text-align: center; color: #ffe7aa; font-size: 11px; }
+.empty-deck img { display: block; width: 62px; height: 88px; object-fit: cover; margin: 0 auto 4px; border-radius: 7px; border: 1px solid #d9a441; box-shadow: 0 5px 12px rgba(0,0,0,0.45); }
+.empty-deck.culture-deck img { border-color: #a67bc8; }
+.empty-deck b, .empty-deck span { display: block; }
+.empty-deck span { color: #f5d58e; }
+.empty-hand-copy { display: flex; flex-direction: column; gap: 4px; }
+.empty-hand-copy strong { font-size: 18px; color: #fff1cf; }
+.empty-hand-copy span { color: #ead9b8; font-size: 13px; }
+.bv-header { padding-left: 10px; }
 
 @media (max-width: 600px) {
   .bv-hand { justify-content: flex-start; min-height: 168px; padding-inline: 10px; }

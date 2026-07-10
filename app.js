@@ -878,7 +878,14 @@ function renderBoard() {
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}</em></div>
           </div>`).join('')}
-        ${(!rawInHand.length && !cultureInHand.length) ? '<span class="muted">（手牌是空的，去抽張卡吧）</span>' : ''}
+        ${(!rawInHand.length && !cultureInHand.length) ? `
+          <div class="empty-hand-state">
+            <div class="empty-hand-decks">
+              <div class="empty-deck"><img src="${CARDS.cardBacks.raw}" alt="原料牌庫"><b>原料牌庫</b><span>${G.rawDeck.length} 張</span></div>
+              <div class="empty-deck culture-deck"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張</span></div>
+            </div>
+            <div class="empty-hand-copy"><strong>你的手牌區</strong><span>目前沒有手牌，從右側行動選單抽牌</span></div>
+          </div>` : ''}
       </div>
 
       <div class="mat-dock tut-materials">
