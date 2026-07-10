@@ -1356,6 +1356,16 @@ function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer 
 // 隨機結果（骰子/文化卡偷取/隨機工藝）自然同步，不必傳明碼結果。
 const ROOM_PREFIX = 'originrebirth-';
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 I L O 0 1
+// ICE：Google STUN + 免費 TURN 中繼。手機行動網路↔家用 wifi 常是不同 NAT，
+// 純 STUN 打不通，一定要有 TURN 中繼才連得上（這是「手機連不了」的主因）。
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ]
+};
 function makeRoomCode() {
   let s = '';
   for (let i = 0; i < 5; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
@@ -1370,14 +1380,14 @@ const Net = {
   },
   host(code, onReady, onConnect, onError) {
     this.role = 'host';
-    this.peer = new Peer(ROOM_PREFIX + code);
+    this.peer = new Peer(ROOM_PREFIX + code, { config: ICE_CONFIG });
     this.peer.on('open', () => onReady(code));
     this.peer.on('connection', (c) => { this.conn = c; this._wire(c, onConnect); });
     this.peer.on('error', (e) => onError(e));
   },
   join(code, onConnect, onError) {
     this.role = 'guest';
-    this.peer = new Peer();
+    this.peer = new Peer(undefined, { config: ICE_CONFIG });
     this.peer.on('open', () => { this.conn = this.peer.connect(ROOM_PREFIX + code, { reliable: true }); this._wire(this.conn, onConnect); });
     this.peer.on('error', (e) => onError(e));
   },
@@ -1403,6 +1413,18 @@ function netSetName(v) { if (ui.netLobby) ui.netLobby.name = v; }
 function netSetTribe(id) { if (ui.netLobby) { ui.netLobby.tribe = ui.netLobby.tribe === id ? null : id; render(); } }
 function netSetCode(v) { if (ui.netLobby) ui.netLobby.codeInput = v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); }
 function netReadyName() { const L = ui.netLobby; return (L.name || '').trim() || '玩家'; }
+function netInviteURL(code) { return location.origin + location.pathname + '?room=' + code; }
+function netCopyInvite() {
+  const url = netInviteURL(ui.netLobby.roomCode);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(
+      () => showToast('已複製邀請連結，貼給對方即可'),
+      () => showToast('複製失敗，請長按網址手動複製'));
+  } else {
+    const el = document.querySelector('.invite-url'); if (el) { el.focus(); el.select(); }
+    showToast('請長按上方網址手動複製');
+  }
+}
 
 function netCreateRoom() {
   const L = ui.netLobby;
@@ -1492,7 +1514,10 @@ function renderNetLobby() {
   if (L.status === 'waiting') {
     body = `
       <h3>房間已建立</h3>
-      <p class="muted">把這個房號給對方，請他輸入加入：</p>
+      <p class="muted">把邀請連結傳給對方，他點開就能直接加入：</p>
+      <input class="invite-url" type="text" readonly value="${esc(netInviteURL(L.roomCode))}" onclick="this.select()">
+      <div class="center"><button class="primary" onclick="netCopyInvite()">複製邀請連結</button></div>
+      <p class="muted" style="margin-top:14px;">或口頭告訴對方房號：</p>
       <div class="room-code">${L.roomCode}</div>
       <p class="net-waiting">等待對方加入…</p>`;
   } else if (L.status === 'joining') {
@@ -1502,6 +1527,7 @@ function renderNetLobby() {
       <div class="center"><button class="primary" onclick="gotoNetLobby()">重新開始</button></div>`;
   } else {
     body = `
+      ${L.invited ? `<p class="net-invited">有人邀請你加入房間 <b>${esc(L.codeInput)}</b>！填好名字、選好族群就能加入。</p>` : ''}
       <label class="name-field">
         <span class="name-field-label">你的名字</span>
         <input type="text" value="${esc(L.name)}" placeholder="輸入你的名字" maxlength="12" oninput="netSetName(this.value)">
@@ -1509,14 +1535,14 @@ function renderNetLobby() {
       <div class="net-section-label">選擇你的族群</div>
       ${picker}
       <div class="net-actions">
-        <div class="net-host-box">
-          <button class="primary-start-button" onclick="netCreateRoom()">建立房間</button>
-          <p class="muted">當房主，產生房號給朋友</p>
-        </div>
-        <div class="net-or">或</div>
         <div class="net-join-box">
           <input class="room-code-input" type="text" value="${esc(L.codeInput)}" placeholder="房號" maxlength="5" oninput="netSetCode(this.value)">
-          <button class="secondary-lore-button" onclick="netJoinRoom()">加入房間</button>
+          <button class="${L.invited ? 'primary-start-button' : 'secondary-lore-button'}" onclick="netJoinRoom()">加入房間</button>
+        </div>
+        <div class="net-or">或</div>
+        <div class="net-host-box">
+          <button class="${L.invited ? 'secondary-lore-button' : 'primary-start-button'}" onclick="netCreateRoom()">建立房間</button>
+          <p class="muted">當房主，產生邀請連結給朋友</p>
         </div>
       </div>`;
   }
@@ -1546,7 +1572,20 @@ Object.assign(window, {
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
-  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom
+  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom, netCopyInvite
 });
+
+// 有人用邀請連結（?room=CODE）點進來 → 直接開連線大廳並帶入房號、highlight 加入
+(function initFromInviteURL() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+    if (room && typeof Peer !== 'undefined') {
+      ui.netLobby = { status: 'form', name: '', tribe: null, codeInput: room, roomCode: '', error: '', invited: true };
+      ui.screen = 'netLobby';
+      history.replaceState(null, '', location.pathname); // 清掉網址參數，避免重整又觸發
+    }
+  } catch (e) {}
+})();
 
 render();

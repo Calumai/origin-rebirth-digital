@@ -770,6 +770,33 @@ input[type=text] {
 }
 .net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
 .net-error { color: #ff9a7a; text-align: center; }
+.invite-url {
+  display: block;
+  width: 100%;
+  margin: 6px 0 12px;
+  font-size: 15px;
+  text-align: center;
+  color: #2a1708;
+}
+.net-invited {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: rgba(var(--gold-rgb), 0.16);
+  border: 1px solid rgba(var(--gold-rgb), 0.5);
+  color: #ffe9b0;
+  text-align: center;
+}
+.net-invited b { color: #ffd76a; letter-spacing: 0.15em; }
+
+@media (max-width: 600px) {
+  .net-tribe-row { gap: 6px; }
+  .net-tribe-row .tribe-pick img { max-width: 100%; }
+  .net-join-box { flex-direction: column; width: 100%; }
+  .room-code-input { width: 100%; }
+  .room-code { font-size: 2em; letter-spacing: 0.2em; padding: 12px 18px; }
+  .invite-url { font-size: 13px; }
+}
 
 /* 首頁次要按鈕並排（連線對戰 / 世界觀介紹） */
 .ps5-actions-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
