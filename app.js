@@ -357,6 +357,14 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+// 手機版主選單抽屜開合（桌機用不到，側欄常駐）
+function toggleHomeNav() {
+  const home = document.querySelector('.ps5-home');
+  if (!home) return;
+  const open = home.classList.toggle('nav-open');
+  const btn = home.querySelector('.ps5-nav-toggle');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 // 首頁點族群卡＝選好我方族群直接進設定（填名字/對手數）後開始，A14 的選族群流程收斂到這一步
 function homeStartWithTribe(i) {
   const id = Object.keys(CARDS.tribes)[i];
@@ -375,6 +383,11 @@ function renderHome() {
       <div class="ps5-embers ps5-embers-2"></div>
       <div class="ps5-vignette"></div>
       <div class="ps5-focus-glow"></div>
+
+      <button class="ps5-nav-toggle" onclick="toggleHomeNav()" aria-label="開啟主選單" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="ps5-nav-scrim" onclick="toggleHomeNav()" aria-hidden="true"></div>
 
       <aside class="ps5-sidebar" aria-label="主選單">
         <button class="side-item active" onclick="gotoHome()">
@@ -1499,7 +1512,8 @@ const Net = {
   sendExcept(msg, except) {
     const payload = JSON.stringify(msg);
     this.conns.forEach(c => { if (c !== except) try { if (c.open) c.send(payload); } catch (e) {} });
-  }
+  },
+  sendConn(c, msg) { try { if (c && c.open) c.send(JSON.stringify(msg)); } catch (e) {} }
 };
 
 function gotoNetLobby() {
@@ -1568,23 +1582,47 @@ function netOnMessage(msg, sourceConn) {
   if (!msg || !msg.t) return;
   if (msg.t === 'join' && Net.role === 'host') {
     const L = ui.netLobby;
-    let guestTribe = msg.tribe;
-    if (guestTribe === L.tribe) { // 撞族群：自動改派 guest 到第一個沒被選的族群
-      guestTribe = Object.keys(CARDS.tribes).find(id => id !== L.tribe) || guestTribe;
-    }
     L.players = L.players || [{ name: L.name, tribe: L.tribe }];
-    if (L.players.length >= L.count) return;
-    L.players.push({ name: msg.name || '玩家', tribe: guestTribe });
-    if (L.players.length < L.count) { render(); return; }
+    if (L.players.length >= L.count) { Net.sendConn(sourceConn, { t: 'roomFull' }); return; }
+    // 族群撞號：比對「所有已入座玩家」，自動改派到還沒被選走的族（4 族剛好夠 4 人各一）
+    let guestTribe = msg.tribe;
+    const taken = new Set(L.players.map(p => p.tribe));
+    if (taken.has(guestTribe)) {
+      guestTribe = Object.keys(CARDS.tribes).find(id => !taken.has(id)) || guestTribe;
+    }
+    const guestIdx = L.players.length; // 房主固定 0，其餘依入座順序給穩定座位
+    L.players.push({ name: msg.name || `玩家${guestIdx + 1}`, tribe: guestTribe });
+    if (sourceConn) sourceConn._playerIdx = guestIdx;
+    // 直接告訴這位訪客他的固定座位與最終族群，不再靠名字猜（同名時會誤判）
+    Net.sendConn(sourceConn, { t: 'assign', idx: guestIdx, tribe: guestTribe, reassigned: guestTribe !== msg.tribe });
+    if (L.players.length < L.count) {
+      Net.send({ t: 'lobby', count: L.count, players: L.players }); // 廣播最新入座名單給所有人
+      render();
+      return;
+    }
     const players = L.players;
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-    Net.send({ t: 'start', seed, players, guestReassigned: guestTribe !== msg.tribe });
+    Net.send({ t: 'start', seed, players });
     netStartGame(seed, players, 0);
     return;
   }
+  if (msg.t === 'assign' && Net.role === 'guest') {
+    if (ui.netLobby) { ui.netLobby.myIdx = msg.idx; ui.netLobby.tribe = msg.tribe; }
+    if (msg.reassigned) showToast('你選的族群已被選走，已自動改成別族');
+    return;
+  }
+  if (msg.t === 'lobby' && Net.role === 'guest') {
+    if (ui.netLobby) { ui.netLobby.status = 'waitingRoom'; ui.netLobby.players = msg.players; ui.netLobby.count = msg.count; render(); }
+    return;
+  }
+  if (msg.t === 'roomFull' && Net.role === 'guest') {
+    if (ui.netLobby) { ui.netLobby.status = 'error'; ui.netLobby.error = '房間人數已滿，無法加入'; render(); }
+    return;
+  }
   if (msg.t === 'start' && Net.role === 'guest') {
-    if (msg.guestReassigned) showToast('你選的族群跟對方一樣，已自動改成別族');
-    const myIdx = Math.max(1, msg.players.findIndex(p => p.name === ui.netLobby?.name));
+    const myIdx = (typeof ui.netLobby?.myIdx === 'number')
+      ? ui.netLobby.myIdx
+      : Math.max(1, msg.players.findIndex(p => p.name === ui.netLobby?.name)); // 舊回退：萬一沒收到 assign
     netStartGame(msg.seed, msg.players, myIdx);
     return;
   }
@@ -1712,6 +1750,21 @@ function renderNetRps(m) {
   return '';
 }
 
+// 大廳入座名單：依人數畫出已入座玩家＋尚空的座位
+function netRosterHTML(players, count) {
+  const total = Math.max(count || 0, (players || []).length);
+  let seats = '';
+  for (let i = 0; i < total; i++) {
+    const p = (players || [])[i];
+    if (p) {
+      const t = CARDS.tribes[p.tribe];
+      seats += `<li class="net-seat filled">${t ? `<img src="${t.img}" alt="">` : ''}<span>${esc(p.name)}</span><em>${t ? esc(t.name) : ''}</em>${i === 0 ? '<b class="net-seat-host">房主</b>' : ''}</li>`;
+    } else {
+      seats += `<li class="net-seat empty"><span>等待加入…</span></li>`;
+    }
+  }
+  return `<ul class="net-roster">${seats}</ul>`;
+}
 function renderNetLobby() {
   const L = ui.netLobby;
   const tribes = Object.entries(CARDS.tribes);
@@ -1721,6 +1774,7 @@ function renderNetLobby() {
     </div>`;
   let body;
   if (L.status === 'waiting') {
+    const players = L.players || [{ name: L.name, tribe: L.tribe }];
     body = `
       <h3>房間已建立</h3>
       <p class="muted">把邀請連結傳給對方，他點開就能直接加入：</p>
@@ -1728,7 +1782,15 @@ function renderNetLobby() {
       <div class="center"><button class="primary" onclick="netCopyInvite()">複製邀請連結</button></div>
       <p class="muted" style="margin-top:14px;">或口頭告訴對方房號：</p>
       <div class="room-code">${L.roomCode}</div>
-      <p class="net-waiting">等待對方加入…</p>`;
+      ${netRosterHTML(players, L.count)}
+      <p class="net-waiting">等待玩家加入…（${players.length} / ${L.count}）</p>`;
+  } else if (L.status === 'waitingRoom') {
+    const players = L.players || [];
+    const total = L.count || players.length;
+    body = `
+      <h3>已加入房間 ${esc(L.codeInput || '')}</h3>
+      ${netRosterHTML(players, total)}
+      <p class="net-waiting">等待房主湊滿人數開始…（${players.length} / ${total}）</p>`;
   } else if (L.status === 'joining') {
     body = `<h3>加入房間中…</h3><p class="net-waiting">正在連線到 ${L.codeInput}…</p>`;
   } else if (L.status === 'error') {
@@ -1782,7 +1844,7 @@ Object.assign(window, {
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
-  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
