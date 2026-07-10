@@ -385,7 +385,7 @@ input[type=text] {
   border-image: url('assets/ui/frame-gold.png') 120 / 30px / 0 stretch;
   border-radius: 16px;
   padding: 16px 20px;
-  max-width: 560px;
+  max-width: min(560px, calc(100vw - 24px));
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -1456,8 +1456,72 @@ input[type=text] {
   .ps5-home .tribe-card { width: clamp(118px, 12vw, 156px); }
 }
 
+/* 漢堡鈕與遮罩：桌機隱藏，側欄常駐；手機才登場 */
+.ps5-home .ps5-nav-toggle { display: none; }
+.ps5-home .ps5-nav-scrim { display: none; }
+
 @media (max-width: 820px) {
-  .ps5-home .ps5-sidebar { display: none; }
+  /* 側欄改成左側滑出抽屜（重用既有 .ps5-sidebar 標記） */
+  .ps5-home .ps5-sidebar {
+    display: flex;
+    left: 0; top: 0; bottom: 0;
+    width: min(276px, 82vw);
+    padding: 74px 16px 22px;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(20, 17, 12, 0.97), rgba(11, 9, 6, 0.98));
+    border-right: 1px solid rgba(255, 224, 148, 0.18);
+    box-shadow: 18px 0 46px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+    transform: translateX(-104%);
+    transition: transform 0.32s cubic-bezier(.22, .7, .24, 1);
+    /* 蓋掉桌機進場動畫 ps5SlideRight（both 會把抽屜停在全開）*/
+    animation: none !important;
+    z-index: 21;
+  }
+  .ps5-home.nav-open .ps5-sidebar { transform: translateX(0); }
+  .ps5-home .side-item { width: 100%; }
+
+  /* 漢堡鈕（左上） */
+  .ps5-home .ps5-nav-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    position: fixed;
+    left: 16px; top: 16px;
+    width: 46px; height: 46px;
+    padding: 0 11px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 224, 148, 0.24);
+    background: rgba(18, 16, 12, 0.74);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    z-index: 23;
+  }
+  .ps5-home .ps5-nav-toggle span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(255, 236, 196, 0.94);
+    transition: transform 0.25s ease, opacity 0.2s ease;
+  }
+  .ps5-home.nav-open .ps5-nav-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .ps5-home.nav-open .ps5-nav-toggle span:nth-child(2) { opacity: 0; }
+  .ps5-home.nav-open .ps5-nav-toggle span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* 遮罩 */
+  .ps5-home .ps5-nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .ps5-home.nav-open .ps5-nav-scrim { opacity: 1; pointer-events: auto; }
+
   .ps5-home .ps5-topbar { top: 16px; right: 16px; }
   .ps5-home .ps5-content { padding: 96px 22px 48px; align-items: center; text-align: center; }
   .ps5-home .game-title-block { text-align: center; }
@@ -2542,3 +2606,27 @@ input[type=text] {
 .mat-dock-coin img { width: 52px !important; height: 52px !important; margin: 0 auto 4px !important; }
 .bv-side .action-menu button { background: rgba(255,255,255,.06) !important; color: #fff1d0 !important; border-color: rgba(255,220,140,.24) !important; }
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
+
+/* 手機：上面的 FINAL OVERRIDES 用 !important 鎖了桌機三欄 grid，這裡必須同樣 !important 才能攤平成單欄 */
+@media (max-width: 860px) {
+  .board-viewport {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    grid-template-areas:
+      "header"
+      "versus"
+      "buildings"
+      "resources"
+      "hand"
+      "side" !important;
+    padding: 12px 12px 16px !important;
+  }
+  /* 素材幣列改成整列置中、可換行，別被 grid 推出畫面 */
+  .mat-dock {
+    grid-column: 1 / -1 !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    max-width: 100% !important;
+    margin: 4px auto !important;
+  }
+}

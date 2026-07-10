@@ -357,6 +357,14 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+// 手機版主選單抽屜開合（桌機用不到，側欄常駐）
+function toggleHomeNav() {
+  const home = document.querySelector('.ps5-home');
+  if (!home) return;
+  const open = home.classList.toggle('nav-open');
+  const btn = home.querySelector('.ps5-nav-toggle');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 // 首頁點族群卡＝選好我方族群直接進設定（填名字/對手數）後開始，A14 的選族群流程收斂到這一步
 function homeStartWithTribe(i) {
   const id = Object.keys(CARDS.tribes)[i];
@@ -375,6 +383,11 @@ function renderHome() {
       <div class="ps5-embers ps5-embers-2"></div>
       <div class="ps5-vignette"></div>
       <div class="ps5-focus-glow"></div>
+
+      <button class="ps5-nav-toggle" onclick="toggleHomeNav()" aria-label="開啟主選單" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="ps5-nav-scrim" onclick="toggleHomeNav()" aria-hidden="true"></div>
 
       <aside class="ps5-sidebar" aria-label="主選單">
         <button class="side-item active" onclick="gotoHome()">
@@ -1782,7 +1795,7 @@ Object.assign(window, {
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
-  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
