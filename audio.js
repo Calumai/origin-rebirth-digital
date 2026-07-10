@@ -93,70 +93,93 @@
   }
   function noiseSource() { var s = ctx.createBufferSource(); s.buffer = noise(); s.loop = true; return s; }
 
-  // 持續風聲氛圍（帶通噪音，很輕）
-  var windNodes = null;
-  function startWind() {
-    if (windNodes) return;
-    var s = noiseSource();
-    var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 0.7;
-    var g = ctx.createGain(); g.gain.value = 0.0001;
-    s.connect(bp); bp.connect(g); g.connect(master);
-    s.start();
-    g.gain.exponentialRampToValueAtTime(0.016, t0() + 4);
-    // 讓風聲音量緩慢起伏
-    var lfo = ctx.createOscillator(); lfo.frequency.value = 0.05;
-    var lg = ctx.createGain(); lg.gain.value = 0.01;
-    lfo.connect(lg); lg.connect(g.gain); lfo.start();
-    windNodes = { s: s, g: g, lfo: lfo };
-  }
+  // ── 環境配樂：作曲式循環（C – Am – F – G），柔和 pad + 卡林巴旋律 + 低音 + 輕脈動 ──
+  var BPM = 72, BEAT = 60 / BPM, LOOP_BEATS = 16;
+  var nextLoopTime = 0;
+  function m2f(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
-  // 持續低音鋪底（根音 + 五度）
-  var droneNodes = null;
-  function startDrone() {
-    if (droneNodes) return;
-    var filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 700;
-    var g = ctx.createGain(); g.gain.value = 0.0001;
-    filt.connect(g); g.connect(master);
-    var freqs = [110, 110 * Math.pow(2, 7 / 12)]; // A2 + E3
-    var oscs = freqs.map(function (f) {
-      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-      var og = ctx.createGain(); og.gain.value = 0.5;
-      o.connect(og); og.connect(filt); o.start();
-      return o;
+  // 柔和 pad：多個微失諧正弦、慢起慢落、過低通，鋪出溫暖和弦底
+  function pad(midis, when, dur, gain) {
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300;
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, when);
+    env.gain.exponentialRampToValueAtTime(gain, when + 0.9);
+    env.gain.setValueAtTime(gain, when + Math.max(1.0, dur - 1.0));
+    env.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    lp.connect(env); env.connect(master);
+    var layers = [];
+    midis.forEach(function (mi) { layers.push([mi, 0]); layers.push([mi, 0.004]); });
+    var per = 0.9 / layers.length;
+    layers.forEach(function (l) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = m2f(l[0]) * (1 + l[1]);
+      var og = ctx.createGain(); og.gain.value = per;
+      o.connect(og); og.connect(lp); o.start(when); o.stop(when + dur + 0.1);
     });
-    g.gain.exponentialRampToValueAtTime(0.05, t0() + 5);
-    droneNodes = { g: g, oscs: oscs, filt: filt };
+  }
+  // 卡林巴（拇指琴）：正弦 + 泛音、快速衰減，溫暖撥音（很適合部落主題）
+  function kalimba(midi, when, dur, gain) {
+    var f = m2f(midi);
+    [[1, gain], [2, gain * 0.25], [3, gain * 0.08]].forEach(function (p) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * p[0];
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(p[1], when + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      o.connect(g); g.connect(master); o.start(when); o.stop(when + dur + 0.05);
+    });
+  }
+  function bassNote(midi, when, dur, gain) {
+    var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = m2f(midi);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(gain, when + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g); g.connect(master); o.start(when); o.stop(when + dur + 0.05);
+  }
+  // 輕柔脈動（像遠處手鼓心跳，給一點律動）
+  function pulse(when, gain) {
+    var o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(95, when); o.frequency.exponentialRampToValueAtTime(48, when + 0.12);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(gain, when); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.26);
+    o.connect(g); g.connect(master); o.start(when); o.stop(when + 0.3);
   }
 
-  // 排一段旋律樂句（自由節奏）
-  function schedulePhrase() {
-    if (!ambientOn) return;
-    var when = t0() + 0.1;
-    var n = 1 + Math.floor(Math.random() * 3); // 1~3 音
-    var idx = Math.floor(Math.random() * PENTA.length);
-    for (var i = 0; i < n; i++) {
-      if (Math.random() < 0.2) { idx += (Math.random() < 0.5 ? 1 : -1); continue; } // 偶爾休止
-      idx += (Math.random() < 0.5 ? 1 : -1) * (Math.random() < 0.7 ? 1 : 2);
-      var oct = Math.random() < 0.3 ? 1 : 0;
-      var dur = 0.5 + Math.random() * 0.8;
-      tone(penta(idx, 1 + oct), when, dur, { type: 'triangle', gain: 0.075, attack: 0.06, vibrato: true });
-      when += dur * (0.7 + Math.random() * 0.6);
+  var CHORDS = [
+    { pad: [60, 64, 67], bass: 36 }, // C
+    { pad: [57, 60, 64], bass: 45 }, // Am
+    { pad: [53, 57, 60], bass: 41 }, // F
+    { pad: [55, 59, 62], bass: 43 }  // G
+  ];
+  // 旋律：卡林巴，C 大調五聲，幾乎全落在當拍和弦內音（[beat, midi, durBeats]）
+  var MELODY = [
+    [0, 67, 1], [1.5, 72, 0.5], [2, 76, 1.5],
+    [4, 72, 1], [5.5, 69, 0.5], [6, 76, 1.5],
+    [8, 69, 1], [9.5, 72, 0.5], [10, 74, 1.5],
+    [12, 74, 1], [13.5, 67, 0.5], [14, 71, 1.5]
+  ];
+  function scheduleLoop(startAt) {
+    for (var b = 0; b < 4; b++) {
+      var t = startAt + b * 4 * BEAT;
+      pad(CHORDS[b].pad, t, 4 * BEAT + 0.1, 0.06);
+      bassNote(CHORDS[b].bass, t, 4 * BEAT * 0.9, 0.09);
+      pulse(t, 0.05); pulse(t + 2 * BEAT, 0.032);
     }
-    // 偶爾一記鼓
-    if (Math.random() < 0.5) thump(t0() + 0.2 + Math.random() * 1.5, 0.09);
-
-    var next = 2200 + Math.random() * 3200; // 2.2~5.4s 後再來一句
-    ambientTimers.push(setTimeout(schedulePhrase, next));
+    MELODY.forEach(function (n) { kalimba(n[1], startAt + n[0] * BEAT, n[2] * BEAT * 1.15, 0.12); });
   }
-
+  function loopTick() {
+    if (!ambientOn) return;
+    scheduleLoop(nextLoopTime);
+    nextLoopTime += LOOP_BEATS * BEAT;
+    ambientTimers.push(setTimeout(loopTick, LOOP_BEATS * BEAT * 1000 - 250)); // 提早排下一輪，無縫接
+  }
   function startAmbient() {
     if (ambientOn || muted) return;
     if (!ensureCtx()) return;
     resume();
     ambientOn = true;
-    startDrone();
-    startWind();
-    schedulePhrase();
+    nextLoopTime = t0() + 0.2;
+    loopTick();
   }
   function stopAmbient() {
     ambientOn = false;
