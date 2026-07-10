@@ -23,7 +23,9 @@ let ui = {
   pass: null,
   modal: null,
   tutorial: null,
-  homeSelectedTribe: 0 // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
+  homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
+  net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
+  netLobby: null  // 連線大廳表單狀態
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
@@ -189,6 +191,7 @@ function render() {
   if (ui.screen === 'home') html = renderHome();
   else if (ui.screen === 'story') html = renderStory();
   else if (ui.screen === 'setup') html = renderSetup();
+  else if (ui.screen === 'netLobby') html = renderNetLobby();
   else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
@@ -366,7 +369,10 @@ function renderHome() {
 
         <div class="ps5-actions">
           <button class="start-btn" onclick="gotoSetup()">開始遊戲</button>
-          <button class="intro-btn" onclick="gotoStory()">世界觀介紹</button>
+          <div class="ps5-actions-row">
+            <button class="intro-btn" onclick="gotoNetLobby()">連線對戰</button>
+            <button class="intro-btn" onclick="gotoStory()">世界觀介紹</button>
+          </div>
         </div>
       </section>
 
@@ -398,9 +404,10 @@ function renderStory() {
       </div>
     </section>`;
 }
-function gotoSetup() { ui.screen = 'setup'; render(); }
+function leaveNet() { if (ui.net || Net.peer) { Net.reset(); ui.net = null; ui.netLobby = null; } }
+function gotoSetup() { leaveNet(); ui.screen = 'setup'; render(); }
 function gotoStory() { ui.screen = 'story'; render(); }
-function gotoHome() { ui.screen = 'home'; render(); }
+function gotoHome() { leaveNet(); ui.screen = 'home'; render(); }
 
 // ── setup / draw ──────────────────────────────────────────
 // rules-spec A14：族群改玩家自選，直接在設定玩家畫面點卡選，不再另開抽卡畫面
@@ -411,6 +418,10 @@ function renderSetup() {
     <section class="setup-screen">
       <div class="setup-panel">
         <h2>設定玩家</h2>
+        <label class="name-field">
+          <span class="name-field-label">你的名字</span>
+          <input type="text" value="${esc(s.names[0] || '')}" placeholder="輸入你的名字" maxlength="12" oninput="setName(0, this.value)">
+        </label>
         <div class="player-count-row">
           ${[2, 3, 4].map(n => `<button class="option-button${s.count === n ? ' is-active' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
         </div>
@@ -418,8 +429,7 @@ function renderSetup() {
           <div class="player-row">
             <span class="player-tag">P${i + 1}</span>
             ${i === 0
-              ? `<span class="player-tag-fixed">你</span>
-                 <input type="text" value="${esc(s.names[0] || '')}" placeholder="你的暱稱" oninput="setName(0, this.value)">`
+              ? `<span class="player-tag-fixed">你${s.names[0] ? '（' + esc(s.names[0]) + '）' : ''}，選擇族群</span>`
               : `<span class="player-tag-fixed">電腦自動操作</span>`}
           </div>
           ${s.bots[i] ? '' : `
@@ -467,6 +477,13 @@ function startGame() {
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
   ui.modal = null;
+  if (ui.net) {
+    // 連線對戰：換我＝進擲骰；換對方＝進觀戰視圖（renderBoard 會依 ui.net.myIdx 判斷）
+    ui.screen = 'board';
+    ui.modal = (idx === ui.net.myIdx) ? { type: 'dice', phase: 'ready', face: null, ap: null } : null;
+    render();
+    return;
+  }
   if (isBot(idx)) {
     // 電腦也「看得到」擲骰動畫，不再靜默（A11）
     ui.screen = 'board';
@@ -527,6 +544,7 @@ function diceRoll() {
       const { die, ap } = rollTurnDice(G, G.currentPlayer, rng);
       m.phase = 'result'; m.die = die; m.ap = ap;
       render();
+      if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
     }
   }, 90);
 }
@@ -584,7 +602,7 @@ function finishTurnAndAdvance() {
   startPlayerTurn(G.currentPlayer);
 }
 
-function doAction(action) {
+function doAction(action, fromRemote) {
   const before = G.log.length;
   const matBefore = G.players.map(p => ({ ...p.materials }));
   const buildingsBefore = G.players.map(p => p.buildings.length);
@@ -596,6 +614,8 @@ function doAction(action) {
     ui.modal = null; render();
     return;
   }
+  // 連線對戰：我在自己回合做的動作，套用成功後廣播給對方（對方以 fromRemote 套用，不再回傳）
+  if (ui.net && !fromRemote && action.player === ui.net.myIdx) Net.send({ t: 'act', action });
   ui.modal = null;
   render(); // 先渲染出最終狀態，飛行動畫在畫面上疊加視覺回饋
   const played = animateGains(action, matBefore, buildingsBefore);
@@ -716,8 +736,10 @@ function versusStripDuel() {
 // ── board ──────────────────────────────────────────
 function renderBoard() {
   const p = currentPlayer();
-  if (isBot(p.idx)) return renderBotTurn(p);
+  // 連線對戰：不是我的回合就進觀戰視圖（沿用電腦回合的版面）
+  if (isBot(p.idx) || (ui.net && p.idx !== ui.net.myIdx)) return renderBotTurn(p);
   const others = G.players.filter(pl => pl.idx !== p.idx);
+  const remoteBlock = !!ui.net; // 連線版 v1：對抗行動（需雙向猜拳/協商）先停用
   const pairs = availablePairs(p);
   const cultureInHand = p.hand.filter(c => c.kind === 'culture');
   const rawInHand = p.hand.filter(c => c.kind === 'raw');
@@ -779,12 +801,12 @@ function renderBoard() {
           <div class="action-group-label">建造</div>
           <button ${p.actionPoints < 2 || !canBuyBuilding(p) ? 'disabled' : ''} onclick="actionBuyBuilding()">4種素材換抽建築卡<span class="ap-cost">2</span></button>
 
-          <div class="action-group-label">對抗行動（進階）</div>
-          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
-          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
-          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
-          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
-          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
+          <div class="action-group-label">對抗行動（進階）${remoteBlock ? '<span class="muted" style="font-weight:400"> — 連線版暫不支援</span>' : ''}</div>
+          <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
+          <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
+          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
+          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
+          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
 
           <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
         </div>
@@ -815,9 +837,12 @@ function renderBoard() {
   `;
 }
 
-// 電腦回合畫面：不顯示電腦手牌內容，只顯示進度與 log
+// 電腦回合／連線對手回合畫面：不顯示對方手牌內容，只顯示進度與 log
 function renderBotTurn(p) {
   const others = G.players.filter(pl => pl.idx !== p.idx);
+  const remote = !!ui.net;
+  const whoLabel = remote ? `${nickname(p.idx)} 的回合` : `${nickname(p.idx)}（電腦）思考中…`;
+  const logTitle = remote ? '對方做了什麼' : '電腦做了什麼';
   return `
     <div class="board-viewport">
       <div class="bv-header row between">
@@ -827,8 +852,8 @@ function renderBotTurn(p) {
       <div class="bv-versus">
         ${versusStrip()}
         <div class="card-box light-frame center">
-          <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}（電腦）思考中…</div>
-          <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張</div>
+          <div>${tribeBadge(p.tribe)} ${whoLabel}</div>
+          <div class="muted">剩餘行動點數：${p.actionPoints}｜手牌 ${p.hand.length} 張${remote ? '｜請等待對方行動' : ''}</div>
         </div>
       </div>
       <div class="bv-resources card-box light-frame">
@@ -853,7 +878,7 @@ function renderBotTurn(p) {
               <div class="muted">素材共 ${Object.values(pl.materials).reduce((a, b) => a + b, 0)} 枚｜手牌 ${pl.hand.length} 張｜建築 ${pl.buildings.length}｜服飾 ${pl.clothing.length}｜工藝 ${pl.played.filter(c => c.kind === 'craft').length}</div>
             </div>`).join('')}
         </div>
-        <h3 class="log-title">電腦做了什麼</h3>
+        <h3 class="log-title">${logTitle}</h3>
         <div class="log-box">${G.log.slice(-30).map(l => `<div>${esc(l)}</div>`).join('')}</div>
       </div>
     </div>
@@ -912,6 +937,9 @@ function renderModal() {
   else if (m.type === 'tradeRejected') inner = renderTradeRejected(m);
   else if (m.type === 'buyFromPlayerPick') inner = renderBuyFromPlayerPick(m);
   else if (m.type === 'buyFromPlayerDemand') inner = renderBuyFromPlayerDemand(m);
+  else if (m.type === 'netLost') inner = `<h3 class="center">連線中斷</h3>
+    <p class="center muted">和對方的連線斷了，可能是對方離開或網路不穩。</p>
+    <div class="center"><button class="cta cta-primary" onclick="netCancel()">返回首頁</button></div>`;
   return `<div class="overlay"><div class="modal">${inner}</div></div>`;
 }
 
@@ -1322,6 +1350,185 @@ function actionDrawCulture() {
 }
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
+// ── 連線對戰（PeerJS 點對點，rules-spec A17）─────────────────────────────
+// 確定性 lockstep：兩端用同一個 seed 播種 rng，並依序套用完全相同的操作序列，
+// 隨機結果（骰子/文化卡偷取/隨機工藝）自然同步，不必傳明碼結果。
+const ROOM_PREFIX = 'originrebirth-';
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 I L O 0 1
+function makeRoomCode() {
+  let s = '';
+  for (let i = 0; i < 5; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  return s;
+}
+const Net = {
+  peer: null, conn: null, role: null, connected: false,
+  reset() {
+    try { if (this.conn) this.conn.close(); } catch (e) {}
+    try { if (this.peer) this.peer.destroy(); } catch (e) {}
+    this.peer = null; this.conn = null; this.role = null; this.connected = false;
+  },
+  host(code, onReady, onConnect, onError) {
+    this.role = 'host';
+    this.peer = new Peer(ROOM_PREFIX + code);
+    this.peer.on('open', () => onReady(code));
+    this.peer.on('connection', (c) => { this.conn = c; this._wire(c, onConnect); });
+    this.peer.on('error', (e) => onError(e));
+  },
+  join(code, onConnect, onError) {
+    this.role = 'guest';
+    this.peer = new Peer();
+    this.peer.on('open', () => { this.conn = this.peer.connect(ROOM_PREFIX + code, { reliable: true }); this._wire(this.conn, onConnect); });
+    this.peer.on('error', (e) => onError(e));
+  },
+  _wire(c, onConnect) {
+    c.on('open', () => { this.connected = true; onConnect(); });
+    c.on('data', (d) => { try { netOnMessage(typeof d === 'string' ? JSON.parse(d) : d); } catch (e) {} });
+    c.on('close', () => netOnClose());
+  },
+  send(msg) { if (this.conn && this.connected) { try { this.conn.send(JSON.stringify(msg)); } catch (e) {} } }
+};
+
+function gotoNetLobby() {
+  if (typeof Peer === 'undefined') { showToast('連線元件尚未載入，請稍後再試'); return; }
+  ui.netLobby = { status: 'form', name: (ui.setup.names[0] || '').trim(), tribe: null, codeInput: '', roomCode: '', error: '' };
+  ui.screen = 'netLobby';
+  render();
+}
+function netCancel() {
+  Net.reset();
+  ui.net = null; ui.netLobby = null; ui.screen = 'home'; render();
+}
+function netSetName(v) { if (ui.netLobby) ui.netLobby.name = v; }
+function netSetTribe(id) { if (ui.netLobby) { ui.netLobby.tribe = ui.netLobby.tribe === id ? null : id; render(); } }
+function netSetCode(v) { if (ui.netLobby) ui.netLobby.codeInput = v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); }
+function netReadyName() { const L = ui.netLobby; return (L.name || '').trim() || '玩家'; }
+
+function netCreateRoom() {
+  const L = ui.netLobby;
+  if (!L.tribe) { showToast('請先選擇你的族群'); return; }
+  L.name = netReadyName();
+  const code = makeRoomCode();
+  L.status = 'waiting'; L.roomCode = code; L.error = ''; render();
+  Net.host(code,
+    () => {}, // peer open：房號已就緒（等對方連入）
+    () => {}, // onConnect：等對方送 join，見 netOnMessage
+    (e) => {
+      if (e && e.type === 'unavailable-id') { // 房號撞號，換一個重試
+        Net.reset(); const c2 = makeRoomCode(); L.roomCode = c2;
+        Net.host(c2, () => {}, () => {}, (e2) => { L.status = 'error'; L.error = '建立房間失敗：' + (e2 && e2.type || e2); render(); });
+        render();
+      } else { L.status = 'error'; L.error = '建立房間失敗：' + (e && e.type || e); render(); }
+    });
+}
+function netJoinRoom() {
+  const L = ui.netLobby;
+  if (!L.tribe) { showToast('請先選擇你的族群'); return; }
+  if (L.codeInput.length !== 5) { showToast('請輸入 5 碼房號'); return; }
+  L.name = netReadyName();
+  L.status = 'joining'; L.error = ''; render();
+  Net.join(L.codeInput,
+    () => { Net.send({ t: 'join', name: L.name, tribe: L.tribe }); }, // 連上就把自己的名字/族群送給房主
+    (e) => {
+      const msg = (e && e.type === 'peer-unavailable') ? '找不到這個房間，請確認房號' : ('連線失敗：' + (e && e.type || e));
+      L.status = 'error'; L.error = msg; render();
+    });
+}
+
+// 房主收到 guest 的 join：解決族群衝突、決定 seed、通知雙方開局
+function netOnMessage(msg) {
+  if (!msg || !msg.t) return;
+  if (msg.t === 'join' && Net.role === 'host') {
+    const L = ui.netLobby;
+    let guestTribe = msg.tribe;
+    if (guestTribe === L.tribe) { // 撞族群：自動改派 guest 到第一個沒被選的族群
+      guestTribe = Object.keys(CARDS.tribes).find(id => id !== L.tribe) || guestTribe;
+    }
+    const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+    const players = [{ name: L.name, tribe: L.tribe }, { name: msg.name || '對手', tribe: guestTribe }];
+    Net.send({ t: 'start', seed, players, guestReassigned: guestTribe !== msg.tribe });
+    netStartGame(seed, players, 0);
+    return;
+  }
+  if (msg.t === 'start' && Net.role === 'guest') {
+    if (msg.guestReassigned) showToast('你選的族群跟對方一樣，已自動改成別族');
+    netStartGame(msg.seed, msg.players, 1);
+    return;
+  }
+  if (msg.t === 'dice') { netApplyDice(); return; }
+  if (msg.t === 'act') { doAction(msg.action, true); return; }
+}
+function netOnClose() {
+  if (!ui.net && !ui.netLobby) return;
+  Net.connected = false;
+  if (ui.screen === 'end') return; // 遊戲已結束就不打擾
+  ui.modal = { type: 'netLost' };
+  render();
+}
+function netStartGame(seed, players, myIdx) {
+  rng = mulberry32(seed ^ 0x9e3779b9);
+  G = initGame(2, seed, players.map(p => p.tribe));
+  ui.isBot = [false, false];
+  ui.nicknames = players.map(p => p.name);
+  ui.net = { role: Net.role, myIdx, players };
+  ui.netLobby = null;
+  ui.modal = null;
+  startPlayerTurn(0);
+}
+// 對手（遠端）擲骰：本地同樣呼叫 rollTurnDice 消耗一次 rng，保持與對方 lockstep 一致
+function netApplyDice() {
+  rollTurnDice(G, G.currentPlayer, rng);
+  render();
+}
+
+function renderNetLobby() {
+  const L = ui.netLobby;
+  const tribes = Object.entries(CARDS.tribes);
+  const picker = `
+    <div class="net-tribe-row">
+      ${tribes.map(([id, t]) => `<button class="tribe-pick${L.tribe === id ? ' is-active' : ''}" onclick="netSetTribe('${id}')" title="${t.name}"><img src="${t.img}" alt="${t.name}"><span>${t.name}</span></button>`).join('')}
+    </div>`;
+  let body;
+  if (L.status === 'waiting') {
+    body = `
+      <h3>房間已建立</h3>
+      <p class="muted">把這個房號給對方，請他輸入加入：</p>
+      <div class="room-code">${L.roomCode}</div>
+      <p class="net-waiting">等待對方加入…</p>`;
+  } else if (L.status === 'joining') {
+    body = `<h3>加入房間中…</h3><p class="net-waiting">正在連線到 ${L.codeInput}…</p>`;
+  } else if (L.status === 'error') {
+    body = `<h3>連線發生問題</h3><p class="net-error">${esc(L.error)}</p>
+      <div class="center"><button class="primary" onclick="gotoNetLobby()">重新開始</button></div>`;
+  } else {
+    body = `
+      <label class="name-field">
+        <span class="name-field-label">你的名字</span>
+        <input type="text" value="${esc(L.name)}" placeholder="輸入你的名字" maxlength="12" oninput="netSetName(this.value)">
+      </label>
+      <div class="net-section-label">選擇你的族群</div>
+      ${picker}
+      <div class="net-actions">
+        <div class="net-host-box">
+          <button class="primary-start-button" onclick="netCreateRoom()">建立房間</button>
+          <p class="muted">當房主，產生房號給朋友</p>
+        </div>
+        <div class="net-or">或</div>
+        <div class="net-join-box">
+          <input class="room-code-input" type="text" value="${esc(L.codeInput)}" placeholder="房號" maxlength="5" oninput="netSetCode(this.value)">
+          <button class="secondary-lore-button" onclick="netJoinRoom()">加入房間</button>
+        </div>
+      </div>`;
+  }
+  return `
+    <section class="setup-screen">
+      <div class="setup-panel net-lobby-panel">
+        <h2>連線對戰</h2>
+        ${body}
+        <div class="center" style="margin-top:16px;"><button class="secondary-lore-button" onclick="netCancel()">返回首頁</button></div>
+      </div>
+    </section>`;
+}
+
 Object.assign(window, {
   gotoSetup, gotoStory, gotoHome, diceRoll, diceDone,
   setCount, setName, pickTribe, startGame,
@@ -1337,7 +1544,8 @@ Object.assign(window, {
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
-  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, comingSoonToast
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, comingSoonToast,
+  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom
 });
 
 render();

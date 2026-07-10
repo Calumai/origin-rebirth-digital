@@ -104,6 +104,21 @@ if (result === null) {
 
 **實作**：`app.js` `ui.setup.bots` 預設 `[false, true, true, true]`；`renderSetup` 移除切換鈕；`startPlayerTurn` 真人路徑直接 `screen='board'` + 擲骰 modal，刪除 `'pass'` screen 分支與 `revealTurn()`／`setBot()`。
 
+## A17：連線對戰 v1（PeerJS 點對點，2 人，2026-07-10 JJ 決議）
+
+**背景**：A16 保留了「真人對真人」的雙人狀態機，多人對戰走線上連線。JJ 拍板要做，並在方案選擇上選 **PeerJS 點對點**（零後端、房間代碼配對，馬上能試；相對 Firebase 免建專案）。
+
+**架構——確定性 lockstep**：本遊戲引擎在「同 seed＋同動作序列」下完全確定（M1/A9/A11 壓測已證）。因此連線不傳整份狀態，只傳操作：
+- 開局：房主決定 seed 與雙方族群，`{t:'start', seed, players}` 送給 guest；**兩端各自** `mulberry32(seed ^ 0x9e3779b9)` 播種 rng 並 `initGame(2, seed, tribeIds)`。房主 myIdx=0、guest myIdx=1。
+- 每個操作（擲骰、每個 `doAction`）由當前行動方廣播；對方收到後以 `fromRemote` 套用一次，**用自己的 rng 消耗同樣次數**，因此骰子/文化卡偷取/隨機工藝等隨機結果自然一致，毋須傳明碼。
+- `startPlayerTurn`/`renderBoard` 依 `ui.net.myIdx` 判斷：輪到我＝正常操作板；輪到對方＝沿用電腦回合觀戰版面（標題／log 改「對方」）。
+
+**v1 範圍**：支援所有非互動動作（擲骰、抽原料/文化卡、配對換工藝、換抽建築、出文化卡含 steal_2/gain_2_any、整回合拿素材含 2 換 1、結束回合）。**5 個對抗行動（偷襲猜拳／交易／向玩家購卡／建築互換／強制換原料）在連線版先停用**（需雙向猜拳/協商協定，之後版本再補；A16 保留的狀態機屆時沿用）。族群撞號時房主自動把 guest 改派到第一個未被選的族群並提示。
+
+**實作**：`index.html` 加 PeerJS CDN；`app.js` 新增 `Net` 傳輸層、`ui.net`/`ui.netLobby` 狀態、`renderNetLobby` 大廳、房主/加入/handshake/`netStartGame`/`netApplyDice`/`netOnMessage`/`netOnClose`；`doAction(action, fromRemote)` 加廣播與旗標；斷線顯示 `netLost` modal 回首頁。房號用去除易混淆字元的 5 碼 + `originrebirth-` 命名空間前綴。
+
+**已驗證**：PeerJS broker 可連、自訂房號 ID 註冊成功、雙 peer 連線＋雙向訊息、大廳/建房流程、單機對電腦無回歸。**待實機測試**：真正兩台裝置/兩分頁跑完整對局同步（單分頁 harness 無法同時跑兩份 app 實例）；某些嚴格 NAT/防火牆環境可能連不上，正式上線若遇到再加 TURN 中繼。
+
 ## 待補（尚未決議，暫依交接文件假設開發，不擋 M2 進度）
 - 交接文件 §8「待 JJ 提供」項目：族語會話內容（部落戰爭 P.29–P.44，規則書已再次確認此頁碼範圍）、正式族語會話大字體排版。
 - 建築卡各卡實際分數：正式素材裡沒有找到建築卡卡面圖或分數資料，暫沿用假設 A3 一律 3 分，待 JJ 提供。

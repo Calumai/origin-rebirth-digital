@@ -725,6 +725,54 @@ input[type=text] {
   box-shadow: inset 0 2px 6px rgba(89, 52, 15, 0.28);
 }
 .setup-panel input::placeholder { color: rgba(64, 37, 15, 0.55); }
+/* 玩家自己填名字：醒目一格 */
+.name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(var(--gold-rgb), 0.1);
+  border: 1px solid rgba(var(--gold-rgb), 0.4);
+}
+.name-field-label { font-size: 1.05em; font-weight: 800; color: #ffe4a3; letter-spacing: 0.04em; }
+.name-field input { width: 100%; font-size: 22px; }
+
+/* ── 連線對戰大廳 ── */
+.net-lobby-panel { max-width: 640px; }
+.net-section-label { margin: 6px 0 10px; font-weight: 800; color: #ffe4a3; }
+.net-tribe-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+.net-tribe-row .tribe-pick img { max-width: 72px; }
+.net-actions { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.net-host-box, .net-join-box { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.net-join-box { flex-direction: row; justify-content: center; }
+.net-or { color: rgba(248, 230, 191, 0.6); font-weight: 700; }
+.room-code {
+  margin: 14px auto;
+  padding: 14px 28px;
+  display: inline-block;
+  font-size: 3em;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: #ffd76a;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(var(--gold-rgb), 0.6);
+  border-radius: 14px;
+  text-shadow: 0 0 16px rgba(var(--gold-rgb), 0.6);
+}
+.room-code-input {
+  font-size: 26px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-align: center;
+  width: 160px;
+}
+.net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
+.net-error { color: #ff9a7a; text-align: center; }
+
+/* 首頁次要按鈕並排（連線對戰 / 世界觀介紹） */
+.ps5-actions-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .player-count-row, .player-row {
   display: flex;
   gap: 14px;
