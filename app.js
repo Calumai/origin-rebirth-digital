@@ -661,6 +661,17 @@ function doAction(action, fromRemote) {
   try {
     applyAction(G, action, rng);
     flashLog(before);
+    const actor = G.players[action.player];
+    const who = actor ? (action.player === ui.net?.myIdx ? '你' : actor.tribeName) : '玩家';
+    const feedback = {
+      BUY_FROM_PLAYER: `${who} 完成了一次玩家購卡`,
+      TRADE: `${who} 發起的交易成立了`,
+      RAID: `${who} 發動偷襲，戰場有變化`,
+      SWAP_BUILDING: `${who} 完成建築互換`,
+      PLAY_CULTURE: `${who} 打出了一張文化卡`,
+      PLAY_RAW_PAIR: `${who} 完成了一件工藝`
+    }[action.type];
+    if (feedback) showToast(feedback);
   } catch (e) {
     alert('動作失敗：' + e.message);
     ui.modal = null; render();
@@ -859,7 +870,7 @@ function renderBoard() {
           <div class="action-group-label">搞對手（進階）</div>
           ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
           ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
-          ${actionButton(`向玩家購卡${remoteBlock ? '（連線版暫停）' : ''}`, 'actionBuyFromPlayer()', '2', remoteBlock || p.actionPoints < 2 || !others.length, remoteBlock ? '連線版暫不支援向玩家購卡' : (p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家'))}
+          ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
           ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
           ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
 
