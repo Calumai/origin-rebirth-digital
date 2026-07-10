@@ -1039,6 +1039,7 @@ input[type=text] {
   width: min(880px, 70vw);
   gap: clamp(18px, 2vw, 30px);
   margin-top: 4px;
+  align-self: center; /* 四族牌面在內容區水平置中 */
 }
 .ps5-home .tribe-card {
   position: relative;

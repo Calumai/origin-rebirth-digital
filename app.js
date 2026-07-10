@@ -310,6 +310,13 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+// 首頁點族群卡＝選好我方族群直接進設定（填名字/對手數）後開始，A14 的選族群流程收斂到這一步
+function homeStartWithTribe(i) {
+  const id = Object.keys(CARDS.tribes)[i];
+  ui.homeSelectedTribe = i;
+  ui.setup.tribes[0] = id;
+  gotoSetup();
+}
 
 function renderHome() {
   const tribeEntries = Object.entries(CARDS.tribes);
@@ -330,6 +337,10 @@ function renderHome() {
         <button class="side-item" onclick="gotoStory()">
           <span class="side-icon" aria-hidden="true">▣</span>
           <span class="side-text"><b>故事</b><small>STORY</small></span>
+        </button>
+        <button class="side-item" onclick="gotoNetLobby()">
+          <span class="side-icon" aria-hidden="true">⇄</span>
+          <span class="side-text"><b>連線對戰</b><small>ONLINE</small></span>
         </button>
         <button class="side-item" onclick="comingSoonToast()">
           <span class="side-icon" aria-hidden="true">▤</span>
@@ -360,26 +371,16 @@ function renderHome() {
         <section class="tribe-carousel" aria-label="族群卡選擇">
           <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">‹</button>
           ${tribeEntries.map(([id, t], i) => `
-            <article class="tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})">
+            <article class="tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeStartWithTribe(${i})" title="選 ${t.name} 開始遊戲">
               <img src="${t.img}" alt="${t.name}">
               <div class="tribe-name">${t.name}</div>
             </article>`).join('')}
           <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">›</button>
         </section>
-
-        <div class="ps5-actions">
-          <button class="start-btn" onclick="gotoSetup()">開始遊戲</button>
-          <div class="ps5-actions-row">
-            <button class="intro-btn" onclick="gotoNetLobby()">連線對戰</button>
-            <button class="intro-btn" onclick="gotoStory()">世界觀介紹</button>
-          </div>
-        </div>
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇部族，開啟你的冒險旅程</span>
-        <span>確認</span>
-        <span>返回</span>
+        <span>選擇族別後，遊戲立即開始</span>
       </footer>
     </main>`;
 }
@@ -1544,7 +1545,7 @@ Object.assign(window, {
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
-  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, comingSoonToast,
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom
 });
 
