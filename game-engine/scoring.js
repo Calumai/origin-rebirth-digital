@@ -5,8 +5,9 @@ function scorePlayer(p) {
   const detail = {};
 
   // 01 建築卡：只有本族建築計分
-  detail.buildings = p.buildings.filter(b => b.tribe === p.tribe)
-    .reduce((s, b) => s + b.score, 0);
+  const ownBuildings = p.buildings.filter(b => b.tribe === p.tribe);
+  detail.buildingCount = ownBuildings.length; // 本族家屋「棟數」——家屋數量決勝的主排序鍵
+  detail.buildings = ownBuildings.reduce((s, b) => s + b.score, 0);
 
   // 03 文化卡：已擲出者計分
   detail.culture = p.played.filter(c => c.kind === 'culture')

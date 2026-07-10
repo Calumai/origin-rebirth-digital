@@ -2243,6 +2243,21 @@ input[type=text] {
 .vs-name { font-weight: bold; font-size: 0.9em; margin-top: 4px; }
 .vs-score { font-size: 1.15em; font-weight: bold; color: #ffd98a; }
 .vs-stats { font-size: 0.66em; opacity: 0.85; line-height: 1.4; }
+/* 攤開手牌：對戰列裡每位玩家的手牌一律正面小卡 */
+.vs-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 220, 145, 0.16);
+  min-height: 20px;
+}
+.vs-hand-card { display: inline-flex; }
+.vs-hand-card .card-thumb-sm { width: 26px; margin: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.vs-hand-empty { font-size: 0.62em; opacity: 0.5; }
+.duel-side .vs-hand { justify-content: flex-start; }
 .vs-crown {
   position: absolute;
   top: -9px;

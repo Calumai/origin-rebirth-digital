@@ -450,7 +450,7 @@ function renderStory() {
       <div class="setup-panel story-panel">
         <h2>世界觀介紹</h2>
         <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
-        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或搶下最後一張工藝卡，遊戲便進入結算——分數最高者獲勝。</p>
+        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或抽空建築牌庫，遊戲便進入結算——<b>本族家屋蓋最多的人獲勝</b>（平手才比總分）。</p>
         <div class="story-tribe-row">
           ${Object.entries(CARDS.tribes).map(([id, t]) => `
             <div class="story-tribe-card">
@@ -761,6 +761,20 @@ function flyMaterialGain(matName, count, originEl, targetEl) {
   }
 }
 
+// 家屋數量決勝：本族家屋棟數為主排序鍵，總分為輔（平手才比）。負值代表 a 較優、排在前面。
+function rankCmp(a, b) { return (b.buildingCount - a.buildingCount) || (b.total - a.total); }
+// 玩家 i 是否領先（沒有人嚴格比他更好，可能並列）
+function isLeader(scores, i) {
+  const s = scores[i];
+  if (s.buildingCount === 0 && s.total === 0) return false; // 開局全 0 不標領先
+  return !scores.some((o, j) => j !== i && rankCmp(o, s) < 0);
+}
+// 攤開手牌：所有玩家手牌一律正面朝上（JJ 決議「全部攤開卡面」）
+function openHandRow(pl) {
+  if (!pl.hand.length) return '<div class="vs-hand"><span class="vs-hand-empty">無手牌</span></div>';
+  return `<div class="vs-hand">${pl.hand.map(c => `<span class="vs-hand-card" title="${c.name}">${cardThumb(c, 'sm')}</span>`).join('')}</div>`;
+}
+
 // 對戰列：所有玩家一字排開互相對峙，標出當前行動者與即時領先者，營造對戰感
 function versusStrip() {
   return G.players.length === 2 ? versusStripDuel() : versusStripMulti();
@@ -768,17 +782,18 @@ function versusStrip() {
 // 3-4 人局：維持小圓形頭像橫排
 function versusStripMulti() {
   const scores = finalScores(G); // 依 player index 排列（含即時盤面分）
-  const maxTotal = Math.max(...scores.map(s => s.total));
+  const goal = CARDS.buildingsPerTribe;
   const cells = G.players.map((pl, i) => {
     const active = pl.idx === G.currentPlayer;
-    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const leading = isLeader(scores, i);
     const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
     return `<div class="vs-player tribe-${pl.tribe}${active ? ' active' : ''}">
       ${leading ? '<div class="vs-crown">領先</div>' : ''}
       <img src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
       <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
-      <div class="vs-score">${scores[i].total} 分</div>
-      <div class="vs-stats">建${pl.buildings.length}・牌${pl.hand.length}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}・材${matN}</div>
+      <div class="vs-score"><b>家屋 ${scores[i].buildingCount}/${goal}</b></div>
+      <div class="vs-stats">總分 ${scores[i].total}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}・材${matN}</div>
+      ${openHandRow(pl)}
     </div>`;
   });
   return `<div class="versus-strip">${cells.join('<div class="vs-sep"></div>')}</div>`;
@@ -786,20 +801,21 @@ function versusStripMulti() {
 // 2 人局：寬版雙色對峙橫幅（左藍右紅），中央金色回合徽章
 function versusStripDuel() {
   const scores = finalScores(G);
-  const maxTotal = Math.max(...scores.map(s => s.total));
+  const goal = CARDS.buildingsPerTribe;
   const side = (i, cls) => {
     const pl = G.players[i];
     const active = pl.idx === G.currentPlayer;
-    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const leading = isLeader(scores, i);
     const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
     return `<div class="duel-side ${cls}${active ? ' active' : ''}">
       ${leading ? '<div class="duel-flag">領先</div>' : ''}
       <img class="duel-badge" src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
       <div class="duel-info">
         <div class="duel-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
-        <div class="duel-score">${scores[i].total} 分</div>
-        <div class="duel-stats">建${pl.buildings.length}・原${matN}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}</div>
+        <div class="duel-score"><b>家屋 ${scores[i].buildingCount}/${goal}</b></div>
+        <div class="duel-stats">總分 ${scores[i].total}・原${matN}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}</div>
       </div>
+      ${openHandRow(pl)}
     </div>`;
   };
   return `<div class="versus-duel">
@@ -974,25 +990,30 @@ function renderBotTurn(p) {
 // ── end screen ──────────────────────────────────────────
 function renderEnd() {
   const scores = finalScores(G);
-  const maxTotal = Math.max(...scores.map(s => s.total));
-  const winners = scores.filter(s => s.total === maxTotal);
+  const goal = CARDS.buildingsPerTribe;
+  // 家屋數量決勝：本族家屋棟數為主、總分為輔（平手才比）
+  const ranked = scores.map((s, i) => s).slice().sort(rankCmp);
+  const best = ranked[0];
+  const winners = scores.filter(s => s.buildingCount === best.buildingCount && s.total === best.total);
+  const isWin = s => winners.some(w => w.player === s.player);
   return `
     <section class="end-screen">
       <div class="setup-panel">
         <h2>結算</h2>
         <p class="center muted" style="color:rgba(248,230,190,0.75);">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
+        <p class="center muted" style="color:rgba(248,230,190,0.6);font-size:0.85em;">勝負以「本族家屋棟數」決定，平手才比總分</p>
         <div class="winner-banner">
           ${winners.map(w => `
             <div class="winner-card">
               <img src="${CARDS.tribes[G.players[w.player].tribe].img}" alt="">
               <div class="winner-name">${w.tribe} ${nickname(w.player)}</div>
-              <div class="winner-score">${w.total} 分</div>
+              <div class="winner-score">家屋 ${w.buildingCount}/${goal}</div>
             </div>`).join('')}
         </div>
         <table class="score-table">
-          <tr><th>族群</th><th>建築</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
-          ${scores.map(s => `<tr class="${s.total === maxTotal ? 'is-winner' : ''}">
-            <td>${s.tribe} ${nickname(s.player)}</td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
+          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
+          ${scores.slice().sort(rankCmp).map(s => `<tr class="${isWin(s) ? 'is-winner' : ''}">
+            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
           </tr>`).join('')}
         </table>
         <div class="center"><button class="primary-start-button" onclick="location.reload()">重新開始</button></div>
