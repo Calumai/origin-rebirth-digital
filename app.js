@@ -25,7 +25,8 @@ let ui = {
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
-  netLobby: null  // 連線大廳表單狀態
+  netLobby: null, // 連線大廳表單狀態
+  netRps: null    // 連線猜拳互動暫存
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
@@ -435,7 +436,7 @@ function renderStory() {
       </div>
     </section>`;
 }
-function leaveNet() { if (ui.net || Net.peer) { Net.reset(); ui.net = null; ui.netLobby = null; } }
+function leaveNet() { if (ui.net || Net.peer) { Net.reset(); ui.net = null; ui.netLobby = null; ui.netRps = null; } }
 function gotoSetup() { leaveNet(); ui.screen = 'setup'; render(); }
 function gotoStory() { ui.screen = 'story'; render(); }
 function gotoHome() { leaveNet(); ui.screen = 'home'; render(); }
@@ -834,12 +835,12 @@ function renderBoard() {
           ${pairs.map(pr => `<button ${p.actionPoints < 1 ? 'disabled' : ''} onclick="actionPlayRawPair('${pr.craftId}')">湊對換工藝「${pr.name}」<span class="ap-cost">1</span></button>`).join('')}
           <button ${p.actionPoints < 1 || !G.cultureDeck.length ? 'disabled' : ''} onclick="actionDrawCulture()">抽文化卡<span class="ap-cost">1</span></button>
 
-          <div class="action-group-label">搞對手（進階）${remoteBlock ? '<span class="muted" style="font-weight:400"> — 連線版暫不支援</span>' : ''}</div>
-          <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
-          <button ${remoteBlock || p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
-          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()">向玩家購卡<span class="ap-cost">2</span></button>
-          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
-          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
+          <div class="action-group-label">搞對手（進階）</div>
+          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionRaid()">偷襲（猜拳）<span class="ap-cost">1</span></button>
+          <button ${p.actionPoints < 1 || !others.length ? 'disabled' : ''} onclick="actionTrade()">交易<span class="ap-cost">1</span></button>
+          <button ${remoteBlock || p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionBuyFromPlayer()" ${remoteBlock ? 'title="連線版暫不支援向玩家購卡"' : ''}>向玩家購卡${remoteBlock ? '（連線版暫停）' : ''}<span class="ap-cost">2</span></button>
+          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionSwapBuilding()">建築互換猜拳<span class="ap-cost">2</span></button>
+          <button ${p.actionPoints < 2 || !others.length ? 'disabled' : ''} onclick="actionForceSwapRaw()">強制換原料卡<span class="ap-cost">2</span></button>
 
           <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
         </div>
@@ -970,6 +971,9 @@ function renderModal() {
   else if (m.type === 'tradeRejected') inner = renderTradeRejected(m);
   else if (m.type === 'buyFromPlayerPick') inner = renderBuyFromPlayerPick(m);
   else if (m.type === 'buyFromPlayerDemand') inner = renderBuyFromPlayerDemand(m);
+  else if (m.type === 'netRps') inner = renderNetRps(m);
+  else if (m.type === 'tradeRespondNet') inner = renderTradeRespondNet(m);
+  else if (m.type === 'netWaiting') inner = `<h3 class="center">${esc(m.text || '等待中…')}</h3><p class="net-waiting">請稍候</p>`;
   else if (m.type === 'netLost') inner = `<h3 class="center">連線中斷</h3>
     <p class="center muted">和對方的連線斷了，可能是對方離開或網路不穩。</p>
     <div class="center"><button class="cta cta-primary" onclick="netCancel()">返回首頁</button></div>`;
@@ -1102,6 +1106,7 @@ function exchangeGetPick(get) {
 
 // RAID / SWAP_BUILDING
 function actionRaid() {
+  if (ui.net) { const target = 1 - ui.net.myIdx; netRPS('raid', target, (win) => doAction({ type: 'RAID', player: G.currentPlayer, target, result: win })); return; }
   chooseTargetModal('選擇偷襲目標', (targetIdx) => {
     startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
       doAction({ type: 'RAID', player: G.currentPlayer, target: targetIdx, result: attackerWins });
@@ -1109,6 +1114,7 @@ function actionRaid() {
   });
 }
 function actionSwapBuilding() {
+  if (ui.net) { const target = 1 - ui.net.myIdx; netRPS('swap', target, (win) => doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target, result: win })); return; }
   chooseTargetModal('選擇建築互換對象', (targetIdx) => {
     startRPS(G.currentPlayer, targetIdx, (attackerWins) => {
       doAction({ type: 'SWAP_BUILDING', player: G.currentPlayer, target: targetIdx, result: attackerWins });
@@ -1118,6 +1124,15 @@ function actionSwapBuilding() {
 function actionForceSwapRaw() {
   const p = currentPlayer();
   if (!p.hand.some(c => c.kind === 'raw')) { alert('你手上沒有原料卡可交換'); return; }
+  // 連線版：對方原料卡由發起方盲選，不需對方輸入 → 直接開選卡（跳過選對象，2 人局對象唯一）
+  if (ui.net) {
+    const targetIdx = 1 - ui.net.myIdx;
+    const t = G.players[targetIdx];
+    if (!t.hand.some(c => c.kind === 'raw')) { alert(`${t.tribeName} 手上沒有原料卡可交換`); return; }
+    ui.modal = { type: 'forceSwapPick', target: targetIdx, myHandIdx: null, theirHandIdx: null };
+    render();
+    return;
+  }
   chooseTargetModal('選擇強制交換對象', (targetIdx) => {
     const t = G.players[targetIdx];
     if (!t.hand.some(c => c.kind === 'raw')) {
@@ -1151,6 +1166,7 @@ function forceSwapConfirm() {
 
 // TRADE
 function actionTrade() {
+  if (ui.net) { ui.modal = { type: 'tradeOffer', target: 1 - ui.net.myIdx, give: [], get: [] }; render(); return; }
   chooseTargetModal('選擇交易對象', (targetIdx) => {
     ui.modal = { type: 'tradeOffer', target: targetIdx, give: [], get: [] };
     render();
@@ -1181,6 +1197,13 @@ function tradeRemoveGet(i) { ui.modal.get.splice(i, 1); render(); }
 function tradeSubmit() {
   const m = ui.modal;
   const target = m.target, give = m.give.slice(), get = m.get.slice();
+  if (ui.net) {
+    netAsk('trade', { give, get }, (resp) => {
+      if (resp && resp.accepted) { ui.modal = null; doAction({ type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: true }); }
+      else { ui.modal = { type: 'tradeRejected', target, give, get }; render(); }
+    }, '等待對方回應交易…');
+    return;
+  }
   if (isBot(target)) {
     // 電腦自動決定：用 bot.respondTrade，且電腦必須真的持有對方要換的素材
     const t = G.players[target];
@@ -1252,11 +1275,11 @@ function tradeGiveUp() {
 function tradeChallengeRPS() {
   const m = ui.modal;
   const { target, give, get } = m;
-  startRPS(G.currentPlayer, target, (attackerWins) => {
-    doAction(attackerWins
-      ? { type: 'TRADE', player: G.currentPlayer, target, give, get, forced: true }
-      : { type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: false, failedChallenge: true });
-  });
+  const onWin = (win) => doAction(win
+    ? { type: 'TRADE', player: G.currentPlayer, target, give, get, forced: true }
+    : { type: 'TRADE', player: G.currentPlayer, target, give, get, accepted: false, failedChallenge: true });
+  if (ui.net) { netRPS('trade', target, onWin); return; }
+  startRPS(G.currentPlayer, target, onWin);
 }
 
 // BUY_FROM_PLAYER
@@ -1511,6 +1534,13 @@ function netOnMessage(msg) {
   }
   if (msg.t === 'dice') { netApplyDice(); return; }
   if (msg.t === 'act') { doAction(msg.action, true); return; }
+  // ── A18 雙向互動 ──
+  if (msg.t === 'ask') { netShowAsk(msg.askId, msg.kind, msg.data); return; }
+  if (msg.t === 'answer') { const cb = netPending[msg.askId]; delete netPending[msg.askId]; if (cb) cb(msg.value); return; }
+  if (msg.t === 'rpsStart') { ui.netRps = { kind: msg.kind, role: 'defender', myMove: null, theirMove: null }; ui.modal = { type: 'netRps', phase: 'pick' }; render(); return; }
+  if (msg.t === 'rpsMove') { if (ui.netRps && ui.netRps.role === 'attacker') { ui.netRps.theirMove = msg.move; netRpsTryResolve(); } return; }
+  if (msg.t === 'rpsResult') { ui.modal = { type: 'netRps', phase: 'reveal', role: 'defender', aMove: msg.aMove, dMove: msg.dMove, result: msg.result }; render(); return; }
+  if (msg.t === 'rpsTie') { if (ui.netRps) { ui.netRps.myMove = null; ui.netRps.theirMove = null; } ui.modal = { type: 'netRps', phase: 'pick' }; render(); return; }
 }
 function netOnClose() {
   if (!ui.net && !ui.netLobby) return;
@@ -1533,6 +1563,97 @@ function netStartGame(seed, players, myIdx) {
 function netApplyDice() {
   rollTurnDice(G, G.currentPlayer, rng);
   render();
+}
+
+// ── 連線對戰雙向互動（猜拳／交易回應，rules-spec A18）────────────────────
+// 發起方（我方回合）在本地跑互動，需要對方輸入時透過 net 請求；解出最終結果後用
+// 一般的 {t:'act'} 廣播套用（雙端同 rng 消耗，結果一致）。
+let netAskSeq = 0;
+const netPending = {};
+function netAsk(kind, data, onAnswer, waitText) {
+  const askId = ++netAskSeq;
+  netPending[askId] = onAnswer;
+  Net.send({ t: 'ask', askId, kind, data });
+  ui.modal = { type: 'netWaiting', text: waitText || '等待對方回應…' };
+  render();
+}
+function netShowAsk(askId, kind, data) {
+  if (kind === 'trade') { ui.modal = { type: 'tradeRespondNet', askId, give: data.give, get: data.get }; render(); }
+}
+function netTradeRespond(accepted) {
+  const m = ui.modal;
+  Net.send({ t: 'answer', askId: m.askId, value: { accepted } });
+  ui.modal = { type: 'netWaiting', text: '已回覆，等待對方…' };
+  render();
+}
+function renderTradeRespondNet(m) {
+  return `<h3>對方想跟你交易</h3>
+    <p>對方要給你：${m.give.join('、') || '（無）'}</p>
+    <p>對方想跟你換：${m.get.join('、') || '（無）'}</p>
+    <div class="row">
+      <button class="danger" onclick="netTradeRespond(false)">拒絕</button>
+      <button class="primary" onclick="netTradeRespond(true)">接受</button>
+    </div>`;
+}
+
+// 猜拳（發起方＝我方回合，對方＝守方）：守方出拳送回攻方判定 → 兩邊看揭曉 → 套用
+function netRPS(kind, targetIdx, onResult) {
+  ui.netRps = { kind, role: 'attacker', targetIdx, myMove: null, theirMove: null, onResult };
+  ui.modal = { type: 'netRps', phase: 'pick' };
+  Net.send({ t: 'rpsStart', kind });
+  render();
+}
+function netRpsPick(move) {
+  const r = ui.netRps;
+  if (!r || r.myMove != null) return;
+  r.myMove = move;
+  ui.modal = { type: 'netRps', phase: 'wait' };
+  render();
+  if (r.role === 'defender') { Net.send({ t: 'rpsMove', move }); return; }
+  netRpsTryResolve();
+}
+function netRpsTryResolve() {
+  const r = ui.netRps;
+  if (!r || r.role !== 'attacker' || r.myMove == null || r.theirMove == null) return;
+  const result = resolveRPSMoves(r.myMove, r.theirMove);
+  if (result === null) { // 平手，雙方重猜
+    Net.send({ t: 'rpsTie' });
+    r.myMove = null; r.theirMove = null;
+    ui.modal = { type: 'netRps', phase: 'pick' };
+    render();
+    return;
+  }
+  Net.send({ t: 'rpsResult', aMove: r.myMove, dMove: r.theirMove, result });
+  ui.modal = { type: 'netRps', phase: 'reveal', role: 'attacker', aMove: r.myMove, dMove: r.theirMove, result };
+  render();
+  const onResult = r.onResult;
+  setTimeout(() => { ui.netRps = null; onResult(result); }, 1600); // → doAction（套用＋廣播 {t:'act'}）
+}
+const NET_RPS_KIND_TXT = { raid: '偷襲', swap: '建築互換', trade: '交易搶' };
+function netRpsButtons() {
+  return `<div class="row center">
+    <button class="rps-btn" onclick="netRpsPick(0)">${rpsIcon(0)}石頭</button>
+    <button class="rps-btn" onclick="netRpsPick(1)">${rpsIcon(1)}布</button>
+    <button class="rps-btn" onclick="netRpsPick(2)">${rpsIcon(2)}剪刀</button>
+  </div>`;
+}
+function renderNetRps(m) {
+  if (m.phase === 'pick') {
+    const r = ui.netRps || {};
+    const txt = NET_RPS_KIND_TXT[r.kind] || '猜拳';
+    const title = r.role === 'attacker' ? `你發動${txt}，請出拳！` : `對方發動${txt}，請出拳！`;
+    return `<h3 class="center">${title}</h3>${netRpsButtons()}`;
+  }
+  if (m.phase === 'wait') return `<h3 class="center">已出拳，等待對方…</h3><p class="net-waiting">請稍候</p>`;
+  if (m.phase === 'reveal') {
+    const myMove = m.role === 'attacker' ? m.aMove : m.dMove;
+    const oppMove = m.role === 'attacker' ? m.dMove : m.aMove;
+    const iWin = m.role === 'attacker' ? m.result : !m.result;
+    return `<h3 class="center">猜拳結果</h3>
+      <p class="center">你出「${RPS_LABELS[myMove]}」　對方出「${RPS_LABELS[oppMove]}」</p>
+      <p class="center"><span class="rps-stamp">${iWin ? '你贏了！' : '你輸了…'}</span></p>`;
+  }
+  return '';
 }
 
 function renderNetLobby() {
@@ -1604,7 +1725,8 @@ Object.assign(window, {
   actionEndTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast,
-  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom, netCopyInvite
+  gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netCreateRoom, netJoinRoom, netCopyInvite,
+  netRpsPick, netTradeRespond
 });
 
 // 有人用邀請連結（?room=CODE）點進來 → 直接開連線大廳並帶入房號、highlight 加入
