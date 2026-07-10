@@ -1662,6 +1662,113 @@ input[type=text] {
   pointer-events: none;
 }
 
+/* ── 卡牌桌面視覺修正：讓手牌看起來是「卡」，而不是漂浮圖片 ── */
+.bv-hand {
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 18px 12px;
+  min-height: 178px;
+  background: linear-gradient(180deg, rgba(18,11,5,0.08), rgba(18,11,5,0.42));
+  border: 1px solid rgba(255,220,145,0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 -10px 28px rgba(0,0,0,0.18);
+}
+.bv-hand .hand-card,
+.bv-hand .hand-card:nth-child(odd),
+.bv-hand .hand-card:nth-child(even),
+.bv-hand .hand-card:nth-child(3n) {
+  width: 126px;
+  min-width: 126px;
+  height: 158px;
+  margin: 0;
+  padding: 8px 8px 9px;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  background: linear-gradient(160deg, #fffdf7 0%, #f3e5c9 100%);
+  border: 2px solid #c69b4b;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.38), inset 0 0 0 2px rgba(255,255,255,0.55);
+  color: #2a1708;
+}
+.bv-hand .hand-card::before {
+  content: '原料卡';
+  display: block;
+  margin: -8px -8px 7px;
+  padding: 3px 6px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(90deg, #a66a2c, #d9a441);
+  color: #fff8e8;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.bv-hand .hand-card.culture {
+  border-color: #9b6bc1;
+  background: linear-gradient(160deg, #fffaff 0%, #eadcf5 100%);
+}
+.bv-hand .hand-card.culture::before {
+  content: '文化卡';
+  background: linear-gradient(90deg, #65408b, #a67bc8);
+}
+.bv-hand .hand-card.disabled { opacity: 0.55; }
+.bv-hand .hand-card .card-thumb {
+  width: 100%;
+  height: 82px;
+  object-fit: cover;
+  margin: 0 0 7px;
+  border: 1px solid rgba(75,43,14,0.28);
+  border-radius: 7px;
+  box-shadow: none;
+}
+.bv-hand .hand-card-info {
+  position: static;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  transform: none;
+  background: transparent;
+  border: 0;
+  color: #2a1708;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 1;
+  text-align: center;
+}
+.bv-hand .hand-card-info b { color: #2a1708; font-size: 13px; }
+.bv-hand .hand-card-info span { color: #5a4027; }
+.bv-hand .hand-card-info em { color: #8a4e20; font-weight: 800; }
+.bv-hand .hand-card:hover {
+  transform: translateY(-14px) scale(1.05);
+  margin: 0;
+  z-index: 5;
+  border-color: #ffe19a;
+  box-shadow: 0 18px 28px rgba(0,0,0,0.48), 0 0 18px rgba(255,210,108,0.42);
+}
+
+/* 深色桌面上的輔助文字強制使用高對比色，避免「有字但看不到」 */
+.table-surface .muted,
+.table-surface .bv-side .muted,
+.table-surface .log-box,
+.table-surface .log-box div,
+.table-surface .turn-hint { color: #f5e7c8; }
+.table-surface .bv-header h1,
+.table-surface .bv-side h3,
+.table-surface .action-menu,
+.table-surface .action-menu button { color: #fff1cf; }
+.table-surface .bv-side .card-box,
+.table-surface .action-menu { background: linear-gradient(180deg, rgba(35,24,12,0.97), rgba(16,10,5,0.98)); }
+.table-surface .action-menu button:not(:disabled) { border-color: rgba(255,220,145,0.38); }
+.table-surface .action-menu button:disabled { color: rgba(245,231,200,0.42); }
+.table-surface .bv-resources .chip,
+.table-surface .bv-resources .muted { color: #f6e8ca; }
+
+@media (max-width: 600px) {
+  .bv-hand { justify-content: flex-start; min-height: 168px; padding-inline: 10px; }
+  .bv-hand .hand-card { width: 112px; min-width: 112px; height: 150px; }
+  .bv-hand .hand-card .card-thumb { height: 74px; }
+}
+
 @media (max-width: 860px) {
   .table-surface { height: auto; overflow: visible; }
   .board-viewport {
