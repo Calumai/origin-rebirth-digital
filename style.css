@@ -2731,6 +2731,18 @@ input[type=text] {
 .bv-side .action-menu button { background: rgba(255,255,255,.06) !important; color: #fff1d0 !important; border-color: rgba(255,220,140,.24) !important; }
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
 
+/* 行動面板抽屜：收合時只留行動點數旁的展開把手 */
+.hud-toggle { display: flex; align-items: center; justify-content: center; width: 34px; min-height: 46px; padding: 0; margin: 0 0 6px auto; border: 1px solid rgba(255,211,116,.55); border-radius: 10px 0 0 10px; background: rgba(9,12,24,.94); color: #ffe39a; font-size: 24px; cursor: pointer; }
+.bv-side.is-collapsed { width: 38px; min-width: 38px; justify-self: end; }
+.bv-side.is-collapsed .action-menu { display: none; }
+.bv-side.is-collapsed .hud-toggle { width: 38px; min-height: 68px; margin: 12px 0 0; border-radius: 12px 0 0 12px; box-shadow: 0 8px 18px rgba(0,0,0,.4); }
+.bv-side:not(.is-collapsed) .hud-toggle { margin-right: -1px; }
+@media (max-width: 860px) {
+  .bv-side.is-collapsed { width: 100%; min-width: 0; }
+  .bv-side.is-collapsed .hud-toggle { position: sticky; bottom: 8px; margin: 0 0 0 auto; }
+  .bv-side .action-menu { max-height: 70vh; overflow-y: auto; }
+}
+
 /* 手機：上面的 FINAL OVERRIDES 用 !important 鎖了桌機三欄 grid，這裡必須同樣 !important 才能攤平成單欄 */
 @media (max-width: 860px) {
   .board-viewport {

@@ -22,6 +22,7 @@ let ui = {
   isBot: [],
   pass: null,
   modal: null,
+  hudCollapsed: false,
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
@@ -30,6 +31,7 @@ let ui = {
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
+function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
 // 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
@@ -913,7 +915,8 @@ function renderBoard() {
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
 
-      <div class="bv-side">
+      <div class="bv-side${ui.hudCollapsed ? ' is-collapsed' : ''}">
+        <button class="hud-toggle" onclick="toggleHud()" aria-label="${ui.hudCollapsed ? '展開行動面板' : '收合行動面板'}">${ui.hudCollapsed ? '«' : '»'}</button>
         <div class="card-box light-frame action-menu tut-actions">
           <div class="ap-tracker tut-ap">
             <div class="ap-tracker-top">
@@ -1940,6 +1943,7 @@ Object.assign(window, {
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
+  toggleHud,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
