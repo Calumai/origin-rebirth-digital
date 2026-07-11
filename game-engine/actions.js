@@ -228,10 +228,12 @@ const ACTIONS = {
   // 1 點：擲出文化卡（觸發特效）
   PLAY_CULTURE(state, a, rng) {
     const p = P(state, a.player);
+    if ((p.culturePlayedThisTurn || 0) >= 1) throw new Error('每回合最多打出 1 張文化卡');
     const i = p.hand.findIndex(c => c.kind === 'culture' && c.id === a.cardId);
     if (i < 0) throw new Error('手上無此文化卡');
     requireActionPoints(p, 1);
     p.actionPoints -= 1;
+    p.culturePlayedThisTurn = (p.culturePlayedThisTurn || 0) + 1;
     const card = p.hand.splice(i, 1)[0];
     p.played.push(card);
     log(state, `${p.tribeName} 擲出「${card.name}」`);
@@ -330,7 +332,11 @@ const ACTIONS = {
     recordInteraction(state, p, a.target, false);
   },
 
-  END_TURN(state, a) { P(state, a.player).actionPoints = 0; }
+  END_TURN(state, a) {
+    const p = P(state, a.player);
+    p.actionPoints = 0;
+    p.culturePlayedThisTurn = 0;
+  }
 };
 
 // 服飾配對檢查（同族同性別 頭+身）→ 自動計入，不需擲出

@@ -953,10 +953,10 @@ function renderBoard() {
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>原料卡・湊對換工藝</span></div>
           </div>`).join('')}
-        ${cultureInHand.map(c => `
-          <div class="hand-card culture${p.actionPoints < 1 ? ' disabled' : ''}" ${p.actionPoints < 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
+          ${cultureInHand.map(c => `
+          <div class="hand-card culture${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? ' disabled' : ''}" ${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
             ${cardThumb(c)}
-            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}</em></div>
+            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : p.culturePlayedThisTurn >= 1 ? '本回合已使用文化卡' : '點擊擲出'}</em></div>
           </div>`).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? `
           <div class="empty-hand-state">
