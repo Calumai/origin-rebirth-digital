@@ -477,6 +477,8 @@ input[type=text] {
 .rps-reveal-vs { font-weight: 900; font-size: 1.2em; color: var(--gold); opacity: 0.8; }
 
 /* score-table 只用在結算畫面（暗色木雕面板內），直接做深色主題不影響其他頁 */
+.end-score-scroll { width: 100%; overflow-x: auto; border-radius: var(--r-md); scrollbar-color: #b88731 rgba(0,0,0,.2); }
+.end-score-scroll:focus-visible { outline: 2px solid #e4ba60; outline-offset: 3px; }
 .score-table { width: 100%; border-collapse: collapse; border-radius: var(--r-md); overflow: hidden; margin: 4px 0 8px; }
 .score-table th, .score-table td { padding: 10px 8px; text-align: center; color: #f3e6cc; }
 .score-table th { background: linear-gradient(180deg, #6b4a1e, #3f2a10); color: #ffe4a3; font-family: var(--fserif); border-bottom: 1px solid rgba(217,164,65,0.4); }
@@ -2733,6 +2735,13 @@ input[type=text] {
 @media (max-width: 600px) {
   .end-actions { display: grid; grid-template-columns: 1fr; }
   .end-actions > * { width: 100%; }
+  .end-score-scroll { margin-inline: -4px; width: calc(100% + 8px); background: rgba(0,0,0,.14); }
+  .score-table { min-width: 780px; font-size: 13px; }
+  .score-table th, .score-table td { padding: 9px 7px; white-space: nowrap; }
+  .end-objectives { display: grid; gap: 7px; }
+  .end-obj-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 10px; }
+  .end-obj-row .end-obj-who, .end-obj-row .end-obj-name { flex: none; }
+  .end-obj-row .end-obj-name { grid-column: 1 / -1; }
   body { font-size: 17px; }
   .rps-btn { width: 92px; font-size: 1.05em; padding: 12px 6px 10px; }
   .hero-tribes img { width: 84px; }
