@@ -2,6 +2,7 @@ import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
 import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
+import { startAdventure } from './adventure-mode.js';
 
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
@@ -395,6 +396,7 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+function gotoAdventure() { leaveNet(); startAdventure(() => { ui.screen = 'home'; render(); }); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
 function toggleHomeNav() {
   const home = document.querySelector('.ps5-home');
@@ -455,6 +457,7 @@ function renderHome() {
       </aside>
 
       <header class="ps5-topbar">
+        <button onclick="gotoAdventure()">冒險模式 BETA</button>
         <button onclick="comingSoonToast()">設定</button>
         <button onclick="comingSoonToast()">操作說明</button>
         <button onclick="comingSoonToast()">選項</button>
@@ -478,7 +481,7 @@ function renderHome() {
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇族別後，遊戲立即開始</span>
+        <span>選擇族群進入原版桌遊，或體驗全新冒險模式</span>
       </footer>
     </main>`;
 }
@@ -1967,6 +1970,7 @@ Object.assign(window, {
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
+  gotoAdventure,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
