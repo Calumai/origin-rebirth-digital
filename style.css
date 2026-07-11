@@ -2761,6 +2761,11 @@ input[type=text] {
 .bv-buildings .bld-cell.empty { background: radial-gradient(circle at 50% 45%, rgba(53,76,82,.55), rgba(8,16,22,.86)) !important; border: 1px dashed rgba(255,211,116,.34) !important; }
 .bv-buildings .bld-cell.filled { background-color: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(255,211,116,.34) !important; }
 .bv-buildings .bld-label { color: #ffe3a1 !important; font-size: 1rem !important; }
+.bv-versus .duel-left, .bv-versus .duel-right { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+.bv-versus .duel-side.active { border-color: rgba(255,211,116,.8) !important; box-shadow: 0 0 16px rgba(255,211,116,.32) !important; }
+.bv-versus .duel-badge { border-radius: 50% !important; border: 2px solid #ffd36b !important; box-shadow: 0 0 12px rgba(255,211,116,.35) !important; }
+.bv-header .row.between, .bv-header .row.between h1, .bv-header .row.between .chip, .bv-header .row.between button { color: #fff1ce !important; text-shadow: 0 2px 7px rgba(0,0,0,.9); }
+.bv-header .row.between .chip { background: rgba(7,10,18,.82) !important; border-color: rgba(255,211,116,.65) !important; }
 .draw-reveal { position: relative; flex: 0 0 170px; width: 170px; min-height: 206px; padding: 8px 9px 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border: 2px solid #ffe08a; border-radius: 14px; background: linear-gradient(160deg, #4b351b, #181421); box-shadow: 0 0 24px rgba(255,210,108,.48), 0 14px 30px rgba(0,0,0,.55); animation: drawRevealIn .55s cubic-bezier(.18,.8,.25,1.2) both; z-index: 8; }
 .draw-reveal-label { display: block; width: 100%; margin-bottom: 6px; color: #ffe9ac; font-size: 12px; font-weight: 900; text-align: center; }
 .draw-reveal .card-thumb { width: 132px !important; height: 118px !important; object-fit: cover; margin: 0 auto 6px; border-radius: 8px; }
