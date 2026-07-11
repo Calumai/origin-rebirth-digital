@@ -397,7 +397,7 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
-function gotoAdventure() { leaveNet(); startAdventure(() => { ui.screen = 'home'; render(); }); }
+function gotoAdventure() { leaveNet(); startAdventure(() => { ui.screen = 'home'; render(); }, Object.keys(CARDS.tribes)[ui.homeSelectedTribe ?? 0]); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
 function toggleHomeNav() {
   const home = document.querySelector('.ps5-home');
@@ -439,6 +439,10 @@ function renderHome() {
           <span class="side-icon" aria-hidden="true">▣</span>
           <span class="side-text"><b>故事</b><small>STORY</small></span>
         </button>
+        <button class="side-item" onclick="gotoAdventure()">
+          <span class="side-icon" aria-hidden="true">◆</span>
+          <span class="side-text"><b>探索冒險</b><small>ADVENTURE</small></span>
+        </button>
         <button class="side-item" onclick="gotoNetLobby()">
           <span class="side-icon" aria-hidden="true">⇄</span>
           <span class="side-text"><b>連線對戰</b><small>ONLINE</small></span>
@@ -458,7 +462,7 @@ function renderHome() {
       </aside>
 
       <header class="ps5-topbar">
-        <button onclick="gotoAdventure()">冒險模式 BETA</button>
+        <button onclick="gotoAdventure()">探索冒險</button>
         <button onclick="comingSoonToast()">設定</button>
         <button onclick="comingSoonToast()">操作說明</button>
         <button onclick="comingSoonToast()">選項</button>
@@ -482,7 +486,7 @@ function renderHome() {
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇族群進入原版桌遊，或體驗全新冒險模式</span>
+        <span>選擇族群進入原版桌遊，或展開聚落探索冒險</span>
       </footer>
     </main>`;
 }
