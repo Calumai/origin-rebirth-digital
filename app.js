@@ -312,6 +312,7 @@ function render() {
   }
   positionTutorial();
   triggerRPSShake();
+  if (ui.modal) requestAnimationFrame(() => document.querySelector('.modal')?.focus({ preventScroll: true }));
 }
 
 // 猜拳結果揭曉時，讓輸家在對戰列的頭像震動一下（跟 .rps-stamp 印章搭配的動態回饋）
@@ -1167,6 +1168,18 @@ function replayGame() {
 // ── modal system ──────────────────────────────────────────
 function closeModal() { ui.modal = null; render(); }
 function closeBtn(label) { return `<div class="row" style="margin-top:12px;"><button onclick="closeModal()">${label || '取消'}</button></div>`; }
+function modalLabel(type) {
+  return ({
+    dice: '回合擲骰', chooseTarget: '選擇對象', forceSwapPick: '選擇交換家屋', passOverlay: '玩家交接',
+    rps: '猜拳對決', materialPicker: '選擇素材', takeMode: '選擇素材取得方式', exchangePickGive: '選擇交出素材',
+    exchangePickGet: '選擇取得素材', buyBuildingPicker: '建造家屋', tradeOffer: '提出交易', tradeRespond: '回應交易',
+    tradeRejected: '交易結果', buyFromPlayerPick: '向玩家購買', buyFromPlayerDemand: '選擇支付素材', netRps: '連線猜拳',
+    tradeRespondNet: '回應連線交易', netWaiting: '等待其他玩家', netLost: '連線中斷'
+  })[type] || '遊戲操作';
+}
+function modalCanDismiss(type) {
+  return !['dice', 'passOverlay', 'rps', 'netRps', 'netWaiting', 'tradeRespond', 'tradeRespondNet'].includes(type);
+}
 
 function renderModal() {
   if (!ui.modal) return '';
@@ -1193,7 +1206,7 @@ function renderModal() {
   else if (m.type === 'netLost') inner = `<h3 class="center">連線中斷</h3>
     <p class="center muted">和對方的連線斷了，可能是對方離開或網路不穩。</p>
     <div class="center"><button class="cta cta-primary" onclick="netCancel()">返回首頁</button></div>`;
-  return `<div class="overlay"><div class="modal">${inner}</div></div>`;
+  return `<div class="overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="${modalLabel(m.type)}" tabindex="-1">${inner}</div></div>`;
 }
 
 function chooseTargetModal(title, onPick, labelFn) {
@@ -2049,5 +2062,7 @@ Object.assign(window, {
 render();
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !ui.hudCollapsed && !ui.modal) closeHud();
+  if (event.key !== 'Escape') return;
+  if (ui.modal && modalCanDismiss(ui.modal.type)) { event.preventDefault(); closeModal(); return; }
+  if (!ui.hudCollapsed && !ui.modal) closeHud();
 });
