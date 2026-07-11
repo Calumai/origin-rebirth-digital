@@ -742,17 +742,13 @@ function doAction(action, fromRemote) {
   if (ui.net && !fromRemote && action.player === ui.net.myIdx) Net.send({ t: 'act', action });
   ui.modal = null;
   render(); // 先渲染出最終狀態，飛行動畫在畫面上疊加視覺回饋
-  const played = animateGains(action, matBefore, buildingsBefore);
-  const reviewCard = !fromRemote && !isBot(action.player) && action.player === ui.net?.myIdx || (!fromRemote && !ui.net && !isBot(action.player) && action.player === G.currentPlayer);
-  const advance = () => {
-    if (currentPlayer().actionPoints <= 0) {
-      if (reviewCard && (action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD')) {
-        ui.pendingAdvance = true;
-        render();
-      } else finishTurnAndAdvance();
-    }
-  };
-  if (played) setTimeout(advance, 420); else advance();
+  // 飛行動畫（獨立疊在 toast-layer 上，換手後仍會播完）；用 try/catch 避免動畫錯誤擋到換手
+  try { animateGains(action, matBefore, buildingsBefore); }
+  catch (e) { console.warn('animateGains 失敗（已忽略）：', e); }
+  // JJ 要求「回合自動結束」：行動點用完就「立刻」換手，不再停下等玩家按繼續。
+  // （原本抽牌當最後一動會設 ui.pendingAdvance 停住等「看完卡牌，繼續回合」，JJ 覺得多一步、要拿掉。）
+  try { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); }
+  catch (e) { console.warn('自動換手失敗：', e); }
 }
 
 // 動作結束後比對素材/建築變化，飛出對應的動態獲得回饋；回傳是否有播放動畫（供 doAction 決定要不要延遲換手）
