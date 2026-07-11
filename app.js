@@ -522,9 +522,14 @@ function renderStory() {
   return `
     <section class="end-screen">
       <div class="setup-panel story-panel">
-        <h2>世界觀介紹</h2>
-        <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
-        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或抽空建築牌庫，遊戲便進入結算——<b>本族家屋蓋最多的人獲勝</b>（平手才比總分）。</p>
+        <div class="story-kicker">30 秒看懂玩法</div>
+        <h2>重建聚落，搶先完成家屋</h2>
+        <p class="story-lead">每回合擲骰取得行動點，在事件與玩家互動中收集四種素材。<b>先完成本族 4 間家屋的人取得勝利優勢。</b></p>
+        <div class="story-loop" aria-label="三步核心玩法">
+          <article><span>1</span><div><b>蒐集素材</b><small>取得木頭、竹子、茅草與石頭；缺少的素材可交換或交易。</small></div></article>
+          <article><span>2</span><div><b>做出選擇</b><small>蓋屋最快，工藝與文化卡能加分，偷襲與交易可以改變局勢。</small></div></article>
+          <article><span>3</span><div><b>完成家屋</b><small>每蓋一間補上一塊拼圖；集滿 4 塊，聚落完成並進入結算。</small></div></article>
+        </div>
         <div class="story-tribe-row">
           ${Object.entries(CARDS.tribes).map(([id, t]) => `
             <div class="story-tribe-card">
@@ -533,7 +538,11 @@ function renderStory() {
               <div class="story-tribe-produces">盛產：${t.produces.join('、')}</div>
             </div>`).join('')}
         </div>
-        <p class="center" style="color:rgba(248,230,190,0.7); font-size:0.85em;">遊戲中還會遇到台灣 16 族的傳說故事文化卡——每一張，都是一段真實流傳的部落故事。</p>
+        <details class="story-lore">
+          <summary>閱讀世界觀與文化內容</summary>
+          <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖。戰爭結束時，我們獲得一個深埋地底的盒子——這一次，我們一定要找到回到現代的方法。</p>
+          <p>遊戲中會遇到臺灣 16 族的傳說故事文化卡。每張卡牌都帶來不同效果，也承載一段流傳於部落的故事。</p>
+        </details>
         <div class="center"><button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button></div>
         <div class="center" style="margin-top:8px;"><button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button></div>
       </div>
