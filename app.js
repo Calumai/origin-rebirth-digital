@@ -682,10 +682,6 @@ function finishTurnAndAdvance() {
     render();
     return;
   }
-  if (!G.buildingDeck.length && !G.endTriggeredBy) {
-    G.endTriggeredBy = 'building_deck_empty';
-    G.endTriggerTurn = G.turn;
-  }
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
   if (G.currentPlayer === 0) {
     G.turn++;

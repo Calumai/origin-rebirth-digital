@@ -274,9 +274,6 @@ const ACTIONS = {
     for (const m of four) p.materials[m]--;
     const c = drawBuilding(state, p);
     log(state, `${p.tribeName} 換抽建築卡「${c ? c.name : '（庫空）'}」`);
-    if (!c && !state.endTriggeredBy) {
-      state.endTriggeredBy = 'building_deck_empty'; state.endTriggerTurn = state.turn;
-    }
   },
 
   // 2 點：用 2 素材向玩家購買原料卡或服飾卡（對方強制指定素材）
