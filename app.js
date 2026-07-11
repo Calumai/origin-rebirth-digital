@@ -708,6 +708,7 @@ function runBotStep() {
 }
 
 function finishTurnAndAdvance() {
+  let revealedEvent = null;
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
     G.phase = 'ended';
     ui.screen = 'end';
@@ -719,8 +720,7 @@ function finishTurnAndAdvance() {
   if (G.currentPlayer === 0) {
     G.turn++;
     flipNextEvent(G); // A20：新一輪翻下一張公共事件（seed 決定順序，連線兩端一致）
-    showToast(`新事件：${G.currentEvent.icon || ''} ${G.currentEvent.name}`, 'event');
-    window.Sound?.sfx('toast');
+    revealedEvent = G.currentEvent;
   }
 
   if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
@@ -734,6 +734,11 @@ function finishTurnAndAdvance() {
 
   if (G.phase === 'ended') { ui.screen = 'end'; window.Sound?.sfx('victory'); render(); return; }
   startPlayerTurn(G.currentPlayer);
+  if (revealedEvent) setTimeout(() => {
+    if (ui.screen !== 'board') return;
+    showImpact(`${revealedEvent.icon || ''} ${revealedEvent.name}`, `第 ${G.turn + 1} 輪公共事件`);
+    window.Sound?.sfx('toast');
+  }, 80);
 }
 
 function doAction(action, fromRemote) {
@@ -1117,12 +1122,14 @@ function renderEnd() {
               <div class="winner-score">家屋 ${w.buildingCount}/${goal}</div>
             </div>`).join('')}
         </div>
+        <div class="end-score-scroll" tabindex="0" aria-label="完整計分表，可左右滑動查看">
         <table class="score-table">
           <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>事件</th><th>目標</th><th>總分</th></tr>
           ${scores.slice().sort(rankCmp).map(s => `<tr class="${isWin(s) ? 'is-winner' : ''}">
             <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.eventBonus || 0}</td><td>${s.objective ? '+5' : '0'}</td><td>${s.total}</td>
           </tr>`).join('')}
         </table>
+        </div>
         <div class="end-objectives">
           <h3>秘密目標揭曉</h3>
           ${scores.map(s => {
