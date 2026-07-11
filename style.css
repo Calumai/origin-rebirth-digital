@@ -2756,6 +2756,11 @@ input[type=text] {
 .mat-dock-coin img { transition: transform .2s ease, filter .2s ease; }
 .mat-dock-coin:hover img { transform: translateY(-5px) scale(1.08); filter: drop-shadow(0 0 10px rgba(255,211,116,.75)); }
 .bld-cell.filled { animation: buildingReveal .45s ease both; }
+.bv-buildings .bld-centerpiece { padding: 18px 0 8px !important; }
+.bv-buildings .bld-puzzle { grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(100px, 1fr)) !important; width: min(860px, 92%) !important; gap: 8px !important; padding: 8px !important; background: rgba(4,10,15,.34) !important; border: 1px solid rgba(255,211,116,.42) !important; border-radius: 16px !important; }
+.bv-buildings .bld-cell.empty { background: radial-gradient(circle at 50% 45%, rgba(53,76,82,.55), rgba(8,16,22,.86)) !important; border: 1px dashed rgba(255,211,116,.34) !important; }
+.bv-buildings .bld-cell.filled { background-color: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(255,211,116,.34) !important; }
+.bv-buildings .bld-label { color: #ffe3a1 !important; font-size: 1rem !important; }
 @keyframes buildingReveal { from { opacity: 0; transform: scale(.78); filter: brightness(1.8); } to { opacity: 1; transform: scale(1); filter: none; } }
 @media (max-width: 860px) {
   .bv-side { position: fixed !important; inset: auto 10px 10px; z-index: 90; width: auto !important; min-width: 0; pointer-events: none; }
