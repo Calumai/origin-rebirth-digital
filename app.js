@@ -22,6 +22,9 @@ let ui = {
   isBot: [],
   pass: null,
   modal: null,
+  hudCollapsed: true,
+  pendingAdvance: false,
+  lastDrawnCard: null,
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
@@ -30,6 +33,8 @@ let ui = {
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
+function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
+function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
 // 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
@@ -571,6 +576,8 @@ function startGame() {
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
   ui.modal = null;
+  ui.lastDrawnCard = null;
+  ui.pendingAdvance = false;
   if (ui.net) {
     // 連線對戰：換我＝進擲骰；換對方＝進觀戰視圖（renderBoard 會依 ui.net.myIdx 判斷）
     ui.screen = 'board';
@@ -682,10 +689,6 @@ function finishTurnAndAdvance() {
     render();
     return;
   }
-  if (!G.buildingDeck.length && !G.endTriggeredBy) {
-    G.endTriggeredBy = 'building_deck_empty';
-    G.endTriggerTurn = G.turn;
-  }
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
   if (G.currentPlayer === 0) {
     G.turn++;
@@ -714,6 +717,11 @@ function doAction(action, fromRemote) {
   try {
     applyAction(G, action, rng);
     flashLog(before);
+    if (!isBot(action.player) && action.player === G.currentPlayer && (action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD')) {
+      const drawnKind = action.type === 'DRAW_MATERIAL_CARD' ? 'raw' : 'culture';
+      const actorHand = G.players[action.player]?.hand || [];
+      ui.lastDrawnCard = actorHand.slice().reverse().find(c => c.kind === drawnKind) || null;
+    }
     const actor = G.players[action.player];
     const who = actor ? (action.player === ui.net?.myIdx ? '你' : actor.tribeName) : '玩家';
     const feedback = {
@@ -737,9 +745,8 @@ function doAction(action, fromRemote) {
   // 飛行動畫（獨立疊在 toast-layer 上，換手後仍會播完）；用 try/catch 避免動畫錯誤擋到換手
   try { animateGains(action, matBefore, buildingsBefore); }
   catch (e) { console.warn('animateGains 失敗（已忽略）：', e); }
-  // 修正回合卡住不換手的 bug：行動點用完就「立刻」換手。
-  // 原本對有動畫的動作用 setTimeout(advance, 420) 延遲，但該計時器在某些情況不觸發，
-  // 導致 AP 歸零卻停在原玩家回合、要手動按「結束回合」。改為同步立即換手（與「結束回合」同一路徑）。
+  // JJ 要求「回合自動結束」：行動點用完就「立刻」換手，不再停下等玩家按繼續。
+  // （原本抽牌當最後一動會設 ui.pendingAdvance 停住等「看完卡牌，繼續回合」，JJ 覺得多一步、要拿掉。）
   try { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); }
   catch (e) { console.warn('自動換手失敗：', e); }
 }
@@ -922,7 +929,8 @@ function renderBoard() {
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
 
-      <div class="bv-side">
+      <div class="bv-side${ui.hudCollapsed ? ' is-collapsed' : ''}">
+        <button class="hud-toggle" onclick="toggleHud()" aria-label="${ui.hudCollapsed ? '展開行動面板' : '收合行動面板'}">${ui.hudCollapsed ? '«' : '»'}</button>
         <div class="card-box light-frame action-menu tut-actions">
           <div class="ap-tracker tut-ap">
             <div class="ap-tracker-top">
@@ -932,6 +940,7 @@ function renderBoard() {
             <div class="ap-pips">${apPips(p.actionPoints, Math.max(p.turnStartAP ?? p.actionPoints, p.actionPoints))}</div>
           </div>
           <div class="turn-hint">${turnHint(p)}</div>
+          ${ui.pendingAdvance ? '<button class="continue-turn-btn" onclick="continueTurn()">看完卡牌，繼續回合</button>' : ''}
 
           ${objectivePanel()}
           ${goalPanel(p)}
@@ -957,15 +966,16 @@ function renderBoard() {
       </div>
 
       <div class="bv-hand">
+        ${ui.lastDrawnCard ? `<div class="draw-reveal"><span class="draw-reveal-label">你抽到的卡</span>${cardThumb(ui.lastDrawnCard)}<b>${ui.lastDrawnCard.name}</b></div>` : ''}
         ${rawInHand.map(c => `
           <div class="hand-card">
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>原料卡・湊對換工藝</span></div>
           </div>`).join('')}
-        ${cultureInHand.map(c => `
-          <div class="hand-card culture${p.actionPoints < 1 ? ' disabled' : ''}" ${p.actionPoints < 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
+          ${cultureInHand.map(c => `
+          <div class="hand-card culture${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? ' disabled' : ''}" ${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
             ${cardThumb(c)}
-            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : '點擊擲出'}</em></div>
+            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : p.culturePlayedThisTurn >= 1 ? '本回合已使用文化卡' : '點擊擲出'}</em></div>
           </div>`).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? `
           <div class="empty-hand-state">
@@ -1949,6 +1959,8 @@ Object.assign(window, {
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
+  toggleHud,
+  continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,

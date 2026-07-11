@@ -17,7 +17,7 @@ function chooseAction(state, idx, rng) {
   }
 
   // 2. 手上原料能配對 → 換工藝（工藝池還有才做）
-  if (p.actionPoints >= 1) {
+  if (p.actionPoints >= 1 && (p.culturePlayedThisTurn || 0) < 1) {
     for (const [craftId] of Object.entries(CARDS.crafts)) {
       if (!state.craftPool.some(c => c.id === craftId)) continue;
       const need = CARDS.rawCardTypes.filter(t => t.craft === craftId).map(t => t.id);
@@ -27,7 +27,7 @@ function chooseAction(state, idx, rng) {
   }
 
   // 3. 手上有文化卡且非防禦卡 → 擲出得分/特效（防禦卡留著擋偷襲）
-  if (p.actionPoints >= 1) {
+  if (p.actionPoints >= 1 && (p.culturePlayedThisTurn || 0) < 1) {
     const c = p.hand.find(c => c.kind === 'culture' && c.effect !== 'defend_raid');
     if (c) {
       const a = { type: 'PLAY_CULTURE', player: idx, cardId: c.id };

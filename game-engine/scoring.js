@@ -28,7 +28,7 @@ function scorePlayer(p) {
 
   // 03 文化卡：已擲出者計分
   detail.culture = p.played.filter(c => c.kind === 'culture')
-    .reduce((s, c) => s + c.score, 0);
+    .reduce((s, c) => s + Math.min(1, c.score), 0);
 
   // 04 工藝卡 5 分
   const crafts = p.played.filter(c => c.kind === 'craft');

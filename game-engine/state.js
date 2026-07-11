@@ -73,7 +73,7 @@ function initGame(playerCount, seed, chosenTribeIds) {
     for (const m of CARDS.tribes[tribe].produces) materials[m] += 1; // 盛產再各 1 → 共 7
     return {
       idx: i, tribe, tribeName: CARDS.tribes[tribe].name,
-      materials, hand: [], played: [], buildings: [], clothing: [],
+      materials, hand: [], played: [], buildings: [], clothing: [], culturePlayedThisTurn: 0,
       actionPoints: 0,
       // A20：秘密目標＋進度追蹤＋事件加分累計；_flag 為每回合重置的暫存旗標
       objective: null,

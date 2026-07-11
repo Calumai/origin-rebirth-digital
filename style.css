@@ -2730,6 +2730,119 @@ input[type=text] {
 .mat-dock-coin img { width: 52px !important; height: 52px !important; margin: 0 auto 4px !important; }
 .bv-side .action-menu button { background: rgba(255,255,255,.06) !important; color: #fff1d0 !important; border-color: rgba(255,220,140,.24) !important; }
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
+.continue-turn-btn { width: 100%; margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #ffd36b; border-radius: 10px; background: linear-gradient(135deg, #d89d35, #9a6122); color: #fff6dc; font-weight: 900; box-shadow: 0 6px 16px rgba(0,0,0,.3); }
+.continue-turn-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+/* FINAL DRAWER MODE: 行動面板脫離 Grid，不再壓縮中央戰場 */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-columns: 218px minmax(0, 1fr) 0 !important; }
+  .bv-side { grid-area: side; position: static !important; width: 0 !important; min-width: 0 !important; overflow: visible !important; }
+  .bv-side .hud-toggle { position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 90; width: 42px; min-height: 74px; border-radius: 14px 0 0 14px; box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  .bv-side .action-menu { position: fixed; right: 14px; top: 92px; bottom: 84px; width: min(360px, 28vw); max-height: none; overflow-y: auto; z-index: 89; margin: 0 !important; padding: 16px !important; border-radius: 18px !important; box-shadow: 0 20px 60px rgba(0,0,0,.62) !important; }
+  .bv-side.is-collapsed .action-menu { display: none !important; }
+.bv-side:not(.is-collapsed) .hud-toggle { right: min(388px, calc(28vw + 28px)); }
+}
+
+/* 參考示意圖的沉浸式戰場背景與動態層 */
+.table-surface { background: #0b1013 url('assets/ui/battlefield-bg.png') center / cover no-repeat !important; }
+.table-surface::before { background: radial-gradient(ellipse at 50% 42%, rgba(21,44,46,.08), transparent 58%), linear-gradient(180deg, rgba(4,7,12,.12), rgba(4,6,9,.48)); }
+.event-banner { animation: hudEventEnter .55s cubic-bezier(.2,.8,.25,1.15) both; }
+@keyframes hudEventEnter { from { opacity: 0; transform: translateY(-18px) scale(.94); filter: blur(3px); } to { opacity: 1; transform: translateY(0) scale(1); filter: none; } }
+.bv-hand .hand-card { animation: cardDealIn .5s cubic-bezier(.2,.8,.25,1.1) both; }
+.bv-hand .hand-card:nth-child(2) { animation-delay: 70ms; }
+.bv-hand .hand-card:nth-child(3) { animation-delay: 140ms; }
+.bv-hand .hand-card:nth-child(4) { animation-delay: 210ms; }
+@keyframes cardDealIn { from { opacity: 0; transform: translateY(80px) rotate(5deg) scale(.82); } to { opacity: 1; } }
+.mat-dock-coin img { transition: transform .2s ease, filter .2s ease; }
+.mat-dock-coin:hover img { transform: translateY(-5px) scale(1.08); filter: drop-shadow(0 0 10px rgba(255,211,116,.75)); }
+.bld-cell.filled { animation: buildingReveal .45s ease both; }
+.bv-buildings .bld-centerpiece { padding: 18px 0 8px !important; }
+.bv-buildings .bld-puzzle { grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(100px, 1fr)) !important; width: min(860px, 92%) !important; gap: 8px !important; padding: 8px !important; background: rgba(4,10,15,.34) !important; border: 1px solid rgba(255,211,116,.42) !important; border-radius: 16px !important; }
+.bv-buildings .bld-cell.empty { background: radial-gradient(circle at 50% 45%, rgba(53,76,82,.55), rgba(8,16,22,.86)) !important; border: 1px dashed rgba(255,211,116,.34) !important; }
+.bv-buildings .bld-cell.filled { background-color: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(255,211,116,.34) !important; }
+.bv-buildings .bld-label { color: #ffe3a1 !important; font-size: 1rem !important; }
+.bv-buildings { position: relative; overflow: hidden !important; padding: 20px 24px 24px !important; background: radial-gradient(ellipse at center, rgba(29,57,59,.94), rgba(7,14,20,.98)) !important; }
+.bv-buildings::before { content: '中央牌桌'; position: absolute; top: 14px; right: 20px; color: rgba(255,221,145,.52); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+.bv-buildings .bld-centerpiece-title { position: relative; z-index: 1; justify-content: center; margin: 0 0 8px !important; font-size: 1.15rem !important; }
+.bv-buildings .bld-centerpiece { position: relative; z-index: 1; min-height: 0; padding: 12px 0 18px !important; }
+.bv-buildings .bld-puzzle-big { width: min(900px, 96%) !important; grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(112px, 1fr)) !important; gap: 12px !important; padding: 12px !important; background: rgba(3,9,14,.55) !important; border: 1px solid rgba(255,211,116,.38) !important; border-radius: 18px !important; box-shadow: inset 0 0 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35) !important; }
+.bv-buildings .bld-puzzle-big .bld-cell { border-radius: 10px !important; min-height: 112px; }
+.bv-buildings .bld-puzzle-big .bld-cell.empty { background: radial-gradient(circle at center, rgba(48,77,76,.5), rgba(7,15,20,.92)) !important; border: 1px dashed rgba(255,211,116,.35) !important; box-shadow: inset 0 0 22px rgba(0,0,0,.38) !important; }
+.bv-buildings .bld-puzzle-big .bld-cell.empty::after { content: '家屋牌位'; display: grid; place-items: center; height: 100%; color: rgba(255,225,160,.44); font-size: 14px; letter-spacing: .12em; }
+.bv-buildings .bld-puzzle-big .bld-cell.filled { border: 2px solid rgba(255,211,116,.72) !important; box-shadow: 0 8px 16px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.12) !important; }
+.bv-buildings .bld-group:not(.bld-group-big) { opacity: .85; transform: scale(.82); transform-origin: top center; }
+.bv-versus .duel-left, .bv-versus .duel-right { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+.bv-versus .duel-side.active { border-color: rgba(255,211,116,.8) !important; box-shadow: 0 0 16px rgba(255,211,116,.32) !important; }
+.bv-versus .duel-badge { border-radius: 50% !important; border: 2px solid #ffd36b !important; box-shadow: 0 0 12px rgba(255,211,116,.35) !important; }
+.bv-header .row.between, .bv-header .row.between h1, .bv-header .row.between .chip, .bv-header .row.between button { color: #fff1ce !important; text-shadow: 0 2px 7px rgba(0,0,0,.9); }
+.bv-header .row.between .chip { background: rgba(7,10,18,.82) !important; border-color: rgba(255,211,116,.65) !important; }
+.draw-reveal { position: relative; flex: 0 0 170px; width: 170px; min-height: 206px; padding: 8px 9px 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border: 2px solid #ffe08a; border-radius: 14px; background: linear-gradient(160deg, #4b351b, #181421); box-shadow: 0 0 24px rgba(255,210,108,.48), 0 14px 30px rgba(0,0,0,.55); animation: drawRevealIn .55s cubic-bezier(.18,.8,.25,1.2) both; z-index: 8; }
+.draw-reveal-label { display: block; width: 100%; margin-bottom: 6px; color: #ffe9ac; font-size: 12px; font-weight: 900; text-align: center; }
+.draw-reveal .card-thumb { width: 132px !important; height: 118px !important; object-fit: cover; margin: 0 auto 6px; border-radius: 8px; }
+.draw-reveal b { color: #fff1cd; font-size: 14px; text-align: center; }
+@keyframes drawRevealIn { from { opacity: 0; transform: translateY(60px) scale(.72) rotate(-5deg); } to { opacity: 1; transform: none; } }
+.bv-hand .hand-card .card-thumb { width: 100% !important; height: 98px !important; object-fit: cover !important; object-position: center !important; }
+@keyframes buildingReveal { from { opacity: 0; transform: scale(.78); filter: brightness(1.8); } to { opacity: 1; transform: scale(1); filter: none; } }
+@media (max-width: 860px) {
+  .bv-side { position: fixed !important; inset: auto 10px 10px; z-index: 90; width: auto !important; min-width: 0; pointer-events: none; }
+  .bv-side .hud-toggle { pointer-events: auto; margin: 0 0 0 auto; min-height: 48px; }
+  .bv-side .action-menu { pointer-events: auto; max-height: min(68vh, 620px); overflow-y: auto; margin: 8px 0 0 !important; }
+  .bv-side.is-collapsed .action-menu { display: none !important; }
+}
+
+/* FINAL TOP HUD OVERRIDES */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-rows: 42px 72px minmax(310px,1fr) auto !important; }
+  .bv-header { position: relative !important; padding: 0 8px !important; min-height: 42px !important; }
+  .bv-header h1 { margin: 0 !important; font-size: 1.05rem !important; line-height: 1.2 !important; }
+  .bv-header .event-banner { position: absolute !important; top: -2px !important; left: 50% !important; transform: translateX(-50%) !important; width: min(420px,34vw) !important; margin: 0 !important; padding: 4px 9px !important; min-height: 34px !important; border-radius: 9px !important; }
+  .bv-header .event-banner .event-icon { font-size: 1.15em !important; }
+  .bv-header .event-banner .event-text b { font-size: .78em !important; }
+  .bv-header .event-banner .event-text small { font-size: .62em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bv-header .event-banner .event-dur { font-size: .6em !important; padding: 1px 5px !important; }
+  .bv-versus .versus-strip, .bv-versus .versus-duel { min-height: 62px !important; margin: 0 !important; padding: 3px 8px !important; border-radius: 12px !important; }
+  .bv-versus .vs-player { padding: 3px 5px !important; display: grid !important; grid-template-columns: 30px 1fr; grid-template-rows: 1fr 1fr; column-gap: 6px; text-align: left; align-items: center; }
+  .bv-versus .vs-player img { grid-row: 1 / 3; width: 30px !important; height: 30px !important; border-width: 2px; }
+  .bv-versus .vs-name { margin: 0 !important; font-size: .72em !important; }
+  .bv-versus .vs-score { font-size: .82em !important; line-height: 1; }
+  .bv-versus .vs-stats, .bv-versus .vs-hand { display: none !important; }
+  .bv-versus .duel-side { padding: 4px 14px !important; }
+  .bv-versus .duel-badge { width: 34px !important; height: 34px !important; }
+  .bv-versus .duel-stats, .bv-versus .duel-side .vs-hand { display: none !important; }
+}
+
+/* 頂部 HUD 減壓：事件卡與玩家列不再各自佔滿一整排 */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-rows: 42px 72px minmax(310px,1fr) auto !important; }
+  .bv-header { position: relative; padding: 0 8px !important; min-height: 42px; }
+  .bv-header h1 { margin: 0; font-size: 1.05rem !important; line-height: 1.2; }
+  .bv-header .event-banner { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: min(420px, 34vw); margin: 0; padding: 4px 9px; min-height: 34px; border-radius: 9px; }
+  .bv-header .event-banner .event-icon { font-size: 1.15em; }
+  .bv-header .event-banner .event-text b { font-size: .78em; }
+  .bv-header .event-banner .event-text small { font-size: .62em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bv-header .event-banner .event-dur { font-size: .6em; padding: 1px 5px; }
+  .bv-versus .versus-strip, .bv-versus .versus-duel { min-height: 62px; margin: 0 !important; padding: 3px 8px !important; border-radius: 12px; }
+  .bv-versus .vs-player { padding: 3px 5px !important; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: 1fr 1fr; column-gap: 6px; text-align: left; align-items: center; }
+  .bv-versus .vs-player img { grid-row: 1 / 3; width: 30px; height: 30px; border-width: 2px; }
+  .bv-versus .vs-name { margin: 0; font-size: .72em; }
+  .bv-versus .vs-score { font-size: .82em; line-height: 1; }
+  .bv-versus .vs-stats, .bv-versus .vs-hand { display: none; }
+  .bv-versus .duel-side { padding: 4px 14px; }
+  .bv-versus .duel-badge { width: 34px; height: 34px; }
+  .bv-versus .duel-stats, .bv-versus .duel-side .vs-hand { display: none; }
+}
+
+/* 行動面板抽屜：收合時只留行動點數旁的展開把手 */
+.hud-toggle { display: flex; align-items: center; justify-content: center; width: 34px; min-height: 46px; padding: 0; margin: 0 0 6px auto; border: 1px solid rgba(255,211,116,.55); border-radius: 10px 0 0 10px; background: rgba(9,12,24,.94); color: #ffe39a; font-size: 24px; cursor: pointer; }
+.bv-side.is-collapsed { width: 38px; min-width: 38px; justify-self: end; }
+.bv-side.is-collapsed .action-menu { display: none; }
+.bv-side.is-collapsed .hud-toggle { width: 38px; min-height: 68px; margin: 12px 0 0; border-radius: 12px 0 0 12px; box-shadow: 0 8px 18px rgba(0,0,0,.4); }
+.bv-side:not(.is-collapsed) .hud-toggle { margin-right: -1px; }
+@media (max-width: 860px) {
+  .bv-side.is-collapsed { width: 100%; min-width: 0; }
+  .bv-side.is-collapsed .hud-toggle { position: sticky; bottom: 8px; margin: 0 0 0 auto; }
+  .bv-side .action-menu { max-height: 70vh; overflow-y: auto; }
+}
 
 /* 手機：上面的 FINAL OVERRIDES 用 !important 鎖了桌機三欄 grid，這裡必須同樣 !important 才能攤平成單欄 */
 @media (max-width: 860px) {
