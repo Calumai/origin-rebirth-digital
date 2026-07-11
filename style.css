@@ -2761,6 +2761,16 @@ input[type=text] {
 .bv-buildings .bld-cell.empty { background: radial-gradient(circle at 50% 45%, rgba(53,76,82,.55), rgba(8,16,22,.86)) !important; border: 1px dashed rgba(255,211,116,.34) !important; }
 .bv-buildings .bld-cell.filled { background-color: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(255,211,116,.34) !important; }
 .bv-buildings .bld-label { color: #ffe3a1 !important; font-size: 1rem !important; }
+.bv-buildings { position: relative; overflow: hidden !important; padding: 20px 24px 24px !important; background: radial-gradient(ellipse at center, rgba(29,57,59,.94), rgba(7,14,20,.98)) !important; }
+.bv-buildings::before { content: '中央牌桌'; position: absolute; top: 14px; right: 20px; color: rgba(255,221,145,.52); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+.bv-buildings .bld-centerpiece-title { position: relative; z-index: 1; justify-content: center; margin: 0 0 8px !important; font-size: 1.15rem !important; }
+.bv-buildings .bld-centerpiece { position: relative; z-index: 1; min-height: 0; padding: 12px 0 18px !important; }
+.bv-buildings .bld-puzzle-big { width: min(900px, 96%) !important; grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(112px, 1fr)) !important; gap: 12px !important; padding: 12px !important; background: rgba(3,9,14,.55) !important; border: 1px solid rgba(255,211,116,.38) !important; border-radius: 18px !important; box-shadow: inset 0 0 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35) !important; }
+.bv-buildings .bld-puzzle-big .bld-cell { border-radius: 10px !important; min-height: 112px; }
+.bv-buildings .bld-puzzle-big .bld-cell.empty { background: radial-gradient(circle at center, rgba(48,77,76,.5), rgba(7,15,20,.92)) !important; border: 1px dashed rgba(255,211,116,.35) !important; box-shadow: inset 0 0 22px rgba(0,0,0,.38) !important; }
+.bv-buildings .bld-puzzle-big .bld-cell.empty::after { content: '家屋牌位'; display: grid; place-items: center; height: 100%; color: rgba(255,225,160,.44); font-size: 14px; letter-spacing: .12em; }
+.bv-buildings .bld-puzzle-big .bld-cell.filled { border: 2px solid rgba(255,211,116,.72) !important; box-shadow: 0 8px 16px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.12) !important; }
+.bv-buildings .bld-group:not(.bld-group-big) { opacity: .85; transform: scale(.82); transform-origin: top center; }
 .bv-versus .duel-left, .bv-versus .duel-right { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
 .bv-versus .duel-side.active { border-color: rgba(255,211,116,.8) !important; box-shadow: 0 0 16px rgba(255,211,116,.32) !important; }
 .bv-versus .duel-badge { border-radius: 50% !important; border: 2px solid #ffd36b !important; box-shadow: 0 0 12px rgba(255,211,116,.35) !important; }
