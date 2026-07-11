@@ -24,6 +24,7 @@ let ui = {
   modal: null,
   hudCollapsed: true,
   pendingAdvance: false,
+  lastDrawnCard: null,
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
@@ -33,7 +34,7 @@ let ui = {
 
 function isBot(idx) { return !!ui.isBot[idx]; }
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
-function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; finishTurnAndAdvance(); }
+function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
 // 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
@@ -714,6 +715,11 @@ function doAction(action, fromRemote) {
   try {
     applyAction(G, action, rng);
     flashLog(before);
+    if (!isBot(action.player) && action.player === G.currentPlayer && (action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD')) {
+      const drawnKind = action.type === 'DRAW_MATERIAL_CARD' ? 'raw' : 'culture';
+      const actorHand = G.players[action.player]?.hand || [];
+      ui.lastDrawnCard = actorHand.slice().reverse().find(c => c.kind === drawnKind) || null;
+    }
     const actor = G.players[action.player];
     const who = actor ? (action.player === ui.net?.myIdx ? '你' : actor.tribeName) : '玩家';
     const feedback = {
@@ -962,6 +968,7 @@ function renderBoard() {
       </div>
 
       <div class="bv-hand">
+        ${ui.lastDrawnCard ? `<div class="draw-reveal"><span class="draw-reveal-label">你抽到的卡</span>${cardThumb(ui.lastDrawnCard)}<b>${ui.lastDrawnCard.name}</b></div>` : ''}
         ${rawInHand.map(c => `
           <div class="hand-card">
             ${cardThumb(c)}
