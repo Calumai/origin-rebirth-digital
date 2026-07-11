@@ -539,11 +539,14 @@ function renderSetup() {
   return `
     <section class="setup-screen">
       <div class="setup-panel">
+        <button class="setup-back" onclick="gotoHome()" aria-label="返回首頁">‹ 返回</button>
         <h2>設定玩家</h2>
+        <p class="setup-meta"><span>約 15–20 分鐘</span><span>2–4 人</span><span>先蓋滿 4 間家屋獲勝</span></p>
         <label class="name-field">
-          <span class="name-field-label">你的名字</span>
+          <span class="name-field-label">你的名字 <small>可留白</small></span>
           <input type="text" value="${esc(s.names[0] || '')}" placeholder="輸入你的名字" maxlength="12" oninput="setName(0, this.value)">
         </label>
+        <div class="setup-section-label">選擇玩家人數</div>
         <div class="player-count-row">
           ${[2, 3, 4].map(n => `<button class="option-button${s.count === n ? ' is-active' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
         </div>
