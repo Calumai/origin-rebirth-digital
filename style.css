@@ -1138,6 +1138,26 @@ input[type=text] {
 }
 .audio-toggle:hover { transform: scale(1.08); border-color: rgba(255, 224, 148, 0.6); }
 .audio-toggle.is-muted { opacity: 0.6; }
+.audio-toggle::after {
+  content: attr(data-label);
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translate(6px, -50%);
+  width: max-content;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,224,148,.28);
+  border-radius: 8px;
+  background: rgba(18,16,12,.92);
+  color: #f5dfb0;
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.audio-toggle:hover::after, .audio-toggle:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+.motion-arrival { box-shadow: 0 0 0 3px rgba(232,190,93,.7), 0 0 24px rgba(232,190,93,.45) !important; }
 
 .net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
 .net-error { color: #ff9a7a; text-align: center; }
@@ -1794,7 +1814,10 @@ input[type=text] {
 @media (prefers-reduced-motion: reduce) {
   .ps5-home .ps5-bg, .ps5-home .ps5-embers, .ps5-home .game-title-block h1,
   .ps5-home .tribe-card.selected, .ps5-home .start-btn,
-  .screen-enter, .screen-enter * { animation: none !important; }
+  .screen-enter, .screen-enter *, .die-cube.dice-rolling, .speech-bubble,
+  .game-impact, .action-denied, .net-waiting, .rps-reveal-side,
+  .draw-flight, .coin-flight { animation: none !important; transition: none !important; }
+  .audio-toggle::after { transition: none; }
 }
 
 /* ── 對戰桌牌桌墊 ── */

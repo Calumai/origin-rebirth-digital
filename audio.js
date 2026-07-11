@@ -241,6 +241,9 @@
     if (!toggleBtn) return;
     toggleBtn.textContent = muted ? '🔇' : '🔊';
     toggleBtn.setAttribute('aria-label', muted ? '開啟聲音' : '關閉聲音');
+    toggleBtn.setAttribute('aria-pressed', muted ? 'false' : 'true');
+    toggleBtn.setAttribute('data-label', muted ? '聲音已關閉' : '聲音已開啟');
+    toggleBtn.title = muted ? '聲音已關閉，點擊開啟' : '聲音已開啟，點擊靜音';
     toggleBtn.classList.toggle('is-muted', muted);
   }
   function toggleMute() {

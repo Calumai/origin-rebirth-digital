@@ -107,6 +107,9 @@ function bubbleForLog(line) {
   if (m = line.match(/^(.+?) 以「.+?」強制換得/)) { showBubble(idxOf(m[1]), '這張歸我！'); return; }
   if (m = line.match(/^(.+?) 配對原料換得工藝/)) { showBubble(idxOf(m[1]), '手藝不錯吧！'); return; }
 }
+function prefersReducedMotion() {
+  return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
 
 // 動態抽卡動畫（仿爐石戰記真實效果：卡面直接從牌庫快速滑到手牌，
 // 不是慢慢翻面——爐石的抽卡是「彈出＋平滑滑動＋縮放」，沒有 3D 翻牌懸疑感）
@@ -118,6 +121,11 @@ function flyDrawnCard(deckSel, backImg, targetEl, drawnCard) {
   const sr = deckEl.getBoundingClientRect();
   const er = targetEl.getBoundingClientRect();
   if (!sr.width || !er.width) return;
+  if (prefersReducedMotion()) {
+    targetEl.classList.add('motion-arrival');
+    setTimeout(() => targetEl.classList.remove('motion-arrival'), 500);
+    return;
+  }
 
   targetEl.style.visibility = 'hidden'; // 真卡先藏起來，等飛行動畫抵達終點才現身，避免瞬間重複顯示
 
@@ -835,6 +843,11 @@ function flyMaterialGain(matName, count, originEl, targetEl) {
   const sr = originEl.getBoundingClientRect();
   const er = targetEl.getBoundingClientRect();
   if (!sr.width || !er.width) return;
+  if (prefersReducedMotion()) {
+    targetEl.classList.add('motion-arrival');
+    setTimeout(() => targetEl.classList.remove('motion-arrival'), 500);
+    return;
+  }
   const n = Math.min(count, 4);
   for (let i = 0; i < n; i++) {
     setTimeout(() => {
