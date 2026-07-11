@@ -80,5 +80,26 @@ export const CARDS = {
     fullCraftSet: 2,
     fullFoodSet: 3,
     ownTribeDollBothGenders: 5
-  }
+  },
+
+  // ── 公共事件卡（每輪翻一張，效果持續到下一張翻開；順序由 seed 決定）──
+  events: [
+    { id: 'harvest',    name: '豐收季',   icon: '🌾', desc: '本回合第一次拿素材時，額外獲得 1 枚本族盛產素材。' },
+    { id: 'festival',   name: '文化祭典', icon: '🎉', desc: '本回合每打出一張文化卡，額外獲得 1 分。' },
+    { id: 'roadblock',  name: '山路封閉', icon: '⛰️', desc: '本回合不能交易（購卡、偷襲、建築互換仍可）。' },
+    { id: 'craftrace',  name: '工藝競賽', icon: '🏆', desc: '本回合第一位完成工藝的玩家獲得 2 分。' },
+    { id: 'reinforce',  name: '家屋加固', icon: '🛠️', desc: '本回合蓋家屋所需行動點 -1（最低 1 點）。' },
+    { id: 'nightgather', name: '夜間集會', icon: '🔥', desc: '本回合第一次與其他玩家互動成功時，抽 1 張文化卡。' }
+  ],
+
+  // ── 秘密目標（開局每人 1 張，只有自己看得到；完成 +5 分）──
+  objectiveBonus: 5,
+  objectives: [
+    { id: 'obj_house',     name: '家屋守護者', icon: '🏠', desc: '完成 4 間自己的家屋。',                 target: 4 },
+    { id: 'obj_culture',   name: '文化傳承者', icon: '📜', desc: '打出 3 張文化卡。',                     target: 3 },
+    { id: 'obj_craft',     name: '工藝大師',   icon: '🔨', desc: '完成 2 件不同工藝。',                   target: 2 },
+    { id: 'obj_trade',     name: '部落商人',   icon: '🤝', desc: '完成 3 次交易或玩家購卡。',             target: 3 },
+    { id: 'obj_collector', name: '素材收藏家', icon: '💎', desc: '遊戲結束時至少 3 種素材各 3 枚。',       target: 3 },
+    { id: 'obj_social',    name: '跨族交流',   icon: '🌏', desc: '和至少 2 個不同玩家完成互動。',         target: 2 }
+  ]
 };

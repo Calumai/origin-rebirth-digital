@@ -74,9 +74,19 @@ function initGame(playerCount, seed, chosenTribeIds) {
     return {
       idx: i, tribe, tribeName: CARDS.tribes[tribe].name,
       materials, hand: [], played: [], buildings: [], clothing: [],
-      actionPoints: 0
+      actionPoints: 0,
+      // A20：秘密目標＋進度追蹤＋事件加分累計；_flag 為每回合重置的暫存旗標
+      objective: null,
+      progress: { deals: 0, partners: [] }, // deals=交易/購卡次數；partners=互動過的不同玩家 idx
+      bonusScore: 0,
+      _tookMat: false, _interacted: false
     };
   });
+
+  // A20：公共事件牌堆（順序由 seed 決定）＋開局翻第 1 張
+  const eventDeck = shuffle(CARDS.events, rng);
+  // A20：每人隨機發 1 張秘密目標（由 seed 決定，連線兩端各自算出相同結果，不需廣播）
+  for (const p of players) p.objective = CARDS.objectives[Math.floor(rng() * CARDS.objectives.length)].id;
 
   return {
     seed, rngState: null,
@@ -85,7 +95,8 @@ function initGame(playerCount, seed, chosenTribeIds) {
     turn: 0, currentPlayer: 0,
     phase: 'playing',
     endTriggeredBy: null, endTriggerTurn: null,
-    log: []
+    eventDeck, eventIndex: 0, currentEvent: eventDeck[0], craftRaceClaimed: false,
+    log: [`[T0] 翻開事件卡「${eventDeck[0].name}」— ${eventDeck[0].desc}`]
   };
 }
 

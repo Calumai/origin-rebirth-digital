@@ -1,6 +1,6 @@
 import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
-import { applyAction, resolveRPSMoves, rollTurnDice } from './game-engine/actions.js';
-import { finalScores } from './game-engine/scoring.js';
+import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
+import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
 
 const EFFECT_LABEL = {
@@ -219,6 +219,38 @@ function goalPanel(p) {
       <div class="goal-mats">${dots}</div>
       <div class="goal-next">${next}</div>
     </div>`;
+}
+
+// A20：目前檢視者（單機恆為 P0＝真人；連線為自己那一席）——秘密目標只顯示這位的
+function myPlayer() { return (ui.net && G) ? G.players[ui.net.myIdx] : (G && G.players[0]); }
+
+// A20：公共事件橫幅（全體共用，顯示圖示／名稱／效果／持續提示）
+function eventBanner() {
+  const e = G && G.currentEvent;
+  if (!e) return '';
+  return `<div class="event-banner" title="${e.desc}">
+    <span class="event-icon">${e.icon || '🎴'}</span>
+    <span class="event-text"><b>${e.name}</b><small>${e.desc}</small></span>
+    <span class="event-dur">持續至下一輪</span>
+  </div>`;
+}
+
+// A20：秘密目標面板（只顯示檢視者自己的目標；手機用 <details> 可收合避免遮手牌）
+function objectivePanel() {
+  const me = myPlayer();
+  if (!me || !me.objective) return '';
+  const def = CARDS.objectives.find(o => o.id === me.objective);
+  if (!def) return '';
+  const pr = objectiveProgress(me);
+  const pct = pr.target ? Math.min(100, Math.round(pr.cur / pr.target * 100)) : 0;
+  return `<details class="objective-panel${pr.done ? ' done' : ''}" open>
+    <summary><span class="obj-icon">${def.icon || '🎯'}</span><span>秘密目標：${def.name}</span>${pr.done ? '<b class="obj-check">✓+5</b>' : ''}</summary>
+    <div class="obj-body">
+      <div class="obj-desc">${def.desc}</div>
+      <div class="obj-progress"><div class="obj-bar" style="width:${pct}%"></div></div>
+      <div class="obj-count">進度 ${pr.cur} / ${pr.target}${pr.done ? '（已達成，結算 +5 分）' : '（只有你看得到）'}</div>
+    </div>
+  </details>`;
 }
 function endReasonLabel(reason) {
   if (!reason) return '（未知）';
@@ -655,7 +687,12 @@ function finishTurnAndAdvance() {
     G.endTriggerTurn = G.turn;
   }
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
-  if (G.currentPlayer === 0) G.turn++;
+  if (G.currentPlayer === 0) {
+    G.turn++;
+    flipNextEvent(G); // A20：新一輪翻下一張公共事件（seed 決定順序，連線兩端一致）
+    showToast(`新事件：${G.currentEvent.icon || ''} ${G.currentEvent.name}`, 'event');
+    window.Sound?.sfx('toast');
+  }
 
   if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
     const anyPair = G.players.some(pp =>
@@ -841,12 +878,15 @@ function renderBoard() {
 
   return `
     <div class="board-viewport">
-      <div class="bv-header row between">
-        <h1>原地重生・返璞歸真</h1>
-        <div class="row">
-          <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
-          <div class="chip">第 ${G.turn + 1} 輪</div>
+      <div class="bv-header">
+        <div class="row between">
+          <h1>原地重生・返璞歸真</h1>
+          <div class="row">
+            <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
+            <div class="chip">第 ${G.turn + 1} 輪</div>
+          </div>
         </div>
+        ${eventBanner()}
       </div>
 
       <div class="bv-versus">${versusStrip()}</div>
@@ -888,11 +928,12 @@ function renderBoard() {
           </div>
           <div class="turn-hint">${turnHint(p)}</div>
 
+          ${objectivePanel()}
           ${goalPanel(p)}
 
           <div class="action-group-label">蓋家屋（贏的路）</div>
           ${actionButton('拿素材（本族 3 種各 1，或 2 換 1 補缺）', 'actionTakeMaterialsPrompt()', '整回合', p.actionPoints !== (p.turnStartAP ?? 3), '拿素材是整回合行動，只能在還沒做其他事時使用', 'action-suggest')}
-          ${actionButton('蓋家屋：4 種素材換抽家屋卡', 'actionBuyBuilding()', '2', p.actionPoints < 2 || !canBuyBuilding(p), p.actionPoints < 2 ? '需要 2 點行動點' : '需要 4 種素材各 1')}
+          ${(() => { const bc = G.currentEvent?.id === 'reinforce' ? 1 : 2; return actionButton(`蓋家屋：4 種素材換抽家屋卡${bc < 2 ? '（加固-1）' : ''}`, 'actionBuyBuilding()', String(bc), p.actionPoints < bc || !canBuyBuilding(p), p.actionPoints < bc ? `需要 ${bc} 點行動點` : '需要 4 種素材各 1'); })()}
 
           <div class="action-group-label">賺加分</div>
           ${actionButton('抽原料卡（湊對做工藝用）', 'actionDrawMaterial()', '1', p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
@@ -901,7 +942,7 @@ function renderBoard() {
 
           <div class="action-group-label">搞對手（進階）</div>
           ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
-          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
+          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length || G.currentEvent?.id === 'roadblock', G.currentEvent?.id === 'roadblock' ? '山路封閉：本回合不能交易' : (p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家'))}
           ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
           ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
           ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
@@ -950,9 +991,12 @@ function renderBotTurn(p) {
   const logTitle = remote ? '對方做了什麼' : '電腦做了什麼';
   return `
     <div class="board-viewport">
-      <div class="bv-header row between">
-        <h1>原地重生・返璞歸真</h1>
-        <div class="chip">第 ${G.turn + 1} 輪</div>
+      <div class="bv-header">
+        <div class="row between">
+          <h1>原地重生・返璞歸真</h1>
+          <div class="chip">第 ${G.turn + 1} 輪</div>
+        </div>
+        ${eventBanner()}
       </div>
       <div class="bv-versus">
         ${versusStrip()}
@@ -976,6 +1020,7 @@ function renderBotTurn(p) {
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
       <div class="bv-side">
+        ${objectivePanel()}
         <div class="other-players">
           ${others.map(pl => `
             <div class="card-box light-frame">
@@ -1014,11 +1059,25 @@ function renderEnd() {
             </div>`).join('')}
         </div>
         <table class="score-table">
-          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
+          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>事件</th><th>目標</th><th>總分</th></tr>
           ${scores.slice().sort(rankCmp).map(s => `<tr class="${isWin(s) ? 'is-winner' : ''}">
-            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
+            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.eventBonus || 0}</td><td>${s.objective ? '+5' : '0'}</td><td>${s.total}</td>
           </tr>`).join('')}
         </table>
+        <div class="end-objectives">
+          <h3>秘密目標揭曉</h3>
+          ${scores.map(s => {
+            const pl = G.players[s.player];
+            const def = CARDS.objectives.find(o => o.id === pl.objective);
+            const pr = objectiveProgress(pl);
+            return `<div class="end-obj-row${s.objectiveDone ? ' done' : ''}">
+              <span class="end-obj-who">${s.tribe} ${nickname(s.player)}</span>
+              <span class="end-obj-name">${def ? (def.icon + ' ' + def.name) : '—'}</span>
+              <span class="end-obj-prog">${pr.cur}/${pr.target}</span>
+              <span class="end-obj-mark">${s.objectiveDone ? '✓ 達成 +5' : '未達成'}</span>
+            </div>`;
+          }).join('')}
+        </div>
         <div class="center"><button class="primary-start-button" onclick="location.reload()">重新開始</button></div>
       </div>
     </section>`;

@@ -5,6 +5,29 @@ function P(state, i) { return state.players[i]; }
 function matTotal(p) { return Object.values(p.materials).reduce((a, b) => a + b, 0); }
 function log(state, msg) { state.log.push(`[T${state.turn}] ${msg}`); }
 
+// A20：翻開下一張公共事件卡（每輪回到第 1 位玩家時呼叫；純索引推進、不消耗 rng，故連線 lockstep 一致）
+function flipNextEvent(state) {
+  if (!state.eventDeck || !state.eventDeck.length) return;
+  state.eventIndex = (state.eventIndex + 1) % state.eventDeck.length;
+  state.currentEvent = state.eventDeck[state.eventIndex];
+  state.craftRaceClaimed = false; // 工藝競賽的「搶先」旗標隨新事件重置
+  log(state, `翻開事件卡「${state.currentEvent.name}」— ${state.currentEvent.desc}`);
+}
+function eventIs(state, id) { return state.currentEvent && state.currentEvent.id === id; }
+
+// A20：記錄一次「與其他玩家互動成功」→ 更新秘密目標進度，並觸發「夜間集會」事件
+// isDeal=true 代表交易或玩家購卡（部落商人目標計數）
+function recordInteraction(state, p, targetIdx, isDeal) {
+  p.progress = p.progress || { deals: 0, partners: [] };
+  if (isDeal) p.progress.deals += 1;
+  if (targetIdx != null && targetIdx !== p.idx && !p.progress.partners.includes(targetIdx)) p.progress.partners.push(targetIdx);
+  if (eventIs(state, 'nightgather') && !p._interacted) {
+    p._interacted = true;
+    const c = drawCulture(state, p);
+    if (c) log(state, `${p.tribeName} 夜間集會：互動成功，抽 1 張文化卡`);
+  }
+}
+
 function rpsDuel(rng) { // true = 攻方勝（平手重猜）— 供 Bot / 模擬對局使用
   for (;;) {
     const a = Math.floor(rng() * 3), b = Math.floor(rng() * 3);
@@ -34,6 +57,7 @@ function rollTurnDice(state, playerIdx, rng, die) {
   const p = state.players[playerIdx];
   p.actionPoints = ap;
   p.turnStartAP = ap;
+  p._tookMat = false; p._interacted = false; // A20：每回合開始重置事件暫存旗標
   state.log.push(`[T${state.turn}] ${p.tribeName} 擲骰 ${d} 點 → 本回合 ${ap} 行動點`);
   return { die: d, ap };
 }
@@ -112,6 +136,13 @@ const ACTIONS = {
       for (const m of CARDS.tribes[p.tribe].produces) p.materials[m] += 1;
       log(state, `${p.tribeName} 收取盛產素材各 1`);
     }
+    // 事件「豐收季」：本回合第一次拿素材額外 +1 本族盛產
+    if (eventIs(state, 'harvest') && !p._tookMat) {
+      p._tookMat = true;
+      const m = CARDS.tribes[p.tribe].produces[0];
+      p.materials[m] = (p.materials[m] || 0) + 1;
+      log(state, `${p.tribeName} 豐收季：額外獲得 1 ${m}`);
+    }
     p.actionPoints = 0; // 整回合結束
   },
 
@@ -125,6 +156,7 @@ const ACTIONS = {
     if (resolveDuel(state, a, rng)) {
       const m = stealRandomMaterial(t, p, rng);
       log(state, `${p.tribeName} 偷襲 ${t.tribeName} 猜拳勝，奪得 ${m ?? '（無素材可奪）'}`);
+      recordInteraction(state, p, a.target, false);
     } else log(state, `${p.tribeName} 偷襲 ${t.tribeName} 猜拳敗`);
   },
 
@@ -133,6 +165,7 @@ const ACTIONS = {
   // accepted / forced / failedChallenge 皆由呼叫端（UI）帶入。
   TRADE(state, a) {
     const p = P(state, a.player), t = P(state, a.target);
+    if (eventIs(state, 'roadblock')) throw new Error('山路封閉：本回合不能交易'); // UI 已停用交易鈕，此為保險
     if (!a.accepted && !a.forced) {
       requireActionPoints(p, 1);
       p.actionPoints -= 1;
@@ -149,6 +182,7 @@ const ACTIONS = {
     for (const m of a.give) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     for (const m of a.get)  { t.materials[m]--; p.materials[m] = (p.materials[m] || 0) + 1; }
     log(state, a.forced ? `${p.tribeName} 猜拳勝，強制與 ${t.tribeName} 成交` : `${p.tribeName} ⇄ ${t.tribeName} 交易成立`);
+    recordInteraction(state, p, a.target, true);
   },
 
   // 1 點：抽原料卡
@@ -183,6 +217,12 @@ const ACTIONS = {
     idxs.sort((x, y) => y - x).forEach(i => p.hand.splice(i, 1));
     const c = takeCraft(state, p, craftId);
     log(state, `${p.tribeName} 配對原料換得工藝「${c ? c.name : '（池已空）'}」`);
+    // 事件「工藝競賽」：本回合第一位完成工藝者 +2 分
+    if (c && eventIs(state, 'craftrace') && !state.craftRaceClaimed) {
+      state.craftRaceClaimed = true;
+      p.bonusScore = (p.bonusScore || 0) + 2;
+      log(state, `${p.tribeName} 工藝競賽：搶先完成工藝，+2 分`);
+    }
   },
 
   // 1 點：擲出文化卡（觸發特效）
@@ -195,6 +235,11 @@ const ACTIONS = {
     const card = p.hand.splice(i, 1)[0];
     p.played.push(card);
     log(state, `${p.tribeName} 擲出「${card.name}」`);
+    // 事件「文化祭典」：每打出一張文化卡額外 +1 分
+    if (eventIs(state, 'festival')) {
+      p.bonusScore = (p.bonusScore || 0) + 1;
+      log(state, `${p.tribeName} 文化祭典：打出文化卡 +1 分`);
+    }
     switch (card.effect) {
       case 'extra_action': p.actionPoints += 1; break;
       case 'draw_building': drawBuilding(state, p); break;
@@ -220,11 +265,12 @@ const ACTIONS = {
   // 2 點：4 種不同素材換抽建築卡
   BUY_BUILDING(state, a) {
     const p = P(state, a.player);
-    requireActionPoints(p, 2);
+    const cost = eventIs(state, 'reinforce') ? 1 : 2; // 事件「家屋加固」：蓋家屋行動點 -1（最低 1）
+    requireActionPoints(p, cost);
     const four = a.spend; // 4 個不同素材名
     if (new Set(four).size !== 4) throw new Error('需 4 種不同素材');
     for (const m of four) if ((p.materials[m] || 0) < 1) throw new Error(`素材不足: ${m}`);
-    p.actionPoints -= 2;
+    p.actionPoints -= cost;
     for (const m of four) p.materials[m]--;
     const c = drawBuilding(state, p);
     log(state, `${p.tribeName} 換抽建築卡「${c ? c.name : '（庫空）'}」`);
@@ -247,6 +293,7 @@ const ACTIONS = {
     const card = t.hand.splice(ci, 1)[0];
     if (card.kind === 'clothing') p.clothing.push(card); else p.hand.push(card);
     log(state, `${p.tribeName} 向 ${t.tribeName} 購得「${card.name}」`);
+    recordInteraction(state, p, a.target, true);
   },
 
   // 2 點：建築卡互換（猜拳）
@@ -262,6 +309,7 @@ const ACTIONS = {
       p.buildings.push(b);
       checkBuildingSetWin(state, p);
       log(state, `${p.tribeName} 猜拳勝，取得「${b.name}」`);
+      recordInteraction(state, p, a.target, false);
     } else log(state, `${p.tribeName} 建築互換猜拳敗`);
   },
 
@@ -282,6 +330,7 @@ const ACTIONS = {
     const mine = p.hand.splice(mi, 1)[0], theirs = t.hand.splice(ti, 1)[0];
     p.hand.push(theirs); t.hand.push(mine);
     log(state, `${p.tribeName} 以「${mine.name}」強制換得 ${t.tribeName} 的「${theirs.name}」`);
+    recordInteraction(state, p, a.target, false);
   },
 
   END_TURN(state, a) { P(state, a.player).actionPoints = 0; }
@@ -312,4 +361,4 @@ function applyAction(state, action, rng) {
   return state;
 }
 
-export { applyAction, clothingPairs, ACTIONS, resolveRPSMoves, rollTurnDice };
+export { applyAction, clothingPairs, ACTIONS, resolveRPSMoves, rollTurnDice, flipNextEvent };

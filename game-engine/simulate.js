@@ -1,6 +1,6 @@
 import { initGame, mulberry32, CARDS } from './state.js';
-import { applyAction, rollTurnDice } from './actions.js';
-import { finalScores } from './scoring.js';
+import { applyAction, rollTurnDice, flipNextEvent } from './actions.js';
+import { finalScores, objectiveProgress } from './scoring.js';
 import { chooseAction } from './bot.js';
 
 function validate(state) {
@@ -42,7 +42,7 @@ function runGame(seed, playerCount, verbose = false) {
       state.endTriggerTurn = state.turn;
     }
     state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
-    if (state.currentPlayer === 0) state.turn++;
+    if (state.currentPlayer === 0) { state.turn++; flipNextEvent(state); } // A20：新一輪翻下一張事件
 
     // 補充規則（rules-spec 假設 A5）：三牌庫全空且無人可再換工藝 → 即刻結算
     if (!state.rawDeck.length && !state.cultureDeck.length && !state.buildingDeck.length && !state.endTriggeredBy) {
@@ -57,9 +57,13 @@ function runGame(seed, playerCount, verbose = false) {
 
   const scores = finalScores(state);
   if (verbose) {
-    console.log(`\n=== seed ${seed} | ${playerCount}人 | ${state.turn} 輪 | 結束原因: ${state.endTriggeredBy} ===`);
-    for (const s of scores)
-      console.log(`  ${s.tribe.padEnd(6)} 建築${s.buildings} 文化${s.culture} 工藝${s.crafts} 服飾${s.clothing} 獎勵${s.bonus} → 總分 ${s.total}`);
+    console.log(`\n=== seed ${seed} | ${playerCount}人 | ${state.turn} 輪 | 結束原因: ${state.endTriggeredBy} | 當前事件: ${state.currentEvent && state.currentEvent.name} ===`);
+    for (const s of scores) {
+      const p = state.players[s.player];
+      const obj = objectiveProgress(p);
+      const objDef = CARDS.objectives.find(o => o.id === p.objective);
+      console.log(`  ${s.tribe.padEnd(6)} 建築${s.buildings} 文化${s.culture} 工藝${s.crafts} 服飾${s.clothing} 獎勵${s.bonus} 事件${s.eventBonus} 目標[${objDef ? objDef.name : '?'} ${obj.cur}/${obj.target}${s.objectiveDone ? '✓+5' : ''}] → 總分 ${s.total}`);
+    }
   }
   return { state, scores };
 }

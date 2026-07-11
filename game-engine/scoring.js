@@ -1,6 +1,23 @@
 import { CARDS } from './state.js';
 import { clothingPairs } from './actions.js';
 
+// A20：秘密目標進度計算——回傳 { cur, target, done }。大多可由結束盤面推得，
+// 只有「交易/購卡次數(deals)」與「互動過的玩家(partners)」需要 actions.js 執行期累計。
+function objectiveProgress(p) {
+  const def = CARDS.objectives.find(o => o.id === p.objective);
+  const target = def ? def.target : 0;
+  let cur = 0;
+  switch (p.objective) {
+    case 'obj_house':     cur = p.buildings.filter(b => b.tribe === p.tribe).length; break;
+    case 'obj_culture':   cur = p.played.filter(c => c.kind === 'culture').length; break;
+    case 'obj_craft':     cur = new Set(p.played.filter(c => c.kind === 'craft').map(c => c.id)).size; break;
+    case 'obj_trade':     cur = (p.progress && p.progress.deals) || 0; break;
+    case 'obj_collector': cur = CARDS.materials.filter(m => (p.materials[m] || 0) >= 3).length; break;
+    case 'obj_social':    cur = (p.progress && p.progress.partners && p.progress.partners.length) || 0; break;
+  }
+  return { cur, target, done: target > 0 && cur >= target };
+}
+
 function scorePlayer(p) {
   const detail = {};
 
@@ -36,7 +53,13 @@ function scorePlayer(p) {
   if (ownDoll) bonus += CARDS.bonuses.ownTribeDollBothGenders;
   detail.bonus = bonus;
 
-  detail.total = detail.buildings + detail.culture + detail.crafts + detail.clothing + bonus;
+  // A20：秘密目標（完成 +5）與事件加分（文化祭典 +1／張、工藝競賽 +2）
+  const obj = objectiveProgress(p);
+  detail.objectiveDone = obj.done;
+  detail.objective = obj.done ? CARDS.objectiveBonus : 0;
+  detail.eventBonus = p.bonusScore || 0;
+
+  detail.total = detail.buildings + detail.culture + detail.crafts + detail.clothing + bonus + detail.objective + detail.eventBonus;
   return detail;
 }
 
@@ -44,4 +67,4 @@ function finalScores(state) {
   return state.players.map(p => ({ player: p.idx, tribe: p.tribeName, ...scorePlayer(p) }));
 }
 
-export { scorePlayer, finalScores };
+export { scorePlayer, finalScores, objectiveProgress };
