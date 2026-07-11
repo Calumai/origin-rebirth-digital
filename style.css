@@ -2754,3 +2754,34 @@ input[type=text] {
     margin: 4px auto !important;
   }
 }
+
+/* 手機：把「我的手牌」固定在畫面底部，永遠看得到 —— 修正抽到的原料卡躲在超長行動選單上方、滑不到的問題 */
+@media (max-width: 860px) {
+  .bv-hand {
+    position: fixed !important;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    min-height: 0 !important;
+    height: auto;
+    max-height: 210px;
+    margin: 0 !important;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 16px 16px 0 0 !important;
+    border: none !important;
+    border-top: 2px solid rgba(255, 211, 116, 0.45) !important;
+    background: linear-gradient(180deg, rgba(10, 8, 18, 0.9), rgba(6, 6, 14, 0.97)) !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    gap: 8px;
+  }
+  /* 為固定手牌預留空間，避免蓋住行動選單底部的「結束回合」 */
+  .board-viewport { padding-bottom: 224px !important; }
+  /* 靜音鈕移到固定手牌列上方，避免互相遮擋 */
+  .audio-toggle { bottom: 224px; }
+  /* 空手牌提示在固定列裡壓縮一點 */
+  .bv-hand .empty-hand-state { flex-direction: row; align-items: center; gap: 10px; }
+  .bv-hand .empty-hand-decks { display: none; }
+}
