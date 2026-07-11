@@ -325,6 +325,57 @@ input[type=text] {
 }
 
 /* 目標提示面板：治「不知道要幹嘛」，把贏的路變成看得見的清單 */
+/* A20：公共事件橫幅（戰場頂端，暗色卡牌質感） */
+.event-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(60, 40, 92, 0.6), rgba(26, 18, 46, 0.7));
+  border: 1px solid rgba(190, 160, 255, 0.4);
+  box-shadow: inset 0 0 18px rgba(120, 90, 200, 0.18);
+  animation: eventPop 0.5s cubic-bezier(.22, .8, .3, 1.2) both;
+}
+@keyframes eventPop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.event-banner .event-icon { font-size: 1.5em; line-height: 1; }
+.event-banner .event-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.event-banner .event-text b { color: #f0e2ff; font-size: 0.98em; }
+.event-banner .event-text small { color: rgba(226, 214, 255, 0.8); font-size: 0.78em; }
+.event-banner .event-dur { margin-left: auto; flex: 0 0 auto; font-size: 0.72em; color: #1b1420; background: #d9c4f9; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+
+/* A20：秘密目標面板（只有本人看得到；<details> 可收合） */
+.objective-panel {
+  margin-bottom: 10px;
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(92, 66, 26, 0.4), rgba(52, 38, 16, 0.34));
+  border: 1px solid rgba(255, 206, 120, 0.5);
+  overflow: hidden;
+}
+.objective-panel.done { border-color: rgba(150, 220, 120, 0.7); background: linear-gradient(180deg, rgba(52, 92, 40, 0.4), rgba(30, 60, 24, 0.34)); }
+.objective-panel > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-weight: 800; color: #ffe9c4; font-size: 0.95em; }
+.objective-panel > summary::-webkit-details-marker { display: none; }
+.objective-panel .obj-icon { font-size: 1.15em; }
+.objective-panel .obj-check { margin-left: auto; color: #1b1420; background: #b9e89a; padding: 1px 8px; border-radius: 999px; font-size: 0.78em; }
+.objective-panel .obj-body { padding: 0 12px 10px; }
+.objective-panel .obj-desc { font-size: 0.82em; color: rgba(240, 226, 196, 0.82); margin-bottom: 6px; }
+.objective-panel .obj-progress { height: 7px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); overflow: hidden; }
+.objective-panel .obj-bar { height: 100%; background: linear-gradient(90deg, #ffcf69, #ff9d3c); transition: width 0.4s ease; }
+.objective-panel.done .obj-bar { background: linear-gradient(90deg, #9be07a, #5fbf46); }
+.objective-panel .obj-count { margin-top: 5px; font-size: 0.78em; color: rgba(240, 226, 196, 0.7); }
+
+/* A20：結算秘密目標揭曉 */
+.end-objectives { margin: 14px 0 4px; }
+.end-objectives h3 { color: #ffe4a3; margin: 0 0 8px; font-size: 1em; }
+.end-obj-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; font-size: 0.86em; background: rgba(255, 255, 255, 0.05); margin-bottom: 5px; color: #f0e2c4; }
+.end-obj-row.done { background: rgba(120, 200, 96, 0.16); }
+.end-obj-row .end-obj-who { flex: 0 0 30%; font-weight: 700; }
+.end-obj-row .end-obj-name { flex: 1 1 auto; }
+.end-obj-row .end-obj-prog { opacity: 0.8; }
+.end-obj-row .end-obj-mark { flex: 0 0 auto; font-weight: 700; color: rgba(240, 226, 196, 0.7); }
+.end-obj-row.done .end-obj-mark { color: #b9e89a; }
+
 .goal-panel {
   margin-bottom: 10px;
   padding: 10px 12px;
@@ -406,7 +457,24 @@ input[type=text] {
 .log-box div { margin: 3px 0; padding-left: 10px; border-left: 2px solid rgba(217,164,65,0.4); }
 .log-box div:last-child { color: #ffe4a8; font-weight: 500; }
 
-.rps-btn { font-size: 2.2em; padding: 18px 26px; }
+.rps-btn {
+  width: 104px;
+  padding: 14px 8px 12px;
+  font-size: 1.15em;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+/* 揭曉：雙方出拳並排，勝方發光 */
+.rps-reveal { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 14px 0 6px; }
+.rps-reveal-side { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 14px; border-radius: 12px; border: 2px solid transparent; min-width: 96px; }
+.rps-reveal-side.win { border-color: var(--gold); background: rgba(255, 207, 105, 0.12); box-shadow: 0 0 18px rgba(255, 196, 92, 0.4); }
+.rps-reveal-side .rps-icon { width: 56px; height: 56px; }
+.rps-reveal-name { font-size: 0.82em; opacity: 0.85; }
+.rps-reveal-move { font-weight: 700; font-size: 1.05em; }
+.rps-reveal-vs { font-weight: 900; font-size: 1.2em; color: var(--gold); opacity: 0.8; }
 
 /* score-table 只用在結算畫面（暗色木雕面板內），直接做深色主題不影響其他頁 */
 .score-table { width: 100%; border-collapse: collapse; border-radius: var(--r-md); overflow: hidden; margin: 4px 0 8px; }
@@ -1024,6 +1092,30 @@ input[type=text] {
   text-align: center;
   width: 160px;
 }
+/* 浮動靜音／配樂切換鈕（右下角常駐） */
+.audio-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 90;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 224, 148, 0.3);
+  background: rgba(18, 16, 12, 0.72);
+  backdrop-filter: blur(8px);
+  color: #ffe9c4;
+  font-size: 20px;
+  line-height: 44px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.audio-toggle:hover { transform: scale(1.08); border-color: rgba(255, 224, 148, 0.6); }
+.audio-toggle.is-muted { opacity: 0.6; }
+
 .net-waiting { color: #ffe4a3; font-size: 1.1em; text-align: center; animation: ps5BtnBreath 1.6s ease-in-out infinite alternate; }
 .net-error { color: #ff9a7a; text-align: center; }
 /* 大廳入座名單 */
@@ -2243,6 +2335,21 @@ input[type=text] {
 .vs-name { font-weight: bold; font-size: 0.9em; margin-top: 4px; }
 .vs-score { font-size: 1.15em; font-weight: bold; color: #ffd98a; }
 .vs-stats { font-size: 0.66em; opacity: 0.85; line-height: 1.4; }
+/* 攤開手牌：對戰列裡每位玩家的手牌一律正面小卡 */
+.vs-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 220, 145, 0.16);
+  min-height: 20px;
+}
+.vs-hand-card { display: inline-flex; }
+.vs-hand-card .card-thumb-sm { width: 26px; margin: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.vs-hand-empty { font-size: 0.62em; opacity: 0.5; }
+.duel-side .vs-hand { justify-content: flex-start; }
 .vs-crown {
   position: absolute;
   top: -9px;
@@ -2527,7 +2634,7 @@ input[type=text] {
 
 @media (max-width: 600px) {
   body { font-size: 17px; }
-  .rps-btn { font-size: 1.6em; padding: 14px 18px; }
+  .rps-btn { width: 92px; font-size: 1.05em; padding: 12px 6px 10px; }
   .hero-tribes img { width: 84px; }
   .toast { font-size: 0.82em; padding: 8px 16px; }
 }

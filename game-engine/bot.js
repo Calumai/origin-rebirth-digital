@@ -13,7 +13,7 @@ function chooseAction(state, idx, rng) {
   // 1. 4 種不同素材齊 → 優先買建築，讓 Bot 策略符合主勝利路線
   if (p.actionPoints >= 2) {
     const have = CARDS.materials.filter(m => (p.materials[m] || 0) >= 1);
-    if (have.length >= 4 && state.buildingDeck.length) return { type: 'BUY_BUILDING', player: idx, spend: have.slice(0, 4) };
+    if (have.length >= 4 && state.buildingDeck.some(b => b.tribe === p.tribe)) return { type: 'BUY_BUILDING', player: idx, spend: have.slice(0, 4) };
   }
 
   // 2. 手上原料能配對 → 換工藝（工藝池還有才做）

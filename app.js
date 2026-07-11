@@ -1,6 +1,6 @@
 import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
-import { applyAction, resolveRPSMoves, rollTurnDice } from './game-engine/actions.js';
-import { finalScores } from './game-engine/scoring.js';
+import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
+import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
 
 const EFFECT_LABEL = {
@@ -36,6 +36,7 @@ function isBot(idx) { return !!ui.isBot[idx]; }
 function showToast(msg, kind) {
   const layer = document.getElementById('toast-layer');
   if (!layer) return;
+  window.Sound?.sfx('toast');
   const el = document.createElement('div');
   el.className = 'toast' + (kind ? ' toast-' + kind : '');
   el.textContent = msg;
@@ -218,6 +219,38 @@ function goalPanel(p) {
       <div class="goal-mats">${dots}</div>
       <div class="goal-next">${next}</div>
     </div>`;
+}
+
+// A20：目前檢視者（單機恆為 P0＝真人；連線為自己那一席）——秘密目標只顯示這位的
+function myPlayer() { return (ui.net && G) ? G.players[ui.net.myIdx] : (G && G.players[0]); }
+
+// A20：公共事件橫幅（全體共用，顯示圖示／名稱／效果／持續提示）
+function eventBanner() {
+  const e = G && G.currentEvent;
+  if (!e) return '';
+  return `<div class="event-banner" title="${e.desc}">
+    <span class="event-icon">${e.icon || '🎴'}</span>
+    <span class="event-text"><b>${e.name}</b><small>${e.desc}</small></span>
+    <span class="event-dur">持續至下一輪</span>
+  </div>`;
+}
+
+// A20：秘密目標面板（只顯示檢視者自己的目標；手機用 <details> 可收合避免遮手牌）
+function objectivePanel() {
+  const me = myPlayer();
+  if (!me || !me.objective) return '';
+  const def = CARDS.objectives.find(o => o.id === me.objective);
+  if (!def) return '';
+  const pr = objectiveProgress(me);
+  const pct = pr.target ? Math.min(100, Math.round(pr.cur / pr.target * 100)) : 0;
+  return `<details class="objective-panel${pr.done ? ' done' : ''}" open>
+    <summary><span class="obj-icon">${def.icon || '🎯'}</span><span>秘密目標：${def.name}</span>${pr.done ? '<b class="obj-check">✓+5</b>' : ''}</summary>
+    <div class="obj-body">
+      <div class="obj-desc">${def.desc}</div>
+      <div class="obj-progress"><div class="obj-bar" style="width:${pct}%"></div></div>
+      <div class="obj-count">進度 ${pr.cur} / ${pr.target}${pr.done ? '（已達成，結算 +5 分）' : '（只有你看得到）'}</div>
+    </div>
+  </details>`;
 }
 function endReasonLabel(reason) {
   if (!reason) return '（未知）';
@@ -450,7 +483,7 @@ function renderStory() {
       <div class="setup-panel story-panel">
         <h2>世界觀介紹</h2>
         <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖，進行了一場部落戰爭。戰爭裡面，我們獲得了很多原住民的知識；在戰爭結束時，我們又獲得了一個深埋在地底的盒子——這一次，我們一定要找到回到現代的方法！</p>
-        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或搶下最後一張工藝卡，遊戲便進入結算——分數最高者獲勝。</p>
+        <p>你將成為 <b>邵族</b>、<b>噶瑪蘭族</b>、<b>拉阿魯哇族</b> 或 <b>賽德克族</b> 的領袖，收集素材、交易、偷襲、換取工藝與建築，重建部落並傳承文化。集滿本族 4 張建築卡，或抽空建築牌庫，遊戲便進入結算——<b>本族家屋蓋最多的人獲勝</b>（平手才比總分）。</p>
         <div class="story-tribe-row">
           ${Object.entries(CARDS.tribes).map(([id, t]) => `
             <div class="story-tribe-card">
@@ -604,6 +637,7 @@ function diceRoll() {
       clearInterval(t);
       const { die, ap } = rollTurnDice(G, G.currentPlayer, rng);
       m.phase = 'result'; m.die = die; m.ap = ap;
+      window.Sound?.sfx('dice');
       render();
       if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
     }
@@ -644,6 +678,7 @@ function finishTurnAndAdvance() {
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
     G.phase = 'ended';
     ui.screen = 'end';
+    window.Sound?.sfx('victory');
     render();
     return;
   }
@@ -652,7 +687,12 @@ function finishTurnAndAdvance() {
     G.endTriggerTurn = G.turn;
   }
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
-  if (G.currentPlayer === 0) G.turn++;
+  if (G.currentPlayer === 0) {
+    G.turn++;
+    flipNextEvent(G); // A20：新一輪翻下一張公共事件（seed 決定順序，連線兩端一致）
+    showToast(`新事件：${G.currentEvent.icon || ''} ${G.currentEvent.name}`, 'event');
+    window.Sound?.sfx('toast');
+  }
 
   if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
     const anyPair = G.players.some(pp =>
@@ -663,7 +703,7 @@ function finishTurnAndAdvance() {
     if (!anyPair) { G.endTriggeredBy = 'decks_exhausted'; G.phase = 'ended'; }
   }
 
-  if (G.phase === 'ended') { ui.screen = 'end'; render(); return; }
+  if (G.phase === 'ended') { ui.screen = 'end'; window.Sound?.sfx('victory'); render(); return; }
   startPlayerTurn(G.currentPlayer);
 }
 
@@ -761,6 +801,20 @@ function flyMaterialGain(matName, count, originEl, targetEl) {
   }
 }
 
+// 家屋數量決勝：本族家屋棟數為主排序鍵，總分為輔（平手才比）。負值代表 a 較優、排在前面。
+function rankCmp(a, b) { return (b.buildingCount - a.buildingCount) || (b.total - a.total); }
+// 玩家 i 是否領先（沒有人嚴格比他更好，可能並列）
+function isLeader(scores, i) {
+  const s = scores[i];
+  if (s.buildingCount === 0 && s.total === 0) return false; // 開局全 0 不標領先
+  return !scores.some((o, j) => j !== i && rankCmp(o, s) < 0);
+}
+// 攤開手牌：所有玩家手牌一律正面朝上（JJ 決議「全部攤開卡面」）
+function openHandRow(pl) {
+  if (!pl.hand.length) return '<div class="vs-hand"><span class="vs-hand-empty">無手牌</span></div>';
+  return `<div class="vs-hand">${pl.hand.map(c => `<span class="vs-hand-card" title="${c.name}">${cardThumb(c, 'sm')}</span>`).join('')}</div>`;
+}
+
 // 對戰列：所有玩家一字排開互相對峙，標出當前行動者與即時領先者，營造對戰感
 function versusStrip() {
   return G.players.length === 2 ? versusStripDuel() : versusStripMulti();
@@ -768,17 +822,18 @@ function versusStrip() {
 // 3-4 人局：維持小圓形頭像橫排
 function versusStripMulti() {
   const scores = finalScores(G); // 依 player index 排列（含即時盤面分）
-  const maxTotal = Math.max(...scores.map(s => s.total));
+  const goal = CARDS.buildingsPerTribe;
   const cells = G.players.map((pl, i) => {
     const active = pl.idx === G.currentPlayer;
-    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const leading = isLeader(scores, i);
     const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
     return `<div class="vs-player tribe-${pl.tribe}${active ? ' active' : ''}">
       ${leading ? '<div class="vs-crown">領先</div>' : ''}
       <img src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
       <div class="vs-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
-      <div class="vs-score">${scores[i].total} 分</div>
-      <div class="vs-stats">建${pl.buildings.length}・牌${pl.hand.length}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}・材${matN}</div>
+      <div class="vs-score"><b>家屋 ${scores[i].buildingCount}/${goal}</b></div>
+      <div class="vs-stats">總分 ${scores[i].total}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}・材${matN}</div>
+      ${openHandRow(pl)}
     </div>`;
   });
   return `<div class="versus-strip">${cells.join('<div class="vs-sep"></div>')}</div>`;
@@ -786,20 +841,21 @@ function versusStripMulti() {
 // 2 人局：寬版雙色對峙橫幅（左藍右紅），中央金色回合徽章
 function versusStripDuel() {
   const scores = finalScores(G);
-  const maxTotal = Math.max(...scores.map(s => s.total));
+  const goal = CARDS.buildingsPerTribe;
   const side = (i, cls) => {
     const pl = G.players[i];
     const active = pl.idx === G.currentPlayer;
-    const leading = scores[i].total === maxTotal && maxTotal > 0;
+    const leading = isLeader(scores, i);
     const matN = Object.values(pl.materials).reduce((a, b) => a + b, 0);
     return `<div class="duel-side ${cls}${active ? ' active' : ''}">
       ${leading ? '<div class="duel-flag">領先</div>' : ''}
       <img class="duel-badge" src="${CARDS.tribes[pl.tribe].img}" alt="${pl.tribeName}">
       <div class="duel-info">
         <div class="duel-name">${nickname(pl.idx)}${isBot(pl.idx) ? '（電腦）' : ''}</div>
-        <div class="duel-score">${scores[i].total} 分</div>
-        <div class="duel-stats">建${pl.buildings.length}・原${matN}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}</div>
+        <div class="duel-score"><b>家屋 ${scores[i].buildingCount}/${goal}</b></div>
+        <div class="duel-stats">總分 ${scores[i].total}・原${matN}・服${pl.clothing.length}・藝${pl.played.filter(c => c.kind === 'craft').length}</div>
       </div>
+      ${openHandRow(pl)}
     </div>`;
   };
   return `<div class="versus-duel">
@@ -822,12 +878,15 @@ function renderBoard() {
 
   return `
     <div class="board-viewport">
-      <div class="bv-header row between">
-        <h1>原地重生・返璞歸真</h1>
-        <div class="row">
-          <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
-          <div class="chip">第 ${G.turn + 1} 輪</div>
+      <div class="bv-header">
+        <div class="row between">
+          <h1>原地重生・返璞歸真</h1>
+          <div class="row">
+            <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
+            <div class="chip">第 ${G.turn + 1} 輪</div>
+          </div>
         </div>
+        ${eventBanner()}
       </div>
 
       <div class="bv-versus">${versusStrip()}</div>
@@ -840,7 +899,7 @@ function renderBoard() {
         <div class="row">
           <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料 ${G.rawDeck.length}</span>
           <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化 ${G.cultureDeck.length}</span>
-          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築 ${G.buildingDeck.length}</span>
+          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
         </div>
         <div class="row">
@@ -869,11 +928,12 @@ function renderBoard() {
           </div>
           <div class="turn-hint">${turnHint(p)}</div>
 
+          ${objectivePanel()}
           ${goalPanel(p)}
 
           <div class="action-group-label">蓋家屋（贏的路）</div>
           ${actionButton('拿素材（本族 3 種各 1，或 2 換 1 補缺）', 'actionTakeMaterialsPrompt()', '整回合', p.actionPoints !== (p.turnStartAP ?? 3), '拿素材是整回合行動，只能在還沒做其他事時使用', 'action-suggest')}
-          ${actionButton('蓋家屋：4 種素材換抽家屋卡', 'actionBuyBuilding()', '2', p.actionPoints < 2 || !canBuyBuilding(p), p.actionPoints < 2 ? '需要 2 點行動點' : '需要 4 種素材各 1')}
+          ${(() => { const bc = G.currentEvent?.id === 'reinforce' ? 1 : 2; return actionButton(`蓋家屋：4 種素材換抽家屋卡${bc < 2 ? '（加固-1）' : ''}`, 'actionBuyBuilding()', String(bc), p.actionPoints < bc || !canBuyBuilding(p), p.actionPoints < bc ? `需要 ${bc} 點行動點` : '需要 4 種素材各 1'); })()}
 
           <div class="action-group-label">賺加分</div>
           ${actionButton('抽原料卡（湊對做工藝用）', 'actionDrawMaterial()', '1', p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
@@ -882,7 +942,7 @@ function renderBoard() {
 
           <div class="action-group-label">搞對手（進階）</div>
           ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
-          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
+          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length || G.currentEvent?.id === 'roadblock', G.currentEvent?.id === 'roadblock' ? '山路封閉：本回合不能交易' : (p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家'))}
           ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
           ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
           ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
@@ -931,9 +991,12 @@ function renderBotTurn(p) {
   const logTitle = remote ? '對方做了什麼' : '電腦做了什麼';
   return `
     <div class="board-viewport">
-      <div class="bv-header row between">
-        <h1>原地重生・返璞歸真</h1>
-        <div class="chip">第 ${G.turn + 1} 輪</div>
+      <div class="bv-header">
+        <div class="row between">
+          <h1>原地重生・返璞歸真</h1>
+          <div class="chip">第 ${G.turn + 1} 輪</div>
+        </div>
+        ${eventBanner()}
       </div>
       <div class="bv-versus">
         ${versusStrip()}
@@ -947,7 +1010,7 @@ function renderBotTurn(p) {
         <div class="row">
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料牌庫 ${G.rawDeck.length}</span>
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化牌庫 ${G.cultureDeck.length}</span>
-          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">建築牌庫 ${G.buildingDeck.length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝池 ${G.craftPool.length}</span>
         </div>
       </div>
@@ -957,6 +1020,7 @@ function renderBotTurn(p) {
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
       <div class="bv-side">
+        ${objectivePanel()}
         <div class="other-players">
           ${others.map(pl => `
             <div class="card-box light-frame">
@@ -974,27 +1038,46 @@ function renderBotTurn(p) {
 // ── end screen ──────────────────────────────────────────
 function renderEnd() {
   const scores = finalScores(G);
-  const maxTotal = Math.max(...scores.map(s => s.total));
-  const winners = scores.filter(s => s.total === maxTotal);
+  const goal = CARDS.buildingsPerTribe;
+  // 家屋數量決勝：本族家屋棟數為主、總分為輔（平手才比）
+  const ranked = scores.map((s, i) => s).slice().sort(rankCmp);
+  const best = ranked[0];
+  const winners = scores.filter(s => s.buildingCount === best.buildingCount && s.total === best.total);
+  const isWin = s => winners.some(w => w.player === s.player);
   return `
     <section class="end-screen">
       <div class="setup-panel">
         <h2>結算</h2>
         <p class="center muted" style="color:rgba(248,230,190,0.75);">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
+        <p class="center muted" style="color:rgba(248,230,190,0.6);font-size:0.85em;">勝負以「本族家屋棟數」決定，平手才比總分</p>
         <div class="winner-banner">
           ${winners.map(w => `
             <div class="winner-card">
               <img src="${CARDS.tribes[G.players[w.player].tribe].img}" alt="">
               <div class="winner-name">${w.tribe} ${nickname(w.player)}</div>
-              <div class="winner-score">${w.total} 分</div>
+              <div class="winner-score">家屋 ${w.buildingCount}/${goal}</div>
             </div>`).join('')}
         </div>
         <table class="score-table">
-          <tr><th>族群</th><th>建築</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>總分</th></tr>
-          ${scores.map(s => `<tr class="${s.total === maxTotal ? 'is-winner' : ''}">
-            <td>${s.tribe} ${nickname(s.player)}</td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.total}</td>
+          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>事件</th><th>目標</th><th>總分</th></tr>
+          ${scores.slice().sort(rankCmp).map(s => `<tr class="${isWin(s) ? 'is-winner' : ''}">
+            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.eventBonus || 0}</td><td>${s.objective ? '+5' : '0'}</td><td>${s.total}</td>
           </tr>`).join('')}
         </table>
+        <div class="end-objectives">
+          <h3>秘密目標揭曉</h3>
+          ${scores.map(s => {
+            const pl = G.players[s.player];
+            const def = CARDS.objectives.find(o => o.id === pl.objective);
+            const pr = objectiveProgress(pl);
+            return `<div class="end-obj-row${s.objectiveDone ? ' done' : ''}">
+              <span class="end-obj-who">${s.tribe} ${nickname(s.player)}</span>
+              <span class="end-obj-name">${def ? (def.icon + ' ' + def.name) : '—'}</span>
+              <span class="end-obj-prog">${pr.cur}/${pr.target}</span>
+              <span class="end-obj-mark">${s.objectiveDone ? '✓ 達成 +5' : '未達成'}</span>
+            </div>`;
+          }).join('')}
+        </div>
         <div class="center"><button class="primary-start-button" onclick="location.reload()">重新開始</button></div>
       </div>
     </section>`;
@@ -1068,8 +1151,18 @@ function renderRPS(m) {
   if (m.phase === 'reveal') {
     const label = RPS_LABELS;
     const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
-    return `<h3>結果揭曉</h3>
-      <p>${G.players[m.attackerIdx].tribeName}：${label[m.attackerMove]}　vs　${G.players[m.defenderIdx].tribeName}：${label[m.defenderMove]}</p>
+    const revealSide = idx => `
+      <div class="rps-reveal-side${idx === winnerIdx ? ' win' : ''}">
+        <div class="rps-reveal-name">${G.players[idx].tribeName}</div>
+        ${rpsIcon(idx === m.attackerIdx ? m.attackerMove : m.defenderMove)}
+        <div class="rps-reveal-move">${label[idx === m.attackerIdx ? m.attackerMove : m.defenderMove]}</div>
+      </div>`;
+    return `<h3 class="center">結果揭曉</h3>
+      <div class="rps-reveal">
+        ${revealSide(m.attackerIdx)}
+        <div class="rps-reveal-vs">VS</div>
+        ${revealSide(m.defenderIdx)}
+      </div>
       <p class="center"><span class="rps-stamp">${G.players[winnerIdx].tribeName} 勝出！</span></p>
       <button class="primary" onclick="rpsFinish()">繼續</button>`;
   }
@@ -1094,6 +1187,11 @@ function rpsPick(move) {
     const res = resolveRPSMoves(m.attackerMove, m.defenderMove);
     if (res === null) m.phase = 'tie';
     else { m.result = res; m.phase = 'reveal'; }
+  }
+  if (m.phase === 'reveal') {
+    const humanIdx = ui.net ? ui.net.myIdx : 0;
+    const winnerIdx = m.result ? m.attackerIdx : m.defenderIdx;
+    window.Sound?.sfx(winnerIdx === humanIdx ? 'win' : 'lose');
   }
   render();
 }
@@ -1421,6 +1519,7 @@ function buyBuildingToggle(mat) {
 function buyBuildingConfirm() {
   const picks = ui.modal.picks.slice();
   ui.modal = null;
+  window.Sound?.sfx('build');
   doAction({ type: 'BUY_BUILDING', player: G.currentPlayer, spend: picks });
 }
 
@@ -1443,6 +1542,7 @@ function actionPlayCulture(cardId) {
   }
 }
 function actionDrawMaterial() {
+  window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
   const p = currentPlayer();
   const drawn = p.hand.filter(c => c.kind === 'raw').slice(-1)[0];
@@ -1450,6 +1550,7 @@ function actionDrawMaterial() {
   if (drawn && cards.length) flyDrawnCard('.deck-raw', CARDS.cardBacks.raw, cards[cards.length - 1], drawn);
 }
 function actionDrawCulture() {
+  window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
   const p = currentPlayer();
   const drawn = p.hand.filter(c => c.kind === 'culture').slice(-1)[0];
