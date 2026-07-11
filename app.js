@@ -50,6 +50,25 @@ function showToast(msg, kind) {
   requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 350); }, 2200);
 }
+function showActionError(message) {
+  showToast(message || '這個行動目前無法執行，請換一個選項。', 'error');
+  const drawer = document.querySelector('.bv-side');
+  if (!drawer) return;
+  drawer.classList.remove('action-denied');
+  void drawer.offsetWidth;
+  drawer.classList.add('action-denied');
+  setTimeout(() => drawer.classList.remove('action-denied'), 420);
+}
+function showImpact(title, detail) {
+  const layer = document.getElementById('toast-layer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'game-impact';
+  el.innerHTML = `<small>${esc(detail || '')}</small><strong>${esc(title)}</strong>`;
+  layer.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 380); }, 1450);
+}
 // 執行動作並把期間新增的 log 浮出
 function flashLog(before) {
   for (let i = before; i < G.log.length; i++) {
@@ -287,7 +306,7 @@ function render() {
     if (first) {
       first.classList.add('screen-enter');
       // 編排播完就移除，讓 idle 動畫（選中卡浮動等）接手，也避免殘留 class 蓋掉後續狀態
-      setTimeout(() => first.classList.remove('screen-enter'), 2000);
+      setTimeout(() => first.classList.remove('screen-enter'), 1050);
     }
     lastRenderedScreen = ui.screen;
   }
@@ -393,7 +412,19 @@ function homeCarouselNext() {
 function homeCarouselSelect(i) {
   ui.homeSelectedTribe = i;
   // 直接改 class 不整頁重繪，讓卡片的 CSS transition 有機會播放（重繪會瞬間跳格）
-  document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
+  document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => {
+    c.classList.toggle('selected', idx === i);
+    c.setAttribute('aria-pressed', idx === i ? 'true' : 'false');
+  });
+  const entry = Object.entries(CARDS.tribes)[i];
+  if (!entry) return;
+  const [id, t] = entry;
+  const title = document.getElementById('home-selection-title');
+  const detail = document.getElementById('home-selection-detail');
+  const start = document.getElementById('home-start-btn');
+  if (title) title.textContent = `選擇 ${t.name}`;
+  if (detail) detail.textContent = `盛產：${t.produces.join('、')}｜勝利：先完成 4 間家屋`;
+  if (start) { start.textContent = `以 ${t.name} 開始`; start.setAttribute('onclick', `homeStartWithTribe(${i})`); }
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
@@ -441,40 +472,31 @@ function renderHome() {
           <span class="side-icon" aria-hidden="true">⇄</span>
           <span class="side-text"><b>連線對戰</b><small>ONLINE</small></span>
         </button>
-        <button class="side-item" onclick="comingSoonToast()">
-          <span class="side-icon" aria-hidden="true">▤</span>
-          <span class="side-text"><b>資料庫</b><small>ARCHIVE</small></span>
-        </button>
-        <button class="side-item" onclick="comingSoonToast()">
-          <span class="side-icon" aria-hidden="true">✦</span>
-          <span class="side-text"><b>特典</b><small>BONUS</small></span>
-        </button>
-        <button class="side-item" onclick="comingSoonToast()">
-          <span class="side-icon" aria-hidden="true">⚙</span>
-          <span class="side-text"><b>設定</b><small>OPTION</small></span>
-        </button>
       </aside>
 
       <header class="ps5-topbar">
-        <button onclick="comingSoonToast()">設定</button>
-        <button onclick="comingSoonToast()">操作說明</button>
-        <button onclick="comingSoonToast()">選項</button>
+        <button onclick="gotoStory()">遊戲介紹</button>
+        <button onclick="gotoNetLobby()">連線對戰</button>
       </header>
 
       <section class="ps5-content">
         <div class="game-title-block">
           <h1>原地重生・返璞歸真</h1>
-          <p>一款結合台灣原住民族文化與探索冒險的敘事遊戲。</p>
+          <p>蒐集素材、完成工藝、建造家屋，在事件與交易中搶先完成聚落。</p>
         </div>
 
         <section class="tribe-carousel" aria-label="族群卡選擇">
           <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">‹</button>
           ${tribeEntries.map(([id, t], i) => `
-            <article class="tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeStartWithTribe(${i})" title="選 ${t.name} 開始遊戲">
+            <button class="tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})" aria-pressed="${i === selIdx}" title="預覽 ${t.name}">
               <img src="${t.img}" alt="${t.name}">
               <div class="tribe-name">${t.name}</div>
-            </article>`).join('')}
+            </button>`).join('')}
           <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">›</button>
+        </section>
+        <section class="ps5-actions" aria-live="polite">
+          <div class="home-selection-copy"><b id="home-selection-title">選擇 ${tribeEntries[selIdx][1].name}</b><span id="home-selection-detail">盛產：${tribeEntries[selIdx][1].produces.join('、')}｜勝利：先完成 4 間家屋</span></div>
+          <div class="ps5-actions-row"><button id="home-start-btn" class="start-btn" onclick="homeStartWithTribe(${selIdx})">以 ${tribeEntries[selIdx][1].name} 開始</button><button class="intro-btn" onclick="gotoStory()">先看玩法</button></div>
         </section>
       </section>
 
@@ -650,7 +672,7 @@ function diceRoll() {
       if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
       if (!ui.net) setTimeout(() => {
         if (ui.modal === m && m.phase === 'result') diceDone();
-      }, 900);
+      }, 1400);
     }
   }, 90);
 }
@@ -738,8 +760,9 @@ function doAction(action, fromRemote) {
     }[action.type];
     if (feedback) showToast(feedback);
   } catch (e) {
-    alert('動作失敗：' + e.message);
-    ui.modal = null; render();
+    ui.modal = null;
+    render();
+    showActionError(`無法執行：${e.message}`);
     return;
   }
   // 連線對戰：我在自己回合做的動作，套用成功後廣播給對方（對方以 fromRemote 套用，不再回傳）
@@ -778,7 +801,11 @@ function animateGains(action, matBefore, buildingsBefore) {
     const cells = document.querySelectorAll('.bld-cell.filled');
     const lastCell = cells[cells.length - 1];
     const b = p.buildings[p.buildings.length - 1];
-    if (lastCell && b) { flyDrawnCard('.deck-building', null, lastCell, { img: b.img, name: b.name }); played = true; }
+    if (lastCell && b) {
+      flyDrawnCard('.deck-building', null, lastCell, { img: b.img, name: b.name });
+      showImpact('家屋落成！', `${p.tribeName}完成第 ${p.buildings.length}/${CARDS.buildingsPerTribe} 間家屋`);
+      played = true;
+    }
   }
   return played;
 }
@@ -918,16 +945,22 @@ function renderBoard() {
           <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
         </div>
-        <div class="row">
-          ${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}
-        </div>
-        <h3>已擲出 / 工藝</h3>
-        <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
-        <h3>服飾</h3>
-        <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+        <details class="battle-archive">
+          <summary>查看工藝、已出牌與服飾</summary>
+          <h3>公共工藝</h3>
+          <div class="row">${Object.entries(CARDS.crafts).map(([id, c]) => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name} ×${G.craftPool.filter(x => x.id === id).length}</span>`).join('')}</div>
+          <h3>已擲出 / 工藝</h3>
+          <div class="row">${p.played.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無）</span>'}</div>
+          <h3>服飾</h3>
+          <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
+        </details>
       </div>
 
-      <div class="bv-buildings card-box light-frame tut-buildings">
+      <div class="bv-buildings card-box light-frame tut-buildings${canBuyBuilding(p) ? ' is-ready-to-build' : ''}">
+        <button class="board-coach" onclick="toggleHud()">
+          <span><small>本回合建議</small><b>${canBuyBuilding(p) ? '素材齊全，現在蓋家屋' : turnHint(p)}</b></span>
+          <em>開啟行動</em>
+        </button>
         <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度${(() => { const r = CARDS.buildingsPerTribe - p.buildings.filter(b => b.tribe === p.tribe).length; return r > 0 ? `<span class="bld-remain">還差 ${r} 間就贏</span>` : '<span class="bld-remain done">已蓋滿！</span>'; })()}</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>
@@ -1072,7 +1105,8 @@ function renderEnd() {
   return `
     <section class="end-screen">
       <div class="setup-panel">
-        <h2>結算</h2>
+        <div class="end-kicker">聚落建造完成</div>
+        <h2>${winners.length > 1 ? '並列勝利！' : `${winners[0].tribe}勝利！`}</h2>
         <p class="center muted" style="color:rgba(248,230,190,0.75);">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
         <p class="center muted" style="color:rgba(248,230,190,0.6);font-size:0.85em;">勝負以「本族家屋棟數」決定，平手才比總分</p>
         <div class="winner-banner">
@@ -1103,9 +1137,21 @@ function renderEnd() {
             </div>`;
           }).join('')}
         </div>
-        <div class="center"><button class="primary-start-button" onclick="location.reload()">重新開始</button></div>
+        <div class="end-actions">
+          <button class="primary-start-button" onclick="replayGame()">再玩一局</button>
+          <button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button>
+        </div>
       </div>
     </section>`;
+}
+function replayGame() {
+  G = null;
+  ui.modal = null;
+  ui.hudCollapsed = true;
+  ui.pendingAdvance = false;
+  ui.lastDrawnCard = null;
+  ui.screen = 'setup';
+  render();
 }
 
 // ── modal system ──────────────────────────────────────────
