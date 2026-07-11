@@ -2,7 +2,6 @@ import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
 import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
-import { startAdventure } from './adventure-mode.js';
 
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
@@ -397,7 +396,6 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
-function gotoAdventure() { leaveNet(); startAdventure(() => { ui.screen = 'home'; render(); }, Object.keys(CARDS.tribes)[ui.homeSelectedTribe ?? 0]); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
 function toggleHomeNav() {
   const home = document.querySelector('.ps5-home');
@@ -439,10 +437,6 @@ function renderHome() {
           <span class="side-icon" aria-hidden="true">▣</span>
           <span class="side-text"><b>故事</b><small>STORY</small></span>
         </button>
-        <button class="side-item" onclick="gotoAdventure()">
-          <span class="side-icon" aria-hidden="true">◆</span>
-          <span class="side-text"><b>探索冒險</b><small>ADVENTURE</small></span>
-        </button>
         <button class="side-item" onclick="gotoNetLobby()">
           <span class="side-icon" aria-hidden="true">⇄</span>
           <span class="side-text"><b>連線對戰</b><small>ONLINE</small></span>
@@ -462,7 +456,6 @@ function renderHome() {
       </aside>
 
       <header class="ps5-topbar">
-        <button onclick="gotoAdventure()">探索冒險</button>
         <button onclick="comingSoonToast()">設定</button>
         <button onclick="comingSoonToast()">操作說明</button>
         <button onclick="comingSoonToast()">選項</button>
@@ -486,7 +479,7 @@ function renderHome() {
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇族群進入原版桌遊，或展開聚落探索冒險</span>
+        <span>選擇族群，開始重建家屋並完成文化任務</span>
       </footer>
     </main>`;
 }
@@ -637,8 +630,8 @@ function renderDice(m) {
     <p class="center dice-ap-line">骰子 <b>${m.die}</b> 點　→　這回合可以做 <b>${m.ap}</b> 件事</p>
     <div class="center ap-pips ap-pips-lg">${apPips(m.ap, m.ap)}</div>
     ${m.ap === 4 ? '<p class="center muted">手氣真好！</p>' : m.ap === 2 ? '<p class="center muted">將就一下…</p>' : ''}
-    ${m.bot ? '' : `<p class="center muted">（也可以放棄行動，選「整回合拿素材」）</p>
-    <div class="center"><button class="cta cta-primary" onclick="diceDone()">開始行動</button></div>`}`;
+    ${m.bot ? '' : `<p class="center muted">即將進入行動階段，也可以直接按下方按鈕。</p>
+    <div class="center"><button class="cta cta-primary" onclick="diceDone()">立即行動</button></div>`}`;
 }
 function diceRoll() {
   const m = ui.modal;
@@ -655,6 +648,9 @@ function diceRoll() {
       window.Sound?.sfx('dice');
       render();
       if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
+      if (!ui.net) setTimeout(() => {
+        if (ui.modal === m && m.phase === 'result') diceDone();
+      }, 900);
     }
   }, 90);
 }
@@ -957,20 +953,23 @@ function renderBoard() {
           ${goalPanel(p)}
 
           <div class="action-group-label">蓋家屋（贏的路）</div>
-          ${actionButton('拿素材（本族 3 種各 1，或 2 換 1 補缺）', 'actionTakeMaterialsPrompt()', '整回合', p.actionPoints !== (p.turnStartAP ?? 3), '拿素材是整回合行動，只能在還沒做其他事時使用', 'action-suggest')}
-          ${(() => { const bc = G.currentEvent?.id === 'reinforce' ? 1 : 2; return actionButton(`蓋家屋：4 種素材換抽家屋卡${bc < 2 ? '（加固-1）' : ''}`, 'actionBuyBuilding()', String(bc), p.actionPoints < bc || !canBuyBuilding(p), p.actionPoints < bc ? `需要 ${bc} 點行動點` : '需要 4 種素材各 1'); })()}
+          ${actionButton(`${canBuyBuilding(p) ? '' : '建議：'}拿素材（補齊蓋屋資源）`, 'actionTakeMaterialsPrompt()', '整回合', p.actionPoints !== (p.turnStartAP ?? 3), '拿素材是整回合行動，只能在還沒做其他事時使用', canBuyBuilding(p) ? '' : 'action-suggest')}
+          ${(() => { const bc = G.currentEvent?.id === 'reinforce' ? 1 : 2; return actionButton(`${canBuyBuilding(p) ? '建議：' : ''}蓋家屋${bc < 2 ? '（事件減免）' : ''}`, 'actionBuyBuilding()', String(bc), p.actionPoints < bc || !canBuyBuilding(p), p.actionPoints < bc ? `需要 ${bc} 點行動點` : '需要 4 種素材各 1', canBuyBuilding(p) ? 'action-suggest' : ''); })()}
 
           <div class="action-group-label">賺加分</div>
           ${actionButton('抽原料卡（湊對做工藝用）', 'actionDrawMaterial()', '1', p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
           ${pairs.map(pr => actionButton(`湊對換工藝「${pr.name}」`, `actionPlayRawPair('${pr.craftId}')`, '1', p.actionPoints < 1, '行動點數不足')).join('')}
           ${actionButton('抽文化卡', 'actionDrawCulture()', '1', p.actionPoints < 1 || !G.cultureDeck.length, p.actionPoints < 1 ? '行動點數不足' : '文化牌庫已空')}
 
-          <div class="action-group-label">搞對手（進階）</div>
-          ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
-          ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length || G.currentEvent?.id === 'roadblock', G.currentEvent?.id === 'roadblock' ? '山路封閉：本回合不能交易' : (p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家'))}
-          ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
-          ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
-          ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
+          <details class="advanced-actions">
+            <summary>玩家互動與進階行動 <span>5 種</span></summary>
+            <p>想干擾對手或補關鍵卡牌時再展開。</p>
+            ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
+            ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length || G.currentEvent?.id === 'roadblock', G.currentEvent?.id === 'roadblock' ? '山路封閉：本回合不能交易' : (p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家'))}
+            ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
+            ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
+            ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
+          </details>
 
           <button class="danger tut-endturn" onclick="actionEndTurn()">結束回合</button>
         </div>
@@ -1974,7 +1973,6 @@ Object.assign(window, {
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
-  gotoAdventure,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });

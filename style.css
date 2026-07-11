@@ -2732,6 +2732,14 @@ input[type=text] {
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
 .continue-turn-btn { width: 100%; margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #ffd36b; border-radius: 10px; background: linear-gradient(135deg, #d89d35, #9a6122); color: #fff6dc; font-weight: 900; box-shadow: 0 6px 16px rgba(0,0,0,.3); }
 .continue-turn-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.advanced-actions { margin:10px 0 8px; padding:0; border:1px solid rgba(255,211,116,.28); border-radius:10px; background:rgba(4,9,18,.42); }
+.advanced-actions summary { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; color:#f6d990; font-size:.78rem; font-weight:900; cursor:pointer; list-style:none; }
+.advanced-actions summary::-webkit-details-marker { display:none; }
+.advanced-actions summary::before { content:'＋'; color:#ffd36b; }
+.advanced-actions[open] summary::before { content:'－'; }
+.advanced-actions summary span { margin-left:auto; padding:2px 7px; border:1px solid rgba(255,211,116,.35); border-radius:99px; color:#dbc28d; font-size:.62rem; }
+.advanced-actions>p { margin:0 10px 8px; color:rgba(245,231,200,.58); font-size:.66rem; line-height:1.45; }
+.advanced-actions>button { width:calc(100% - 16px); margin:4px 8px !important; }
 
 /* FINAL DRAWER MODE: 行動面板脫離 Grid，不再壓縮中央戰場 */
 @media (min-width: 861px) {
