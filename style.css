@@ -2738,13 +2738,55 @@ input[type=text] {
   .bv-side .hud-toggle { position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 90; width: 42px; min-height: 74px; border-radius: 14px 0 0 14px; box-shadow: 0 10px 26px rgba(0,0,0,.5); }
   .bv-side .action-menu { position: fixed; right: 14px; top: 92px; bottom: 84px; width: min(360px, 28vw); max-height: none; overflow-y: auto; z-index: 89; margin: 0 !important; padding: 16px !important; border-radius: 18px !important; box-shadow: 0 20px 60px rgba(0,0,0,.62) !important; }
   .bv-side.is-collapsed .action-menu { display: none !important; }
-  .bv-side:not(.is-collapsed) .hud-toggle { right: min(388px, calc(28vw + 28px)); }
+.bv-side:not(.is-collapsed) .hud-toggle { right: min(388px, calc(28vw + 28px)); }
 }
 @media (max-width: 860px) {
   .bv-side { position: fixed !important; inset: auto 10px 10px; z-index: 90; width: auto !important; min-width: 0; pointer-events: none; }
   .bv-side .hud-toggle { pointer-events: auto; margin: 0 0 0 auto; min-height: 48px; }
   .bv-side .action-menu { pointer-events: auto; max-height: min(68vh, 620px); overflow-y: auto; margin: 8px 0 0 !important; }
   .bv-side.is-collapsed .action-menu { display: none !important; }
+}
+
+/* FINAL TOP HUD OVERRIDES */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-rows: 42px 72px minmax(310px,1fr) auto !important; }
+  .bv-header { position: relative !important; padding: 0 8px !important; min-height: 42px !important; }
+  .bv-header h1 { margin: 0 !important; font-size: 1.05rem !important; line-height: 1.2 !important; }
+  .bv-header .event-banner { position: absolute !important; top: -2px !important; left: 50% !important; transform: translateX(-50%) !important; width: min(420px,34vw) !important; margin: 0 !important; padding: 4px 9px !important; min-height: 34px !important; border-radius: 9px !important; }
+  .bv-header .event-banner .event-icon { font-size: 1.15em !important; }
+  .bv-header .event-banner .event-text b { font-size: .78em !important; }
+  .bv-header .event-banner .event-text small { font-size: .62em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bv-header .event-banner .event-dur { font-size: .6em !important; padding: 1px 5px !important; }
+  .bv-versus .versus-strip, .bv-versus .versus-duel { min-height: 62px !important; margin: 0 !important; padding: 3px 8px !important; border-radius: 12px !important; }
+  .bv-versus .vs-player { padding: 3px 5px !important; display: grid !important; grid-template-columns: 30px 1fr; grid-template-rows: 1fr 1fr; column-gap: 6px; text-align: left; align-items: center; }
+  .bv-versus .vs-player img { grid-row: 1 / 3; width: 30px !important; height: 30px !important; border-width: 2px; }
+  .bv-versus .vs-name { margin: 0 !important; font-size: .72em !important; }
+  .bv-versus .vs-score { font-size: .82em !important; line-height: 1; }
+  .bv-versus .vs-stats, .bv-versus .vs-hand { display: none !important; }
+  .bv-versus .duel-side { padding: 4px 14px !important; }
+  .bv-versus .duel-badge { width: 34px !important; height: 34px !important; }
+  .bv-versus .duel-stats, .bv-versus .duel-side .vs-hand { display: none !important; }
+}
+
+/* 頂部 HUD 減壓：事件卡與玩家列不再各自佔滿一整排 */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-rows: 42px 72px minmax(310px,1fr) auto !important; }
+  .bv-header { position: relative; padding: 0 8px !important; min-height: 42px; }
+  .bv-header h1 { margin: 0; font-size: 1.05rem !important; line-height: 1.2; }
+  .bv-header .event-banner { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: min(420px, 34vw); margin: 0; padding: 4px 9px; min-height: 34px; border-radius: 9px; }
+  .bv-header .event-banner .event-icon { font-size: 1.15em; }
+  .bv-header .event-banner .event-text b { font-size: .78em; }
+  .bv-header .event-banner .event-text small { font-size: .62em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bv-header .event-banner .event-dur { font-size: .6em; padding: 1px 5px; }
+  .bv-versus .versus-strip, .bv-versus .versus-duel { min-height: 62px; margin: 0 !important; padding: 3px 8px !important; border-radius: 12px; }
+  .bv-versus .vs-player { padding: 3px 5px !important; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: 1fr 1fr; column-gap: 6px; text-align: left; align-items: center; }
+  .bv-versus .vs-player img { grid-row: 1 / 3; width: 30px; height: 30px; border-width: 2px; }
+  .bv-versus .vs-name { margin: 0; font-size: .72em; }
+  .bv-versus .vs-score { font-size: .82em; line-height: 1; }
+  .bv-versus .vs-stats, .bv-versus .vs-hand { display: none; }
+  .bv-versus .duel-side { padding: 4px 14px; }
+  .bv-versus .duel-badge { width: 34px; height: 34px; }
+  .bv-versus .duel-stats, .bv-versus .duel-side .vs-hand { display: none; }
 }
 
 /* 行動面板抽屜：收合時只留行動點數旁的展開把手 */
