@@ -45,7 +45,7 @@ function introHtml() {
       <p>走進聚落周邊，蒐集建造所需材料，完成第一間家屋。每一次行動都會推進場景與任務。</p>
       <div class="adventure-actions">${saved ? '<button class="adventure-primary" onclick="adventureContinue()">繼續探索</button>' : ''}<button onclick="adventureNew()">${saved ? '重新開始' : '開始探索'}</button></div>
     </section>
-    <div class="adventure-intro-cards"><article><img src="assets/materials/wood.png" alt="木材"><span>探索環境</span></article><article><img src="${t.craft}" alt="${t.craftName}"><span>完成製作</span></article><article><img src="${t.building}" alt="${t.name}家屋"><span>重建聚落</span></article></div>
+    <div class="adventure-intro-cards"><article><img src="assets/raw/bark.png" alt="採集素材"><span>探索環境</span></article><article><img src="${t.craft}" alt="${t.craftName}"><span>完成製作</span></article><article><img src="${t.building}" alt="${t.name}家屋"><span>重建聚落</span></article></div>
   </main>`;
 }
 
