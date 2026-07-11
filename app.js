@@ -49,6 +49,7 @@ function flashLog(before) {
   for (let i = before; i < G.log.length; i++) {
     const line = G.log[i].replace(/^\[T\d+\]\s*/, '');
     bubbleForLog(line); // 情境對話泡泡
+    soundForLog(line);  // 互動音效層
     showToast(line);
   }
 }
@@ -283,10 +284,50 @@ function render() {
       // 編排播完就移除，讓 idle 動畫（選中卡浮動等）接手，也避免殘留 class 蓋掉後續狀態
       setTimeout(() => first.classList.remove('screen-enter'), 2000);
     }
+    syncMusicScene(); // 依畫面切換配樂場景（主選單／選族／對局／結算）
     lastRenderedScreen = ui.screen;
   }
   positionTutorial();
   triggerRPSShake();
+}
+
+// 依目前畫面把配樂切到對應場景（主選單→選族→對局→結算）。
+// 結算再依「本族家屋棟數為主、總分為輔」判斷真人是勝／平／負，播不同尾樂。
+function syncMusicScene() {
+  const S = window.Sound;
+  if (!S || !S.scene) return;
+  const scr = ui.screen;
+  if (scr === 'home' || scr === 'story') { S.scene('menu'); return; }
+  if (scr === 'setup' || scr === 'netLobby') { S.scene('setup'); return; }
+  if (scr === 'board') { S.scene('board'); return; }
+  if (scr === 'end') {
+    let outcome = 'victory';
+    try {
+      const scores = finalScores(G);
+      const best = scores.slice().sort(rankCmp)[0];
+      const winners = scores.filter(s => s.buildingCount === best.buildingCount && s.total === best.total);
+      const humanIdx = ui.net ? ui.net.myIdx : 0;
+      const humanWon = winners.some(w => w.player === humanIdx);
+      if (humanWon && winners.length > 1) outcome = 'tie';
+      else if (humanWon) outcome = 'victory';
+      else outcome = 'defeat';
+    } catch (e) {}
+    S.scene(outcome);
+    return;
+  }
+}
+
+// 依新增的 log 字串觸發互動音效層（電腦／真人／連線都會經過 flashLog）
+function soundForLog(line) {
+  const S = window.Sound;
+  if (!S || !S.cue) return;
+  if (/偷襲 .+ 猜拳(勝|敗)|偷襲 .+ 被防禦/.test(line)) { S.cue('raid'); return; }
+  if (/⇄ .+ 交易成立|猜拳勝，強制與 .+ 成交/.test(line)) { S.cue('trade'); return; }
+  if (/向 .+ 購得/.test(line)) { S.cue('buy'); return; }
+  if (/換抽建築卡/.test(line)) { S.cue('buildDone'); return; }
+  if (/配對原料換得工藝/.test(line)) { S.cue('craft'); return; }
+  // 文化卡打出：「族名 擲出「卡名」」結尾（防禦偷襲的擲出後面還有字，不會誤觸）
+  if (/擲出「.+」$/.test(line)) { S.cue('culture'); return; }
 }
 
 // 猜拳結果揭曉時，讓輸家在對戰列的頭像震動一下（跟 .rps-stamp 印章搭配的動態回饋）
@@ -403,6 +444,7 @@ function homeStartWithTribe(i) {
   const id = Object.keys(CARDS.tribes)[i];
   ui.homeSelectedTribe = i;
   ui.setup.tribes[0] = id;
+  window.Sound?.tribe(id); // 選定該族的專屬確認音色
   gotoSetup();
 }
 
@@ -547,7 +589,9 @@ function setName(i, val) { ui.setup.names[i] = val; }
 function pickTribe(i, tribeId) {
   const s = ui.setup;
   if (s.tribes.some((x, j) => x === tribeId && j !== i && j < s.count)) return; // 已被其他玩家選走
-  s.tribes[i] = s.tribes[i] === tribeId ? null : tribeId; // 再點一次取消選擇
+  const selecting = s.tribes[i] !== tribeId;
+  s.tribes[i] = selecting ? tribeId : null; // 再點一次取消選擇
+  if (selecting) window.Sound?.tribe(tribeId); // 選定該族的專屬確認音色
   render();
 }
 function startGame() {
@@ -678,16 +722,17 @@ function finishTurnAndAdvance() {
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
     G.phase = 'ended';
     ui.screen = 'end';
-    window.Sound?.sfx('victory');
-    render();
+    render(); // 結算音樂由 syncMusicScene 依勝/平/負決定
     return;
   }
+  // 回合結束鐘聲：只在真人結束自己回合時響一下，避免電腦連續回合狂敲
+  if (!isBot(G.currentPlayer) && (!ui.net || G.currentPlayer === ui.net.myIdx)) window.Sound?.turnBell();
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
   if (G.currentPlayer === 0) {
     G.turn++;
     flipNextEvent(G); // A20：新一輪翻下一張公共事件（seed 決定順序，連線兩端一致）
     showToast(`新事件：${G.currentEvent.icon || ''} ${G.currentEvent.name}`, 'event');
-    window.Sound?.sfx('toast');
+    window.Sound?.event(G.currentEvent.id); // 每張事件卡有專屬音效
   }
 
   if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
@@ -699,7 +744,7 @@ function finishTurnAndAdvance() {
     if (!anyPair) { G.endTriggeredBy = 'decks_exhausted'; G.phase = 'ended'; }
   }
 
-  if (G.phase === 'ended') { ui.screen = 'end'; window.Sound?.sfx('victory'); render(); return; }
+  if (G.phase === 'ended') { ui.screen = 'end'; render(); return; }
   startPlayerTurn(G.currentPlayer);
 }
 
