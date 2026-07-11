@@ -23,6 +23,7 @@ let ui = {
   pass: null,
   modal: null,
   hudCollapsed: true,
+  pendingAdvance: false,
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
@@ -32,6 +33,7 @@ let ui = {
 
 function isBot(idx) { return !!ui.isBot[idx]; }
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
+function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; finishTurnAndAdvance(); }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
 // 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
@@ -733,7 +735,15 @@ function doAction(action, fromRemote) {
   ui.modal = null;
   render(); // 先渲染出最終狀態，飛行動畫在畫面上疊加視覺回饋
   const played = animateGains(action, matBefore, buildingsBefore);
-  const advance = () => { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); };
+  const reviewCard = !fromRemote && !isBot(action.player) && action.player === ui.net?.myIdx || (!fromRemote && !ui.net && !isBot(action.player) && action.player === G.currentPlayer);
+  const advance = () => {
+    if (currentPlayer().actionPoints <= 0) {
+      if (reviewCard && (action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD')) {
+        ui.pendingAdvance = true;
+        render();
+      } else finishTurnAndAdvance();
+    }
+  };
   if (played) setTimeout(advance, 420); else advance();
 }
 
@@ -926,6 +936,7 @@ function renderBoard() {
             <div class="ap-pips">${apPips(p.actionPoints, Math.max(p.turnStartAP ?? p.actionPoints, p.actionPoints))}</div>
           </div>
           <div class="turn-hint">${turnHint(p)}</div>
+          ${ui.pendingAdvance ? '<button class="continue-turn-btn" onclick="continueTurn()">看完卡牌，繼續回合</button>' : ''}
 
           ${objectivePanel()}
           ${goalPanel(p)}
@@ -1944,6 +1955,7 @@ Object.assign(window, {
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
   toggleHud,
+  continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,

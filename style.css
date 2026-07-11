@@ -2730,6 +2730,8 @@ input[type=text] {
 .mat-dock-coin img { width: 52px !important; height: 52px !important; margin: 0 auto 4px !important; }
 .bv-side .action-menu button { background: rgba(255,255,255,.06) !important; color: #fff1d0 !important; border-color: rgba(255,220,140,.24) !important; }
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
+.continue-turn-btn { width: 100%; margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #ffd36b; border-radius: 10px; background: linear-gradient(135deg, #d89d35, #9a6122); color: #fff6dc; font-weight: 900; box-shadow: 0 6px 16px rgba(0,0,0,.3); }
+.continue-turn-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
 
 /* FINAL DRAWER MODE: 行動面板脫離 Grid，不再壓縮中央戰場 */
 @media (min-width: 861px) {
