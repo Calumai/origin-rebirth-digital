@@ -734,9 +734,14 @@ function doAction(action, fromRemote) {
   if (ui.net && !fromRemote && action.player === ui.net.myIdx) Net.send({ t: 'act', action });
   ui.modal = null;
   render(); // 先渲染出最終狀態，飛行動畫在畫面上疊加視覺回饋
-  const played = animateGains(action, matBefore, buildingsBefore);
-  const advance = () => { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); };
-  if (played) setTimeout(advance, 420); else advance();
+  // 飛行動畫（獨立疊在 toast-layer 上，換手後仍會播完）；用 try/catch 避免動畫錯誤擋到換手
+  try { animateGains(action, matBefore, buildingsBefore); }
+  catch (e) { console.warn('animateGains 失敗（已忽略）：', e); }
+  // 修正回合卡住不換手的 bug：行動點用完就「立刻」換手。
+  // 原本對有動畫的動作用 setTimeout(advance, 420) 延遲，但該計時器在某些情況不觸發，
+  // 導致 AP 歸零卻停在原玩家回合、要手動按「結束回合」。改為同步立即換手（與「結束回合」同一路徑）。
+  try { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); }
+  catch (e) { console.warn('自動換手失敗：', e); }
 }
 
 // 動作結束後比對素材/建築變化，飛出對應的動態獲得回饋；回傳是否有播放動畫（供 doAction 決定要不要延遲換手）
