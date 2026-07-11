@@ -2731,6 +2731,22 @@ input[type=text] {
 .bv-side .action-menu button { background: rgba(255,255,255,.06) !important; color: #fff1d0 !important; border-color: rgba(255,220,140,.24) !important; }
 .bv-side .action-menu button:hover:not(:disabled) { background: rgba(255,207,105,.16) !important; border-color: #ffd978 !important; }
 
+/* FINAL DRAWER MODE: 行動面板脫離 Grid，不再壓縮中央戰場 */
+@media (min-width: 861px) {
+  .board-viewport { grid-template-columns: 218px minmax(0, 1fr) 0 !important; }
+  .bv-side { grid-area: side; position: static !important; width: 0 !important; min-width: 0 !important; overflow: visible !important; }
+  .bv-side .hud-toggle { position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 90; width: 42px; min-height: 74px; border-radius: 14px 0 0 14px; box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  .bv-side .action-menu { position: fixed; right: 14px; top: 92px; bottom: 84px; width: min(360px, 28vw); max-height: none; overflow-y: auto; z-index: 89; margin: 0 !important; padding: 16px !important; border-radius: 18px !important; box-shadow: 0 20px 60px rgba(0,0,0,.62) !important; }
+  .bv-side.is-collapsed .action-menu { display: none !important; }
+  .bv-side:not(.is-collapsed) .hud-toggle { right: min(388px, calc(28vw + 28px)); }
+}
+@media (max-width: 860px) {
+  .bv-side { position: fixed !important; inset: auto 10px 10px; z-index: 90; width: auto !important; min-width: 0; pointer-events: none; }
+  .bv-side .hud-toggle { pointer-events: auto; margin: 0 0 0 auto; min-height: 48px; }
+  .bv-side .action-menu { pointer-events: auto; max-height: min(68vh, 620px); overflow-y: auto; margin: 8px 0 0 !important; }
+  .bv-side.is-collapsed .action-menu { display: none !important; }
+}
+
 /* 行動面板抽屜：收合時只留行動點數旁的展開把手 */
 .hud-toggle { display: flex; align-items: center; justify-content: center; width: 34px; min-height: 46px; padding: 0; margin: 0 0 6px auto; border: 1px solid rgba(255,211,116,.55); border-radius: 10px 0 0 10px; background: rgba(9,12,24,.94); color: #ffe39a; font-size: 24px; cursor: pointer; }
 .bv-side.is-collapsed { width: 38px; min-width: 38px; justify-self: end; }

@@ -22,7 +22,7 @@ let ui = {
   isBot: [],
   pass: null,
   modal: null,
-  hudCollapsed: false,
+  hudCollapsed: true,
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
