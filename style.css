@@ -503,6 +503,10 @@ input[type=text] {
 }
 .winner-name { font-weight: 800; color: #ffe9bc; font-family: var(--fserif); }
 .winner-score { color: var(--gold); font-weight: 700; }
+.end-kicker { text-align: center; color: #d9b96d; font-size: 12px; font-weight: 800; letter-spacing: .18em; }
+.end-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+.end-actions .primary-start-button { margin: 0; }
+.end-actions .secondary-lore-button { min-height: 54px; padding-inline: 24px; }
 
 /* ── 世界觀介紹頁：沿用 .setup-panel 暗色木框，族群卡改小卡陳列 ── */
 .story-panel p { line-height: 1.9; }
@@ -1446,6 +1450,10 @@ input[type=text] {
   opacity: 0.72;
   cursor: pointer;
   transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease, filter 180ms ease;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  color: inherit;
 }
 .ps5-home .tribe-card:hover { transform: translateY(-6px) scale(0.98); opacity: 0.92; }
 .ps5-home .tribe-card.selected {
@@ -1495,6 +1503,10 @@ input[type=text] {
 
 /* 主按鈕區 */
 .ps5-home .ps5-actions { width: min(880px, 70vw); display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 4px; }
+.ps5-home .home-selection-copy { display:flex; align-items:center; justify-content:center; gap:14px; width:100%; color:#ffe9b5; text-shadow:0 2px 8px #000; }
+.ps5-home .home-selection-copy b { font-size:17px; }
+.ps5-home .home-selection-copy span { color:rgba(255,237,202,.7); font-size:13px; }
+.ps5-home .ps5-actions-row { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; }
 .ps5-home .start-btn {
   position: relative;
   width: min(340px, 100%);
@@ -1635,15 +1647,16 @@ input[type=text] {
   .ps5-home .ps5-content { padding: 96px 22px 48px; align-items: center; text-align: center; }
   .ps5-home .game-title-block { text-align: center; }
   .ps5-home .game-title-block::before { display: none; }
-  .ps5-home .game-title-block h1 { font-size: clamp(38px, 10vw, 58px); }
+  .ps5-home .game-title-block h1 { font-size: clamp(27px, 8.3vw, 36px); white-space: nowrap; }
   .ps5-home .game-title-block p { justify-content: center; font-size: 15px; }
   .ps5-home .tribe-carousel { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 16px; }
   .ps5-home .carousel-arrow { display: none; }
   .ps5-home .tribe-card, .ps5-home .tribe-card.selected, .ps5-home .tribe-card:hover { width: 100%; transform: none; }
   .ps5-home .tribe-card.selected { box-shadow: 0 0 0 2px rgba(255, 225, 142, 0.26), 0 0 34px rgba(255, 196, 82, 0.26), 0 22px 36px rgba(0, 0, 0, 0.58); }
   .ps5-home .ps5-actions { width: 100%; }
-  .ps5-home .start-btn { width: min(340px, 92vw); }
-  .ps5-home .intro-btn { width: min(240px, 82vw); }
+  .ps5-home .home-selection-copy { display:grid; gap:2px; text-align:center; }
+  .ps5-home .ps5-actions-row { display:grid; grid-template-columns:1fr; width:min(340px,100%); }
+  .ps5-home .start-btn,.ps5-home .intro-btn { width:100%; }
   .ps5-home .ps5-hints { display: none; }
 }
 
@@ -2140,7 +2153,57 @@ input[type=text] {
 .empty-hand-copy span { color: #ead9b8; font-size: 13px; }
 .bv-header { padding-left: 10px; }
 
+.battle-archive {
+  margin-top: 12px;
+  border-top: 1px solid rgba(224, 186, 105, 0.28);
+  color: #ead9b8;
+}
+.battle-archive summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #f3d99c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.battle-archive summary:hover { color: #fff1c5; }
+.battle-archive[open] { padding-bottom: 8px; }
+.battle-archive h3 { margin: 10px 0 6px; font-size: 12px; color: #d8bd83; }
+
+.board-coach {
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(224, 186, 105, .38);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(47, 34, 18, .94), rgba(31, 58, 44, .9));
+  color: #fff4d2;
+  box-shadow: inset 0 1px rgba(255,255,255,.05), 0 5px 14px rgba(0,0,0,.18);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.board-coach:hover { transform: translateY(-1px); border-color: #dfb95f; box-shadow: 0 8px 18px rgba(0,0,0,.28); }
+.board-coach:active { transform: translateY(0) scale(.99); }
+.board-coach span { min-width: 0; display: grid; gap: 2px; text-align: left; }
+.board-coach small { color: #d9b96d; font-size: 10px; letter-spacing: .12em; }
+.board-coach b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.board-coach em { flex: 0 0 auto; color: #f6dda2; font-size: 11px; font-style: normal; }
+.bv-buildings.is-ready-to-build .board-coach {
+  border-color: #e6bd55;
+  background: linear-gradient(90deg, rgba(81, 50, 16, .96), rgba(45, 83, 51, .94));
+  box-shadow: 0 0 0 1px rgba(230,189,85,.18), 0 8px 22px rgba(0,0,0,.28);
+}
+
 @media (max-width: 600px) {
+  .board-coach { min-height: 54px; }
+  .board-coach b { white-space: normal; }
   .bv-hand { justify-content: flex-start; min-height: 168px; padding-inline: 10px; }
   .bv-hand .hand-card { width: 112px; min-width: 112px; height: 150px; }
   .bv-hand .hand-card .card-thumb { height: 74px; }
@@ -2566,6 +2629,41 @@ input[type=text] {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+.toast-error {
+  color: #fff1e8;
+  border-color: #ef8a67;
+  background: linear-gradient(135deg, #642c21, #321712);
+}
+.action-denied { animation: actionDenied 360ms ease both; }
+@keyframes actionDenied {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-7px); }
+  65% { transform: translateX(5px); }
+}
+.game-impact {
+  position: fixed;
+  left: 50vw;
+  top: 43vh;
+  transform: translate(-50%, -50%) scale(.76);
+  min-width: min(420px, 86vw);
+  padding: 16px 28px 18px;
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  color: #fff0bd;
+  border: 1px solid rgba(241, 197, 92, .8);
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 0%, rgba(115, 77, 24, .97), rgba(23, 18, 10, .96));
+  box-shadow: 0 0 0 5px rgba(217,164,65,.1), 0 18px 55px rgba(0,0,0,.6);
+  opacity: 0;
+  transition: opacity 240ms ease, transform 420ms cubic-bezier(.2,.8,.2,1);
+}
+.game-impact::before, .game-impact::after { content: '◆'; position: absolute; top: 50%; color: #d9a441; transform: translateY(-50%); }
+.game-impact::before { left: 10px; }
+.game-impact::after { right: 10px; }
+.game-impact small { order: 2; color: #dfcda3; font-size: 11px; }
+.game-impact strong { order: 1; font-family: var(--fserif); font-size: clamp(24px, 4vw, 38px); letter-spacing: .08em; }
+.game-impact.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
 /* ── 動態抽卡動畫（仿爐石戰記真實效果）：卡面直接從牌庫快速滑到手牌並縮放，
    不做 3D 翻牌懸疑——爐石的抽卡就是「彈出→平滑滑動→到位」，乾脆俐落 ── */
@@ -2633,6 +2731,8 @@ input[type=text] {
 }
 
 @media (max-width: 600px) {
+  .end-actions { display: grid; grid-template-columns: 1fr; }
+  .end-actions > * { width: 100%; }
   body { font-size: 17px; }
   .rps-btn { width: 92px; font-size: 1.05em; padding: 12px 6px 10px; }
   .hero-tribes img { width: 84px; }
