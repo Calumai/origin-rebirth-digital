@@ -2,6 +2,7 @@ import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
 import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
+import { startAdventure } from './adventure-mode.js';
 
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
@@ -34,6 +35,7 @@ let ui = {
 
 function isBot(idx) { return !!ui.isBot[idx]; }
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
+function closeHud() { if (!ui.hudCollapsed) { ui.hudCollapsed = true; render(); } }
 function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
@@ -395,6 +397,7 @@ function homeCarouselSelect(i) {
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
 }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
+function gotoAdventure() { leaveNet(); startAdventure(() => { ui.screen = 'home'; render(); }); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
 function toggleHomeNav() {
   const home = document.querySelector('.ps5-home');
@@ -455,6 +458,7 @@ function renderHome() {
       </aside>
 
       <header class="ps5-topbar">
+        <button onclick="gotoAdventure()">冒險模式 BETA</button>
         <button onclick="comingSoonToast()">設定</button>
         <button onclick="comingSoonToast()">操作說明</button>
         <button onclick="comingSoonToast()">選項</button>
@@ -478,7 +482,7 @@ function renderHome() {
       </section>
 
       <footer class="ps5-hints">
-        <span>選擇族別後，遊戲立即開始</span>
+        <span>選擇族群進入原版桌遊，或體驗全新冒險模式</span>
       </footer>
     </main>`;
 }
@@ -929,9 +933,12 @@ function renderBoard() {
         <div class="row center">${buildingsOtherArea(p)}</div>
       </div>
 
+      ${ui.hudCollapsed ? '' : '<button class="action-drawer-scrim" onclick="closeHud()" aria-label="關閉行動面板"></button>'}
       <div class="bv-side${ui.hudCollapsed ? ' is-collapsed' : ''}">
-        <button class="hud-toggle" onclick="toggleHud()" aria-label="${ui.hudCollapsed ? '展開行動面板' : '收合行動面板'}">${ui.hudCollapsed ? '«' : '»'}</button>
-        <div class="card-box light-frame action-menu tut-actions">
+        <button class="hud-toggle" onclick="toggleHud()" aria-label="${ui.hudCollapsed ? `展開行動面板，目前剩餘 ${p.actionPoints} 件事` : '收合行動面板'}" aria-expanded="${!ui.hudCollapsed}" aria-controls="action-drawer">
+          <span class="hud-toggle-count"><b>${p.actionPoints}</b><small>行動</small></span><span class="hud-toggle-arrow" aria-hidden="true">${ui.hudCollapsed ? '«' : '»'}</span>
+        </button>
+        <div id="action-drawer" class="card-box light-frame action-menu tut-actions">
           <div class="ap-tracker tut-ap">
             <div class="ap-tracker-top">
               <span class="ap-tracker-label">本回合還能做</span>
@@ -1959,10 +1966,11 @@ Object.assign(window, {
   actionBuyBuilding, buyBuildingToggle, buyBuildingConfirm,
   actionBuyFromPlayer, buyFromPlayerNoCard, buyFromPlayerPickCard, buyFromPlayerAddPay, buyFromPlayerRemovePay, buyFromPlayerSubmitDemand,
   actionEndTurn,
-  toggleHud,
+  toggleHud, closeHud,
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
+  gotoAdventure,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
@@ -1981,3 +1989,7 @@ Object.assign(window, {
 })();
 
 render();
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !ui.hudCollapsed && !ui.modal) closeHud();
+});
