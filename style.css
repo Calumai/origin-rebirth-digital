@@ -2742,6 +2742,21 @@ input[type=text] {
   .bv-side.is-collapsed .action-menu { display: none !important; }
 .bv-side:not(.is-collapsed) .hud-toggle { right: min(388px, calc(28vw + 28px)); }
 }
+
+/* 參考示意圖的沉浸式戰場背景與動態層 */
+.table-surface { background: #0b1013 url('assets/ui/battlefield-bg.png') center / cover no-repeat !important; }
+.table-surface::before { background: radial-gradient(ellipse at 50% 42%, rgba(21,44,46,.08), transparent 58%), linear-gradient(180deg, rgba(4,7,12,.12), rgba(4,6,9,.48)); }
+.event-banner { animation: hudEventEnter .55s cubic-bezier(.2,.8,.25,1.15) both; }
+@keyframes hudEventEnter { from { opacity: 0; transform: translateY(-18px) scale(.94); filter: blur(3px); } to { opacity: 1; transform: translateY(0) scale(1); filter: none; } }
+.bv-hand .hand-card { animation: cardDealIn .5s cubic-bezier(.2,.8,.25,1.1) both; }
+.bv-hand .hand-card:nth-child(2) { animation-delay: 70ms; }
+.bv-hand .hand-card:nth-child(3) { animation-delay: 140ms; }
+.bv-hand .hand-card:nth-child(4) { animation-delay: 210ms; }
+@keyframes cardDealIn { from { opacity: 0; transform: translateY(80px) rotate(5deg) scale(.82); } to { opacity: 1; } }
+.mat-dock-coin img { transition: transform .2s ease, filter .2s ease; }
+.mat-dock-coin:hover img { transform: translateY(-5px) scale(1.08); filter: drop-shadow(0 0 10px rgba(255,211,116,.75)); }
+.bld-cell.filled { animation: buildingReveal .45s ease both; }
+@keyframes buildingReveal { from { opacity: 0; transform: scale(.78); filter: brightness(1.8); } to { opacity: 1; transform: scale(1); filter: none; } }
 @media (max-width: 860px) {
   .bv-side { position: fixed !important; inset: auto 10px 10px; z-index: 90; width: auto !important; min-width: 0; pointer-events: none; }
   .bv-side .hud-toggle { pointer-events: auto; margin: 0 0 0 auto; min-height: 48px; }
