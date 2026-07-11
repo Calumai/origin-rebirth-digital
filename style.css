@@ -2913,6 +2913,7 @@ input[type=text] {
 
 /* 冒險模式正式視覺：沿用原版深色戰場、青銅金框與既有卡牌資產 */
 #app:has(.adventure-shell) { max-width: none; padding: 0; margin: 0; }
+html:has(.adventure-shell), body:has(.adventure-shell) { overflow-x:hidden; }
 .adventure-shell { --adv-gold:#e4b657; --adv-gold-bright:#ffe5a0; --adv-ink:#07100f; --adv-panel:rgba(6,15,17,.92); min-height:100dvh; width:100%; padding:max(14px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left)); overflow:hidden; color:#f9efd7; background:#07100f url('assets/ui/battlefield-bg.png') center/cover fixed; font-family:var(--fsans); }
 .adventure-shell::before { content:""; position:fixed; inset:0; z-index:0; pointer-events:none; background:radial-gradient(circle at 50% 18%,rgba(61,103,92,.18),transparent 44%),linear-gradient(180deg,rgba(2,8,9,.2),rgba(2,6,7,.76)); }
 .adventure-shell > * { position:relative; z-index:1; }
