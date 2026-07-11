@@ -217,6 +217,18 @@ input[type=text] {
   text-align: left;
   margin: 6px 0;
 }
+.action-menu .action-main { display: block; width: 100%; }
+.action-menu .action-lock-reason {
+  display: block;
+  clear: both;
+  margin-top: 3px;
+  padding-right: 34px;
+  color: rgba(245, 220, 174, .56);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+}
 /* Hick 定律：11 顆行動按鈕分組（基礎/建造/對抗），降低單次掃視的選項數 */
 .action-group-label {
   font-size: 0.78em;

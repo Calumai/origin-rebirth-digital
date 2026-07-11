@@ -222,7 +222,8 @@ function turnHint(p) {
 function actionButton(label, onClick, cost, disabled, reason = '', extraClass = '') {
   const title = disabled && reason ? ` title="${esc(reason)}"` : '';
   const classes = [extraClass, !disabled ? 'action-ready' : ''].filter(Boolean).join(' ');
-  return `<button class="${classes}" ${disabled ? 'disabled' : ''}${title} onclick="${onClick}">${label}<span class="ap-cost">${cost}</span></button>`;
+  const lockReason = disabled && reason ? `<small class="action-lock-reason">${esc(reason)}</small>` : '';
+  return `<button class="${classes}" ${disabled ? 'disabled' : ''}${title} onclick="${onClick}"><span class="action-main">${label}<span class="ap-cost">${cost}</span></span>${lockReason}</button>`;
 }
 // 目標提示面板：把「怎麼贏」變成看得見的檢查清單，治「不知道要幹嘛、淪為一直抽卡」
 function goalPanel(p) {
