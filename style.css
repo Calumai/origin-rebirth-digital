@@ -1816,7 +1816,7 @@ input[type=text] {
   .ps5-home .tribe-card.selected, .ps5-home .start-btn,
   .screen-enter, .screen-enter *, .die-cube.dice-rolling, .speech-bubble,
   .game-impact, .action-denied, .net-waiting, .rps-reveal-side,
-  .draw-flight, .coin-flight { animation: none !important; transition: none !important; }
+  .draw-flight, .coin-flight, .tutorial-highlight { animation: none !important; transition: none !important; }
   .audio-toggle::after { transition: none; }
 }
 
@@ -2829,7 +2829,7 @@ input[type=text] {
 .tutorial-dim {
   position: fixed;
   inset: 0;
-  background: rgba(10,7,3,0.5);
+  background: rgba(10,7,3,0.34);
   z-index: 70;
   pointer-events: none;
 }
@@ -2858,7 +2858,7 @@ input[type=text] {
 }
 .tutorial-tooltip h4 { margin: 2px 0 6px; color: #ffe4a3; font-family: var(--fserif); font-size: 1.05em; }
 .tutorial-tooltip p { margin: 0; font-size: 0.88em; line-height: 1.5; color: rgba(248,230,190,0.92); }
-.tutorial-tooltip .row { gap: 6px; }
+.tutorial-tooltip .row { gap: 6px; flex-wrap: wrap; }
 .tutorial-tooltip button { padding: 7px 12px; font-size: 0.85em; margin: 0; }
 .tut-step { font-size: 0.72em; color: var(--gold); font-weight: 700; letter-spacing: 0.05em; }
 

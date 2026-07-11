@@ -336,25 +336,28 @@ function triggerRPSShake() {
   }
 }
 
-// ── 新手互動教學（A15，2026-07-09 改為每局都自動觸發，不記憶跳過狀態）────
+// ── 新手互動教學：第一次只播 3 個必要重點，之後可由「怎麼玩？」重開 ──
 const TUTORIAL_STEPS = [
-  { target: 'tut-ap', title: '行動點數', text: '每回合會先擲骰子，點數就是你這回合能做幾件事！' },
-  { target: 'tut-goal', title: '你的目標（最重要）', text: '要贏就是「蓋滿 4 間家屋」。這裡會一直告訴你：蓋家屋要 4 種素材，你現在缺哪一種、該去換什麼。跟著這裡做就對了！' },
-  { target: 'tut-materials', title: '你的素材', text: '左下角這 4 個圓幣是你的素材。蓋家屋要 4 種各至少 1 個——你這族只產 3 種，缺的那種要靠「2 換 1」或跟別人交易/偷襲拿。' },
-  { target: 'tut-actions', title: '怎麼行動', text: '按鈕分三組：〈蓋家屋〉是贏的路、〈賺加分〉做工藝文化卡、〈搞對手〉去偷襲交易。不知道做什麼就先「拿素材」。' },
-  { target: 'tut-buildings', title: '家屋進度', text: '這是你的家屋拼圖，蓋一間補一塊，集滿 4 塊就贏。' },
-  { target: 'tut-endturn', title: '結束回合', text: '行動點數用完了，或想提前結束，按這裡換下一位繼續玩！' }
+  { target: 'tut-goal', title: '先看下一步', text: '你的目標是先蓋滿 4 間家屋。這裡會直接告訴你缺什麼、現在最適合做什麼。' },
+  { target: 'tut-actions', title: '選一個行動', text: '打開行動區後，優先做發亮的建議。不知道選什麼，就先拿素材。' },
+  { target: 'tut-buildings', title: '完成家屋拼圖', text: '每蓋一間就補上一塊；集滿 4 塊，聚落完成並進入最後結算。' }
 ];
 function maybeStartTutorial() {
-  if (G.turn === 0 && G.currentPlayer === 0 && !isBot(0)) startTutorial();
+  let seen = false;
+  try { seen = localStorage.getItem('rebirthTutorialSeen') === '1'; } catch (e) {}
+  if (!seen && G.turn === 0 && G.currentPlayer === 0 && !isBot(0)) startTutorial(false);
 }
-function startTutorial() { ui.tutorial = { step: 0 }; render(); }
+function startTutorial(manual = true) { ui.tutorial = { step: 0, manual }; render(); }
 function tutorialNext() {
   if (ui.tutorial.step >= TUTORIAL_STEPS.length - 1) { closeTutorial(); return; }
   ui.tutorial.step++; render();
 }
 function tutorialPrev() { if (ui.tutorial.step > 0) { ui.tutorial.step--; render(); } }
-function closeTutorial() { ui.tutorial = null; render(); }
+function closeTutorial() {
+  try { localStorage.setItem('rebirthTutorialSeen', '1'); } catch (e) {}
+  ui.tutorial = null;
+  render();
+}
 function positionTutorial() {
   document.getElementById('tutorial-dim')?.remove();
   document.getElementById('tutorial-tooltip')?.remove();
@@ -381,7 +384,7 @@ function positionTutorial() {
     <div class="row" style="margin-top:10px;">
       ${ui.tutorial.step > 0 ? '<button onclick="tutorialPrev()">上一步</button>' : ''}
       <button class="primary" onclick="tutorialNext()">${ui.tutorial.step === TUTORIAL_STEPS.length - 1 ? '知道了，開始玩！' : '下一步'}</button>
-      <button onclick="closeTutorial()">跳過教學</button>
+      <button onclick="closeTutorial()">直接開始</button>
     </div>`;
   document.body.appendChild(tip);
 
