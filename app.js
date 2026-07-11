@@ -576,6 +576,8 @@ function startGame() {
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
   ui.modal = null;
+  ui.lastDrawnCard = null;
+  ui.pendingAdvance = false;
   if (ui.net) {
     // 連線對戰：換我＝進擲骰；換對方＝進觀戰視圖（renderBoard 會依 ui.net.myIdx 判斷）
     ui.screen = 'board';
