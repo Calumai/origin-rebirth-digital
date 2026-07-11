@@ -794,7 +794,17 @@ function doAction(action, fromRemote) {
   catch (e) { console.warn('animateGains 失敗（已忽略）：', e); }
   // JJ 要求「回合自動結束」：行動點用完就「立刻」換手，不再停下等玩家按繼續。
   // （原本抽牌當最後一動會設 ui.pendingAdvance 停住等「看完卡牌，繼續回合」，JJ 覺得多一步、要拿掉。）
-  try { if (currentPlayer().actionPoints <= 0) finishTurnAndAdvance(); }
+  try {
+    if (currentPlayer().actionPoints <= 0) {
+      const isFinalDraw = action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD';
+      if (isFinalDraw) {
+        const actorIdx = action.player;
+        setTimeout(() => {
+          if (ui.screen === 'board' && G.phase === 'playing' && G.currentPlayer === actorIdx && currentPlayer().actionPoints <= 0) finishTurnAndAdvance();
+        }, 700);
+      } else finishTurnAndAdvance();
+    }
+  }
   catch (e) { console.warn('自動換手失敗：', e); }
 }
 
@@ -1652,19 +1662,19 @@ function actionPlayCulture(cardId) {
   }
 }
 function actionDrawMaterial() {
+  const actor = currentPlayer();
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
-  const p = currentPlayer();
-  const drawn = p.hand.filter(c => c.kind === 'raw').slice(-1)[0];
-  const cards = document.querySelectorAll('.bv-self .hand-card:not(.culture)');
+  const drawn = actor.hand.filter(c => c.kind === 'raw').slice(-1)[0];
+  const cards = document.querySelectorAll('.bv-hand .hand-card:not(.culture)');
   if (drawn && cards.length) flyDrawnCard('.deck-raw', CARDS.cardBacks.raw, cards[cards.length - 1], drawn);
 }
 function actionDrawCulture() {
+  const actor = currentPlayer();
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
-  const p = currentPlayer();
-  const drawn = p.hand.filter(c => c.kind === 'culture').slice(-1)[0];
-  const cards = document.querySelectorAll('.bv-self .hand-card.culture');
+  const drawn = actor.hand.filter(c => c.kind === 'culture').slice(-1)[0];
+  const cards = document.querySelectorAll('.bv-hand .hand-card.culture');
   if (drawn && cards.length) flyDrawnCard('.deck-culture', CARDS.cardBacks.culture, cards[cards.length - 1], drawn);
 }
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
