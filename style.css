@@ -3387,7 +3387,7 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
 .draw-pop {
   position: fixed;
   left: 50%;
-  top: 42%;
+  top: 50%; /* 正置中（JJ 指定） */
   transform: translate(-50%, -50%);
   z-index: 95;
   pointer-events: none;
@@ -3400,7 +3400,7 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
   border-radius: 14px;
   background: linear-gradient(160deg, #4b351b, #181421);
   box-shadow: 0 0 28px rgba(255, 210, 108, 0.5), 0 16px 40px rgba(0, 0, 0, 0.6);
-  animation: drawPop 2.1s cubic-bezier(.2, .8, .3, 1) both;
+  animation: drawPop 1.7s cubic-bezier(.2, .8, .3, 1) both;
 }
 .draw-pop span { color: #ffe9ac; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; }
 .draw-pop img { width: 150px; border-radius: 8px; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45); }

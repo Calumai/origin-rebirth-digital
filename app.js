@@ -61,13 +61,12 @@ function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = fa
 // 抽到的卡：中央彈出亮相 → 自動淡出（掛 toast-layer，不佔手牌區、不擋操作；JJ：別一直擋在那）
 function popDrawnCard(card) {
   if (!card) return;
-  const layer = document.getElementById('toast-layer');
-  if (!layer) return;
   const el = document.createElement('div');
   el.className = 'draw-pop';
   el.innerHTML = `<span>你抽到的卡</span><img src="${card.img || ''}" alt=""><b>${esc(card.name || '')}</b>`;
-  layer.appendChild(el);
-  setTimeout(() => el.remove(), 2200); // 與 CSS 動畫總長一致
+  // 直接掛 body：toast-layer 有 transform，會把 fixed 子元素的定位基準劫走導致不置中
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800); // 與 CSS 動畫總長一致
 }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
@@ -405,11 +404,11 @@ function maybeTriggerQuiz(force) {
   if (ui.tutorial || ui.modal) return;      // 教學或其他視窗開著就不打斷
   if (!force) {
     if ((ui.quizCooldown || 0) > 0) { ui.quizCooldown--; return; }
-    if (Math.random() >= 0.25) return;      // 約每 4 個真人回合出現一次
+    if (Math.random() >= 0.45) return;      // JJ：事件多一點——約每 2 個真人回合出現一次
   }
   if (!ui.quizPool || !ui.quizPool.length) ui.quizPool = buildQuizPool();
   const q = ui.quizPool.splice(Math.floor(Math.random() * ui.quizPool.length), 1)[0];
-  ui.quizCooldown = 2;                      // 至少隔 2 個真人回合
+  ui.quizCooldown = 1;                      // 至少隔 1 個真人回合
   ui.modal = { type: 'quiz', q, picked: null, correct: null };
   window.Sound?.sfx('toast');
   render();
@@ -1818,17 +1817,13 @@ function actionDrawMaterial() {
   const actor = currentPlayer();
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
-  const drawn = actor.hand.filter(c => c.kind === 'raw').slice(-1)[0];
-  const cards = document.querySelectorAll('.bv-hand .hand-card:not(.culture)');
-  if (drawn && cards.length) flyDrawnCard('.deck-raw', CARDS.cardBacks.raw, cards[cards.length - 1], drawn);
+  // 亮相只走中央彈出（popDrawnCard），不再疊加牌庫→手牌的飛行動畫（JJ：視覺擋來擋去）
 }
 function actionDrawCulture() {
   const actor = currentPlayer();
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
-  const drawn = actor.hand.filter(c => c.kind === 'culture').slice(-1)[0];
-  const cards = document.querySelectorAll('.bv-hand .hand-card.culture');
-  if (drawn && cards.length) flyDrawnCard('.deck-culture', CARDS.cardBacks.culture, cards[cards.length - 1], drawn);
+  // 同上：只走中央彈出
 }
 function actionEndTurn() { doAction({ type: 'END_TURN', player: G.currentPlayer }); }
 
