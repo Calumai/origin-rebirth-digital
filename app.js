@@ -58,6 +58,17 @@ function handCultureTap(cardId) {
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
 function closeHud() { if (!ui.hudCollapsed) { ui.hudCollapsed = true; render(); } }
 function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
+// 抽到的卡：中央彈出亮相 → 自動淡出（掛 toast-layer，不佔手牌區、不擋操作；JJ：別一直擋在那）
+function popDrawnCard(card) {
+  if (!card) return;
+  const layer = document.getElementById('toast-layer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'draw-pop';
+  el.innerHTML = `<span>你抽到的卡</span><img src="${card.img || ''}" alt=""><b>${esc(card.name || '')}</b>`;
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), 2200); // 與 CSS 動畫總長一致
+}
 
 // ── 浮動提示（對戰動態）───────────────────────────────
 // 動作後把新增的對局 log 逐條浮出，讓真人看得到對手（尤其電腦）在做什麼
@@ -882,7 +893,9 @@ function doAction(action, fromRemote) {
     if (!isBot(action.player) && action.player === G.currentPlayer && (action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD')) {
       const drawnKind = action.type === 'DRAW_MATERIAL_CARD' ? 'raw' : 'culture';
       const actorHand = G.players[action.player]?.hand || [];
-      ui.lastDrawnCard = actorHand.slice().reverse().find(c => c.kind === drawnKind) || null;
+      // 抽到服飾卡時手上找不到（自動歸入服飾區），改秀最新的服飾
+      popDrawnCard(actorHand.slice().reverse().find(c => c.kind === drawnKind)
+        || (drawnKind === 'raw' ? G.players[action.player].clothing.slice(-1)[0] : null));
     }
     const actor = G.players[action.player];
     const who = actor ? (action.player === ui.net?.myIdx ? '你' : actor.tribeName) : '玩家';
@@ -1177,7 +1190,6 @@ function renderBoard() {
       </div>
 
       <div class="bv-hand">
-        ${ui.lastDrawnCard ? `<div class="draw-reveal"><span class="draw-reveal-label">你抽到的卡</span>${cardThumb(ui.lastDrawnCard)}<b>${ui.lastDrawnCard.name}</b></div>` : ''}
         ${rawInHand.map((c, i) => `
           <div class="hand-card${ui.inspectCard === 'raw-' + i ? ' is-inspected' : ''}" onclick="handRawTap(${i})">
             ${cardThumb(c)}
