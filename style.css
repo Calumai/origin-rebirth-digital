@@ -2341,44 +2341,68 @@ input[type=text] {
 
 /* ── 建築卡拼圖：2×2 格盤，缺片顯示虛線空格，集滿縫隙閉合成整張家屋 ── */
 .bld-group { display: inline-block; text-align: center; margin: 6px 14px 6px 0; vertical-align: top; }
+/* 家屋收集列：4 張完整比例的家屋卡橫排（取代舊切片拼圖，不再壓壞圖片比例）。
+   已蓋＝彩色亮起＋✓；未蓋＝同張圖暗色剪影（預告蓋好的樣子）；集滿整排金光。 */
 .bld-puzzle {
-  display: grid;
-  grid-template-columns: repeat(2, 92px);
-  grid-template-rows: repeat(2, 66px);
-  gap: 3px;
-  padding: 4px;
-  border-radius: 10px;
-  background: #efe6d3;
-  border: 2px solid var(--line);
-  transition: gap 0.3s ease, padding 0.3s ease, box-shadow 0.3s ease;
-}
-.bld-puzzle.complete {
-  gap: 0;
-  padding: 0;
-  border-color: var(--accent);
-  background: transparent;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(8, 10, 20, 0.5);
+  border: 2px solid rgba(255, 211, 116, 0.3);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 .bld-cell {
-  border-radius: 5px;
-  background-size: 200% 200%;
-  background-repeat: no-repeat;
-  transition: border-radius 0.3s ease;
+  position: relative;
+  width: 96px;
+  aspect-ratio: 800 / 576; /* 跟原圖同比例，永不變形 */
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 0 1 auto;
 }
-.bld-cell.filled { background-color: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
-.bld-cell.empty {
-  /* 浮水印圖到位前疊在斜線底紋之上；圖檔還沒生成時 background-image 直接載入失敗、
-     不影響下面的斜線底紋圖層，優雅降級 */
-  background:
-    url('assets/ui/bld-empty-watermark.png') center/62% no-repeat,
-    repeating-linear-gradient(45deg, #e8dec6, #e8dec6 6px, #ddd0b3 6px, #ddd0b3 12px);
-  border: 1px dashed #c3b48f;
+.bld-cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.bld-puzzle.complete .bld-cell { border-radius: 0; box-shadow: none; }
-.bld-puzzle.complete .bld-cell:first-child { border-top-left-radius: 8px; }
-.bld-puzzle.complete .bld-cell:nth-child(2) { border-top-right-radius: 8px; }
-.bld-puzzle.complete .bld-cell:nth-child(3) { border-bottom-left-radius: 8px; }
-.bld-puzzle.complete .bld-cell:nth-child(4) { border-bottom-right-radius: 8px; }
+.bld-cell.filled {
+  box-shadow: 0 0 0 2px rgba(255, 211, 116, 0.75), 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+.bld-cell.filled img { animation: bldPop 0.45s cubic-bezier(.2, .9, .3, 1.4) both; }
+@keyframes bldPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.bld-cell .bld-check {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #7cc45f;
+  color: #10250b;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
+}
+.bld-cell.empty { border: 1px dashed rgba(255, 224, 148, 0.4); }
+.bld-cell.empty img { filter: grayscale(1) brightness(0.32); opacity: 0.8; }
+.bld-cell .bld-slot-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 236, 196, 0.8);
+  font-size: 0.72em;
+  font-weight: 700;
+  text-shadow: 0 1px 4px #000;
+}
+.bld-puzzle.complete {
+  border-color: var(--gold);
+  box-shadow: 0 0 26px rgba(217, 164, 65, 0.5);
+}
 .bld-label { font-weight: bold; color: var(--accent); font-size: 0.85em; margin-top: 4px; }
 
 /* 主視覺放大版（本族家屋進度，畫面中央最大元素） */
@@ -2391,20 +2415,18 @@ input[type=text] {
   align-items: center;
   justify-content: center;
 }
-/* 拼圖真正撐滿容器：標籤改成疊加在底部的浮動小標籤，不再跟拼圖搶 flex 高度
-   （grid 的 1fr 列需要容器有明確高度才分配得出來，跟 flex-grow 搶版面會互相打架，
-   乾脆讓拼圖直接吃滿 100%，標籤用 absolute 疊上去） */
 .bld-puzzle-big {
-  width: min(98%, 980px);
-  height: 100%;
-  max-height: 760px;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 6px;
-  padding: 8px;
+  width: auto;
+  max-width: min(96%, 1000px);
+  height: auto;
+  gap: 14px;
+  padding: 14px;
   border: 3px solid var(--gold);
   box-shadow: var(--shadow-lg);
 }
+.bld-puzzle-big .bld-cell { width: clamp(120px, 14vw, 210px); }
+.bld-puzzle-big .bld-cell .bld-check { width: 26px; height: 26px; font-size: 16px; line-height: 26px; }
+.bld-puzzle-big .bld-cell .bld-slot-num { font-size: 0.95em; }
 .bld-puzzle-big.complete {
   box-shadow: 0 14px 34px rgba(0,0,0,0.4), 0 0 34px rgba(217,164,65,0.55);
   border-color: var(--gold);
@@ -2601,7 +2623,9 @@ input[type=text] {
   .vs-name { font-size: 0.78em; }
   .vs-score { font-size: 1em; }
   .vs-sep { font-size: 1em; }
-  .bld-puzzle { grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 52px); }
+  .bld-puzzle { gap: 5px; padding: 4px; }
+  .bld-cell { width: 64px; flex: 0 0 auto; }
+  .bld-puzzle-big .bld-cell { width: clamp(56px, 18vw, 96px); }
 }
 
 /* ── 對戰桌三區布局：上對手／中戰場／下我方 ── */
@@ -2942,19 +2966,15 @@ input[type=text] {
 .mat-dock-coin:hover img { transform: translateY(-5px) scale(1.08); filter: drop-shadow(0 0 10px rgba(255,211,116,.75)); }
 .bld-cell.filled { animation: buildingReveal .45s ease both; }
 .bv-buildings .bld-centerpiece { padding: 18px 0 8px !important; }
-.bv-buildings .bld-puzzle { grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(100px, 1fr)) !important; width: min(860px, 92%) !important; gap: 8px !important; padding: 8px !important; background: rgba(4,10,15,.34) !important; border: 1px solid rgba(255,211,116,.42) !important; border-radius: 16px !important; }
-.bv-buildings .bld-cell.empty { background: radial-gradient(circle at 50% 45%, rgba(53,76,82,.55), rgba(8,16,22,.86)) !important; border: 1px dashed rgba(255,211,116,.34) !important; }
-.bv-buildings .bld-cell.filled { background-color: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(255,211,116,.34) !important; }
+.bv-buildings .bld-puzzle { background: rgba(4,10,15,.34) !important; border: 1px solid rgba(255,211,116,.42) !important; border-radius: 16px !important; }
 .bv-buildings .bld-label { color: #ffe3a1 !important; font-size: 1rem !important; }
 .bv-buildings { position: relative; overflow: hidden !important; padding: 20px 24px 24px !important; background: radial-gradient(ellipse at center, rgba(29,57,59,.94), rgba(7,14,20,.98)) !important; }
 .bv-buildings::before { content: '中央牌桌'; position: absolute; top: 14px; right: 20px; color: rgba(255,221,145,.52); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
 .bv-buildings .bld-centerpiece-title { position: relative; z-index: 1; justify-content: center; margin: 0 0 8px !important; font-size: 1.15rem !important; }
 .bv-buildings .bld-centerpiece { position: relative; z-index: 1; min-height: 0; padding: 12px 0 18px !important; }
-.bv-buildings .bld-puzzle-big { width: min(900px, 96%) !important; grid-template-columns: repeat(2, minmax(180px, 1fr)) !important; grid-template-rows: repeat(2, minmax(112px, 1fr)) !important; gap: 12px !important; padding: 12px !important; background: rgba(3,9,14,.55) !important; border: 1px solid rgba(255,211,116,.38) !important; border-radius: 18px !important; box-shadow: inset 0 0 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35) !important; }
-.bv-buildings .bld-puzzle-big .bld-cell { border-radius: 10px !important; min-height: 112px; }
-.bv-buildings .bld-puzzle-big .bld-cell.empty { background: radial-gradient(circle at center, rgba(48,77,76,.5), rgba(7,15,20,.92)) !important; border: 1px dashed rgba(255,211,116,.35) !important; box-shadow: inset 0 0 22px rgba(0,0,0,.38) !important; }
-.bv-buildings .bld-puzzle-big .bld-cell.empty::after { content: '家屋牌位'; display: grid; place-items: center; height: 100%; color: rgba(255,225,160,.44); font-size: 14px; letter-spacing: .12em; }
-.bv-buildings .bld-puzzle-big .bld-cell.filled { border: 2px solid rgba(255,211,116,.72) !important; box-shadow: 0 8px 16px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.12) !important; }
+.bv-buildings .bld-puzzle-big { gap: 14px !important; padding: 14px !important; background: rgba(3,9,14,.55) !important; border: 1px solid rgba(255,211,116,.38) !important; border-radius: 18px !important; box-shadow: inset 0 0 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35) !important; }
+.bv-buildings .bld-puzzle-big .bld-cell { border-radius: 10px !important; }
+.bv-buildings .bld-puzzle-big .bld-cell.filled { box-shadow: 0 0 0 2px rgba(255,211,116,.75), 0 8px 16px rgba(0,0,0,.4) !important; }
 .bv-buildings .bld-group:not(.bld-group-big) { opacity: .85; transform: scale(.82); transform-origin: top center; }
 .bv-versus .duel-left, .bv-versus .duel-right { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
 .bv-versus .duel-side.active { border-color: rgba(255,211,116,.8) !important; box-shadow: 0 0 16px rgba(255,211,116,.32) !important; }
