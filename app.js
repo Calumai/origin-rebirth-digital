@@ -170,20 +170,19 @@ function cardThumb(c, size) {
   if (!c.img) return '';
   return `<img class="card-thumb${size === 'sm' ? '-sm' : ''}" src="${c.img}" alt="${c.name}">`;
 }
-// 建築卡＝一族家屋圖切 4 片拼圖（index 1~4 對應 左上/右上/左下/右下）
-// 以 2×2 格盤呈現：已收集的片段拼在正確位置，缺片顯示虛線空格；集滿時縫隙閉合成整張家屋。
+// 家屋進度＝4 張「完整家屋卡」收集列（取代舊的切 4 片拼圖——切片破壞圖片比例又難看）。
+// 已蓋的亮起＋✓；未蓋的用同張圖做暗色剪影（看得出蓋好會長怎樣）；集滿整排發光。
 function buildingPuzzleHTML(tribe, list, big) {
   const img = CARDS.buildingImages[tribe];
-  const have = {};
-  for (const b of list) have[b.index] = b;
-  const complete = list.length >= CARDS.buildingsPerTribe;
-  const POS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%'];
-  const cells = [1, 2, 3, 4].map(idx => have[idx]
-    ? `<div class="bld-cell filled" style="background-image:url('${img}');background-position:${POS[idx - 1]}" title="${have[idx].name}"></div>`
-    : `<div class="bld-cell empty"></div>`).join('');
+  const total = CARDS.buildingsPerTribe;
+  const n = Math.min(list.length, total);
+  const complete = n >= total;
+  const cells = Array.from({ length: total }, (_, i) => i < n
+    ? `<div class="bld-cell filled" title="${CARDS.tribes[tribe].name}家屋 第 ${i + 1} 間"><img src="${img}" alt="${CARDS.tribes[tribe].name}家屋"><span class="bld-check">✓</span></div>`
+    : `<div class="bld-cell empty"><img src="${img}" alt=""><span class="bld-slot-num">第 ${i + 1} 間</span></div>`).join('');
   return `<div class="bld-group${big ? ' bld-group-big' : ''}">
     <div class="bld-puzzle${complete ? ' complete' : ''}${big ? ' bld-puzzle-big' : ''}">${cells}</div>
-    <div class="bld-label">${CARDS.tribes[tribe].name}家屋 ${list.length}/${CARDS.buildingsPerTribe}${complete ? '（完整）' : ''}</div>
+    <div class="bld-label">${CARDS.tribes[tribe].name}家屋 ${n}/${total}${complete ? '（完整）' : ''}</div>
   </div>`;
 }
 // 主視覺：永遠顯示玩家本族的建築進度（即使 0 片也顯示空拼圖框，提醒目標），用於畫面中央主視覺區
