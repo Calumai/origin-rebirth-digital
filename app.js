@@ -42,19 +42,33 @@ function handRawTap(i) {
   ui.inspectCard = ui.inspectCard === key ? null : key;
   render();
 }
+// JJ 反映：桌機點文化卡會直接打出，來不及看效果/分數就出牌了——
+// 不管桌機/觸控，點文化卡一律先跳出完整卡面（效果、分數都看得到），再讓玩家自己按「打出」或「取消」。
 function handCultureTap(cardId) {
   const p = currentPlayer();
+  const card = p.hand.find(c => c.kind === 'culture' && c.id === cardId);
+  if (!card) return;
   const playable = p.actionPoints >= 1 && (p.culturePlayedThisTurn || 0) < 1;
-  if (!TOUCH_INSPECT) { if (playable) actionPlayCulture(cardId); return; }
-  const key = 'cul-' + cardId;
-  if (ui.inspectCard === key) {
-    ui.inspectCard = null;
-    if (playable) actionPlayCulture(cardId); else render();
-  } else {
-    ui.inspectCard = key;
-    render();
-  }
+  ui.modal = { type: 'cultureConfirm', card, playable };
+  render();
 }
+function renderCultureConfirm(m) {
+  const c = m.card;
+  const hint = m.playable ? '' : (currentPlayer().actionPoints < 1 ? '行動點數不足，看看就好' : '本回合已使用過文化卡');
+  return `<div class="culture-confirm">
+    <div class="culture-confirm-kind">文化卡</div>
+    ${cardThumb(c)}
+    <b class="culture-confirm-name">${esc(c.name)}</b>
+    <div class="culture-confirm-effect">${esc(EFFECT_LABEL[c.effect] || '')}</div>
+    <div class="culture-confirm-score">分數 +${c.score ?? 0}</div>
+    ${hint ? `<div class="muted center">${hint}</div>` : ''}
+    <div class="row center" style="margin-top:10px;">
+      ${m.playable ? `<button class="primary" onclick="confirmPlayCulture('${c.id}')">打出</button>` : ''}
+      <button onclick="closeModal()">${m.playable ? '取消' : '關閉'}</button>
+    </div>
+  </div>`;
+}
+function confirmPlayCulture(cardId) { ui.modal = null; actionPlayCulture(cardId); }
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
 function closeHud() { if (!ui.hudCollapsed) { ui.hudCollapsed = true; render(); } }
 function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
@@ -1351,7 +1365,7 @@ function modalLabel(type) {
     rps: '猜拳對決', materialPicker: '選擇素材', takeMode: '選擇素材取得方式', exchangePickGive: '選擇交出素材',
     exchangePickGet: '選擇取得素材', buyBuildingPicker: '建造家屋', tradeOffer: '提出交易', tradeRespond: '回應交易',
     tradeRejected: '交易結果', buyFromPlayerPick: '向玩家購買', buyFromPlayerDemand: '選擇支付素材', netRps: '連線猜拳',
-    tradeRespondNet: '回應連線交易', netWaiting: '等待其他玩家', netLost: '連線中斷'
+    tradeRespondNet: '回應連線交易', netWaiting: '等待其他玩家', netLost: '連線中斷', cultureConfirm: '文化卡效果與分數'
   })[type] || '遊戲操作';
 }
 function modalCanDismiss(type) {
@@ -1364,6 +1378,7 @@ function renderModal() {
   let inner = '';
   if (m.type === 'dice') inner = renderDice(m);
   else if (m.type === 'quiz') inner = renderQuiz(m);
+  else if (m.type === 'cultureConfirm') inner = renderCultureConfirm(m);
   else if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
   else if (m.type === 'forceSwapPick') inner = renderForceSwapPick(m);
   else if (m.type === 'passOverlay') inner = passInner(m.toIdx, 'passOverlayContinue');
@@ -2216,7 +2231,7 @@ Object.assign(window, {
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
-  handRawTap, handCultureTap,
+  handRawTap, handCultureTap, confirmPlayCulture,
   quizPick, quizClose, maybeTriggerQuiz,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
