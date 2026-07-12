@@ -1015,9 +1015,9 @@ function renderBoard() {
           const stack = (cls, back, label, n, fn) => {
             const ok = can && n > 0;
             const why = n <= 0 ? '牌庫已空' : '行動點數不足';
-            return `<button class="table-deck ${cls}${ok ? '' : ' is-locked'}" ${ok ? `onclick="${fn}()"` : 'disabled'} title="${ok ? `花 1 行動點抽 1 張${label}` : why}">
-              <span class="table-deck-stack"><img src="${back}" alt="${label}"></span>
-              <span class="table-deck-label"><b>${label}</b><small>${n} 張${ok ? '・點擊抽 1' : `・${why}`}</small></span>
+            return `<button class="table-deck ${cls}${ok ? '' : ' is-locked'}" ${ok ? `onclick="${fn}()"` : 'disabled'} aria-label="${label}，剩 ${n} 張">
+              <span class="table-deck-stack"><img src="${back}" alt="${label}"><i class="table-deck-count">${n}</i></span>
+              <span class="table-deck-label"><b>${label}</b><small>${ok ? '花 1 行動點抽 1 張' : why}</small></span>
             </button>`;
           };
           return `<div class="table-decks">
