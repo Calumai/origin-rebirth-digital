@@ -1088,7 +1088,7 @@ function renderBoard() {
         <div class="row between">
           <h1>原地重生・返璞歸真</h1>
           <div class="row">
-            <button class="tutorial-open-btn" onclick="startTutorial()">怎麼玩？</button>
+            <button class="tutorial-open-btn icon-round" onclick="startTutorial()" title="怎麼玩？" aria-label="怎麼玩？">?</button>
             <div class="chip">第 ${G.turn + 1} 輪</div>
           </div>
         </div>
@@ -1126,7 +1126,7 @@ function renderBoard() {
           <span><small>本回合建議</small><b>${canBuyBuilding(p) ? '素材齊全，現在蓋家屋' : turnHint(p)}</b></span>
           <em>開啟行動</em>
         </button>
-        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度${(() => { const r = CARDS.buildingsPerTribe - p.buildings.filter(b => b.tribe === p.tribe).length; return r > 0 ? `<span class="bld-remain">還差 ${r} 間就贏</span>` : '<span class="bld-remain done">已蓋滿！</span>'; })()}</h3>
+        <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度${(() => { const own = p.buildings.filter(b => b.tribe === p.tribe).length; const total = CARDS.buildingsPerTribe; const r = total - own; return `<span class="bld-progressbar" role="img" aria-label="家屋 ${own}/${total}"><i style="width:${Math.round(own / total * 100)}%"></i></span><span class="bld-remain${r <= 0 ? ' done' : ''}">${r > 0 ? `還差 ${r} 間` : '已蓋滿！'}</span>`; })()}</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>
         ${(() => { // 公共牌庫實體化上桌：點牌堆直接抽（填補中央空曠，也解「抽牌入口藏在收合選單」的動線）
@@ -1218,7 +1218,7 @@ function renderBoard() {
 
       <div class="mat-dock tut-materials">
         ${CARDS.materials.map(m => `
-          <div class="mat-dock-coin" data-mat="${m}" title="${m}">
+          <div class="mat-dock-coin${(p.materials[m] || 0) === 0 ? ' is-empty' : ''}" data-mat="${m}" title="${(p.materials[m] || 0) === 0 ? m + '（缺）' : m}">
             <img src="${CARDS.materialImages[m]}" alt="${m}">
             <span class="mat-dock-num">${p.materials[m] || 0}</span>
           </div>`).join('')}

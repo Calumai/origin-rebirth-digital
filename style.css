@@ -2905,7 +2905,7 @@ input[type=text] {
 }
 
 /* FINAL OVERRIDES: 戰場主題必須在所有舊版規則之後，避免白色面板復原 */
-.table-surface { background: radial-gradient(ellipse at 50% 38%, rgba(74,52,96,.32), transparent 48%), linear-gradient(180deg, rgba(7,8,18,.32), rgba(7,7,13,.76)), url('assets/ui/table-wood.jpg') center/cover !important; }
+.table-surface { background: radial-gradient(ellipse at 50% 38%, rgba(74,52,96,.22), transparent 48%), linear-gradient(180deg, rgba(7,8,18,.6), rgba(7,7,13,.9)), url('assets/ui/table-wood.jpg') center/cover !important; }
 .board-viewport { grid-template-columns: 218px minmax(460px,1fr) 278px !important; grid-template-rows: auto auto minmax(310px,1fr) auto !important; gap: 10px !important; padding: 12px 16px 14px !important; }
 .bv-resources, .bv-side .action-menu, .bv-side .log-box, .bv-side .card-box { background: rgba(8,10,20,.86) !important; border-color: rgba(144,165,219,.34) !important; }
 .bv-buildings { background: radial-gradient(ellipse at 50% 45%, rgba(42,47,86,.84), rgba(9,12,27,.92)) !important; border-color: rgba(255,206,107,.55) !important; box-shadow: 0 16px 42px rgba(0,0,0,.42), inset 0 0 45px rgba(84,71,156,.18) !important; }
@@ -3412,3 +3412,91 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
   78%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -46%) scale(0.85); }
 }
+
+/* ══ A23 視覺層級與操作回饋（JJ 設計檢視三優先）══════════════ */
+
+/* ── 1. 版面焦點：字級層級（最大=行動目標、中=玩家狀態、小=輔助）── */
+/* 遊戲標題在對局中只是品牌落款，讓位給行動目標 */
+.bv-header h1 { font-size: 0.95rem !important; opacity: 0.55; letter-spacing: 0.14em; font-weight: 600; text-shadow: 0 1px 4px #000; }
+/* 中央教練建議＝全板最大的字（目前行動目標） */
+.board-coach b { font-size: 1.25rem; }
+/* 事件橫幅降級為中型資訊條，不再跟主目標搶戲 */
+.event-banner { padding: 4px 10px !important; }
+.event-banner .event-icon { font-size: 1.1em !important; }
+.event-banner .event-text b { font-size: 0.85em !important; }
+.event-banner .event-text small { font-size: 0.68em !important; }
+.event-banner .event-dur { font-size: 0.62em !important; }
+/* 左欄整體降級：輔助資訊縮小、降亮度，聚焦回中央 */
+.bv-resources { font-size: 0.88em; }
+.bv-resources h3 { font-size: 0.82em !important; opacity: 0.75; }
+.bv-resources .chip { opacity: 0.85; }
+.mini-log { opacity: 0.85; }
+/* 對戰列玩家狀態＝中級 */
+.duel-score { font-size: 1em !important; }
+.duel-stats { font-size: 0.66em !important; opacity: 0.75; }
+
+/* ── 2. 統一互動語彙：可點＝浮起亮框手勢；不可點＝扁平標籤 ── */
+/* 純資訊 chip（第 N 輪、牌庫數）：扁平、無邊框光、預設游標 */
+.bv-header .chip, .bv-resources .chip {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  cursor: default;
+}
+/* 事件橫幅是資訊不是按鈕 */
+.event-banner { cursor: default; }
+/* 所有真按鈕：pointer＋一致 hover 浮起 */
+#app button:not(:disabled) { cursor: pointer; }
+#app button:not(:disabled):hover { filter: brightness(1.08); }
+/* ❓ 圓形說明鈕（與靜音鈕同語彙） */
+.tutorial-open-btn.icon-round {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 34px;
+  text-align: center;
+  border: 1px solid rgba(255, 224, 148, 0.4);
+  background: rgba(18, 16, 12, 0.72);
+  color: #ffe9c4;
+}
+.tutorial-open-btn.icon-round:hover { transform: scale(1.1); border-color: #ffd978; }
+
+/* ── 3. 操作回饋 ── */
+/* 可打的文化卡：呼吸金光（一眼看出「這張現在能出」） */
+.bv-hand .hand-card.culture:not(.disabled) {
+  animation: cardPlayable 1.6s ease-in-out infinite alternate;
+}
+@keyframes cardPlayable {
+  from { box-shadow: 0 8px 18px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,211,116,0.35); }
+  to   { box-shadow: 0 8px 18px rgba(0,0,0,0.38), 0 0 16px rgba(255,196,92,0.55), 0 0 0 2px rgba(255,211,116,0.7); }
+}
+/* 不可打：確實壓暗＋去彩 */
+.bv-hand .hand-card.disabled { opacity: 0.45; filter: grayscale(0.7); }
+/* 缺貨的素材幣：變暗＋紅圈，一眼看出缺什麼 */
+.mat-dock-coin.is-empty img { filter: grayscale(1) brightness(0.45); }
+.mat-dock-coin.is-empty { box-shadow: 0 0 0 2px rgba(208, 90, 65, 0.55); border-radius: 50%; }
+.mat-dock-coin.is-empty .mat-dock-num { color: #ff9d86 !important; }
+/* 家屋專屬進度條（取代大字進度） */
+.bld-progressbar {
+  display: inline-block;
+  vertical-align: middle;
+  width: 130px;
+  height: 10px;
+  margin: 0 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 211, 116, 0.35);
+  overflow: hidden;
+}
+.bld-progressbar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffcf69, #ff9d3c);
+  transition: width 0.5s cubic-bezier(.2, .8, .3, 1);
+}
+.bld-remain { font-size: 0.72em; opacity: 0.85; }
+.bld-remain.done { color: #b9e89a; }
