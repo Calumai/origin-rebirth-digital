@@ -985,9 +985,7 @@ function renderBoard() {
         </div>
         <h3>戰場・公共牌庫</h3>
         <div class="row">
-          <span class="chip deck-raw"><img class="card-back-sm" src="${CARDS.cardBacks.raw}" alt="">原料 ${G.rawDeck.length}</span>
-          <span class="chip deck-culture"><img class="card-back-sm" src="${CARDS.cardBacks.culture}" alt="">文化 ${G.cultureDeck.length}</span>
-          <span class="chip deck-building"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
+          <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
         </div>
         <details class="battle-archive">
@@ -999,6 +997,10 @@ function renderBoard() {
           <h3>服飾</h3>
           <div class="row">${p.clothing.map(c => `<span class="chip card-chip">${cardThumb(c, 'sm')}${c.name}</span>`).join('') || '<span class="muted">（無服飾）</span>'}</div>
         </details>
+        <details class="mini-log" open>
+          <summary>行動紀錄</summary>
+          <div class="log-box mini-log-box">${G.log.slice(-10).map(l => `<div>${esc(l)}</div>`).join('') || '<div class="muted">（尚無紀錄）</div>'}</div>
+        </details>
       </div>
 
       <div class="bv-buildings card-box light-frame tut-buildings${canBuyBuilding(p) ? ' is-ready-to-build' : ''}">
@@ -1009,6 +1011,21 @@ function renderBoard() {
         <h3 class="bld-centerpiece-title">${tribeBadge(p.tribe)} 家屋進度${(() => { const r = CARDS.buildingsPerTribe - p.buildings.filter(b => b.tribe === p.tribe).length; return r > 0 ? `<span class="bld-remain">還差 ${r} 間就贏</span>` : '<span class="bld-remain done">已蓋滿！</span>'; })()}</h3>
         <div class="bld-centerpiece">${buildingsCenterpiece(p)}</div>
         <div class="row center">${buildingsOtherArea(p)}</div>
+        ${(() => { // 公共牌庫實體化上桌：點牌堆直接抽（填補中央空曠，也解「抽牌入口藏在收合選單」的動線）
+          const can = p.actionPoints >= 1;
+          const stack = (cls, back, label, n, fn) => {
+            const ok = can && n > 0;
+            const why = n <= 0 ? '牌庫已空' : '行動點數不足';
+            return `<button class="table-deck ${cls}${ok ? '' : ' is-locked'}" ${ok ? `onclick="${fn}()"` : 'disabled'} title="${ok ? `花 1 行動點抽 1 張${label}` : why}">
+              <span class="table-deck-stack"><img src="${back}" alt="${label}"></span>
+              <span class="table-deck-label"><b>${label}</b><small>${n} 張${ok ? '・點擊抽 1' : `・${why}`}</small></span>
+            </button>`;
+          };
+          return `<div class="table-decks">
+            ${stack('deck-raw', CARDS.cardBacks.raw, '原料牌庫', G.rawDeck.length, 'actionDrawMaterial')}
+            ${stack('deck-culture', CARDS.cardBacks.culture, '文化牌庫', G.cultureDeck.length, 'actionDrawCulture')}
+          </div>`;
+        })()}
       </div>
 
       ${ui.hudCollapsed ? '' : '<button class="action-drawer-scrim" onclick="closeHud()" aria-label="關閉行動面板"></button>'}
@@ -1068,10 +1085,12 @@ function renderBoard() {
         ${(!rawInHand.length && !cultureInHand.length) ? `
           <div class="empty-hand-state">
             <div class="empty-hand-decks">
-              <div class="empty-deck"><img src="${CARDS.cardBacks.raw}" alt="原料牌庫"><b>原料牌庫</b><span>${G.rawDeck.length} 張</span></div>
-              <div class="empty-deck culture-deck"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張</span></div>
+              ${p.actionPoints >= 1 && G.rawDeck.length ? `<button class="empty-deck" onclick="actionDrawMaterial()" title="花 1 行動點抽 1 張原料卡"><img src="${CARDS.cardBacks.raw}" alt="原料牌庫"><b>原料牌庫</b><span>${G.rawDeck.length} 張・點擊抽</span></button>`
+                : `<div class="empty-deck is-locked"><img src="${CARDS.cardBacks.raw}" alt="原料牌庫"><b>原料牌庫</b><span>${G.rawDeck.length} 張</span></div>`}
+              ${p.actionPoints >= 1 && G.cultureDeck.length ? `<button class="empty-deck culture-deck" onclick="actionDrawCulture()" title="花 1 行動點抽 1 張文化卡"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張・點擊抽</span></button>`
+                : `<div class="empty-deck culture-deck is-locked"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張</span></div>`}
             </div>
-            <div class="empty-hand-copy"><strong>你的手牌區</strong><span>目前沒有手牌，從右側行動選單抽牌</span></div>
+            <div class="empty-hand-copy"><strong>你的手牌區</strong><span>目前沒有手牌 — 直接點牌庫抽 1 張，或<button class="link-open-hud" onclick="toggleHud()">開啟行動選單</button></span></div>
           </div>` : ''}
       </div>
 

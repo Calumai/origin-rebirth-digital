@@ -3212,3 +3212,80 @@ html:has(.adventure-shell), body:has(.adventure-shell) { overflow-x:hidden; }
 }
 @media(max-width:420px){.adventure-intro-copy{bottom:160px}.adventure-intro-copy>p:not(.adventure-kicker){display:none}.adventure-intro-cards{bottom:16px}.adventure-scene-art{min-height:340px}.adventure-dialogue{grid-template-columns:42px 1fr}.adventure-dialogue img{width:42px;height:42px}.adventure-inventory ul{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.adventure-shell *{animation:none!important;transition:none!important}}
+
+/* ══ A21 動線/視覺修正（JJ 審視清單全修）══════════════════ */
+
+/* P0-1：結束回合釘在行動抽屜底部，767px 筆電也永遠按得到 */
+.bv-side .action-menu .tut-endturn {
+  position: sticky;
+  bottom: -14px; /* 抵銷 action-menu 內距，貼齊可視底部 */
+  z-index: 6;
+  margin-top: 12px;
+  box-shadow: 0 -10px 18px rgba(5, 6, 14, 0.85);
+}
+
+/* P0-2：收合把手加寬加高，新玩家找得到（含收合容器一起放寬） */
+@media (min-width: 861px) {
+  .bv-side .hud-toggle, .bv-side.is-collapsed .hud-toggle { width: 58px !important; min-height: 132px !important; }
+  .bv-side.is-collapsed { width: 58px !important; min-width: 58px !important; }
+  .hud-toggle-count b { font-size: 24px; }
+  .hud-toggle-count small { font-size: 12px; }
+  .hud-toggle-arrow { font-size: 20px; }
+}
+
+/* P1-4：公共牌庫實體化上桌（中央牌桌左側的兩疊牌） */
+.table-decks {
+  position: absolute;
+  left: 18px;
+  top: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 4;
+}
+.table-deck {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid rgba(255, 211, 116, 0.4);
+  border-radius: 12px;
+  background: rgba(8, 10, 20, 0.82);
+  color: #ffe9c4;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.table-deck:hover:not(:disabled) { transform: translateY(-3px); border-color: #ffd978; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5), 0 0 14px rgba(255, 196, 92, 0.25); }
+.table-deck.is-locked { opacity: 0.55; cursor: default; }
+.table-deck-stack { position: relative; display: block; width: 52px; }
+.table-deck-stack img { display: block; width: 52px; border-radius: 6px; box-shadow: 2px 2px 0 rgba(30, 24, 12, 0.9), 4px 4px 0 rgba(20, 16, 8, 0.7), 0 6px 12px rgba(0, 0, 0, 0.55); }
+.table-deck-label { display: grid; line-height: 1.35; }
+.table-deck-label b { font-size: 0.92em; }
+.table-deck-label small { color: rgba(255, 233, 196, 0.72); font-size: 0.72em; }
+
+/* P0-3：空手牌區的牌庫改可點擊按鈕＋內文連結 */
+.empty-hand-decks .empty-deck { border: none; background: none; padding: 0; cursor: default; font: inherit; }
+button.empty-deck { cursor: pointer; border-radius: 10px; transition: transform 0.15s ease; }
+button.empty-deck:hover { transform: translateY(-3px); }
+button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14px rgba(0, 0, 0, 0.5); border-radius: 6px; }
+.empty-deck.is-locked { opacity: 0.55; }
+.link-open-hud { border: none; background: none; padding: 0; color: #ffd978; text-decoration: underline; cursor: pointer; font: inherit; }
+.link-open-hud:hover { color: #ffe9a8; }
+
+/* P1-5：左欄常駐行動紀錄（自己回合也看得到剛剛發生什麼） */
+.mini-log { margin-top: 10px; }
+.mini-log > summary { cursor: pointer; color: #ffe4a3; font-weight: 700; font-size: 0.85em; padding: 4px 0; list-style: none; }
+.mini-log > summary::before { content: '▸ '; }
+.mini-log[open] > summary::before { content: '▾ '; }
+.mini-log-box { max-height: 150px; font-size: 0.78em; }
+
+/* P1-6：桌機手牌區左側留出素材幣的位置，卡多也不會被蓋住 */
+@media (min-width: 861px) {
+  .bv-hand { padding-left: 316px !important; }
+}
+
+/* 手機：桌上牌堆改為排版內橫列，不疊到家屋標題 */
+@media (max-width: 860px) {
+  .table-decks { position: static; flex-direction: row; justify-content: center; margin: 10px auto 4px; }
+}
