@@ -25,6 +25,7 @@ let ui = {
   hudCollapsed: true,
   pendingAdvance: false,
   lastDrawnCard: null,
+  inspectCard: null, // 觸控裝置兩段式手牌：第一次點看說明，再點確認打出（'raw-i' / 'cul-id'）
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
@@ -33,6 +34,27 @@ let ui = {
 };
 
 function isBot(idx) { return !!ui.isBot[idx]; }
+// 觸控裝置（無 hover）手牌走兩段式：第一次點浮出說明，再點同一張才打出；滑鼠裝置維持 hover 看說明＋單擊打出
+const TOUCH_INSPECT = matchMedia('(hover: none)').matches;
+function handRawTap(i) {
+  if (!TOUCH_INSPECT) return; // 桌機 hover 已顯示說明，原料卡點擊無動作
+  const key = 'raw-' + i;
+  ui.inspectCard = ui.inspectCard === key ? null : key;
+  render();
+}
+function handCultureTap(cardId) {
+  const p = currentPlayer();
+  const playable = p.actionPoints >= 1 && (p.culturePlayedThisTurn || 0) < 1;
+  if (!TOUCH_INSPECT) { if (playable) actionPlayCulture(cardId); return; }
+  const key = 'cul-' + cardId;
+  if (ui.inspectCard === key) {
+    ui.inspectCard = null;
+    if (playable) actionPlayCulture(cardId); else render();
+  } else {
+    ui.inspectCard = key;
+    render();
+  }
+}
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
 function closeHud() { if (!ui.hudCollapsed) { ui.hudCollapsed = true; render(); } }
 function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
@@ -336,6 +358,90 @@ function triggerRPSShake() {
   }
 }
 
+// ── A22 緊急狀況：文化問答 PK（時不時跳出，答對得素材、答錯對手搶答）──
+// 題庫全部由 cards.js 既有卡片資料動態生成（傳說/工藝/食物歸屬），內容保證正確。
+// 族語單詞題：LANG_QUIZ 留空待 JJ 提供正式族語內容後填入（不自行杜撰族語）。
+// 觸發用 Math.random（UI 層），不碰遊戲 rng → lockstep/simulate 完全不受影響；連線 v1 不觸發（TODO 需同步協定）。
+const LANG_QUIZ = []; // TODO 格式：{ q: '「◯◯」是哪一族的族語？', answer: '邵族', img: null }
+const PLAYABLE_TRIBE_NAMES = Object.values(CARDS.tribes).map(t => t.name);
+function shuffleUI(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function buildQuizPool() {
+  const pool = [];
+  const mythTribes = [];
+  for (const c of CARDS.cultureCards) {
+    if (!c.id.startsWith('myth_')) continue;
+    const parts = c.name.split('-');
+    if (parts.length < 2) continue;
+    mythTribes.push(parts[0]);
+    pool.push({ q: `「${parts[1]}」是哪一族的傳說？`, answer: parts[0], img: c.img, from: 'myth' });
+  }
+  for (const c of Object.values(CARDS.crafts))
+    pool.push({ q: `「${c.name}」是哪一族的工藝？`, answer: CARDS.tribes[c.tribe].name, img: c.img, from: 'craft' });
+  for (const c of CARDS.cultureCards)
+    if (c.food) pool.push({ q: `「${c.name}」是哪一族的特色食物？`, answer: CARDS.tribes[c.tribe].name, img: c.img, from: 'food' });
+  pool.push(...LANG_QUIZ.map(x => ({ ...x, from: 'lang' })));
+  for (const item of pool) {
+    // 干擾選項：工藝/食物（答案是 4 玩家族）用其餘 3 個玩家族，順便讓小孩記住場上族群；傳說題用其他傳說族名
+    const src = item.from === 'myth' ? mythTribes : PLAYABLE_TRIBE_NAMES;
+    const wrong = shuffleUI([...new Set(src.filter(t => t !== item.answer))]).slice(0, 3);
+    item.options = shuffleUI([item.answer, ...wrong]);
+  }
+  return pool;
+}
+function maybeTriggerQuiz(force) {
+  if (ui.net) return;                       // 連線版先不觸發（需雙端同步，之後版本補）
+  if (!G || isBot(G.currentPlayer)) return;
+  if (ui.tutorial || ui.modal) return;      // 教學或其他視窗開著就不打斷
+  if (!force) {
+    if ((ui.quizCooldown || 0) > 0) { ui.quizCooldown--; return; }
+    if (Math.random() >= 0.25) return;      // 約每 4 個真人回合出現一次
+  }
+  if (!ui.quizPool || !ui.quizPool.length) ui.quizPool = buildQuizPool();
+  const q = ui.quizPool.splice(Math.floor(Math.random() * ui.quizPool.length), 1)[0];
+  ui.quizCooldown = 2;                      // 至少隔 2 個真人回合
+  ui.modal = { type: 'quiz', q, picked: null, correct: null };
+  window.Sound?.sfx('toast');
+  render();
+}
+function quizPick(i) {
+  const m = ui.modal;
+  if (!m || m.type !== 'quiz' || m.picked != null) return;
+  m.picked = i;
+  m.correct = m.q.options[i] === m.q.answer;
+  const p = currentPlayer();
+  const rival = G.players[(p.idx + 1) % G.players.length];
+  if (m.correct) {
+    const gain = CARDS.materials.find(mm => (p.materials[mm] || 0) === 0) || CARDS.materials[Math.floor(Math.random() * CARDS.materials.length)];
+    p.materials[gain] = (p.materials[gain] || 0) + 1;
+    m.rewardText = `答對了！你獲得 1 ${gain}`;
+    G.log.push(`[T${G.turn}] ${p.tribeName} 緊急狀況答對，獲得 1 ${gain}`);
+    window.Sound?.sfx('win');
+  } else {
+    const gain = CARDS.materials[Math.floor(Math.random() * CARDS.materials.length)];
+    rival.materials[gain] = (rival.materials[gain] || 0) + 1;
+    m.rewardText = `答錯了…正解是「${m.q.answer}」。${nickname(rival.idx)} 搶答成功，獲得 1 ${gain}！`;
+    G.log.push(`[T${G.turn}] ${p.tribeName} 緊急狀況答錯，${rival.tribeName} 搶答得 1 ${gain}`);
+    window.Sound?.sfx('lose');
+  }
+  render();
+}
+function quizClose() { ui.modal = null; render(); }
+function renderQuiz(m) {
+  const q = m.q;
+  const answered = m.picked != null;
+  return `<div class="quiz-card">
+    <div class="quiz-banner">⚡ 緊急狀況！</div>
+    <p class="quiz-intro">部落遇到狀況，考驗你的文化知識——答對得素材，答錯對手搶答！</p>
+    ${q.img ? `<img class="quiz-img" src="${q.img}" alt="">` : ''}
+    <h3 class="quiz-q">${esc(q.q)}</h3>
+    <div class="quiz-options">
+      ${q.options.map((o, i) => `<button class="quiz-opt${answered ? (o === q.answer ? ' is-right' : (m.picked === i ? ' is-wrong' : ' is-dim')) : ''}" ${answered ? 'disabled' : ''} onclick="quizPick(${i})">${esc(o)}</button>`).join('')}
+    </div>
+    ${answered ? `<p class="quiz-result ${m.correct ? 'ok' : 'no'}">${esc(m.rewardText)}</p>
+    <div class="center"><button class="primary" onclick="quizClose()">繼續遊戲</button></div>` : ''}
+  </div>`;
+}
+
 // ── 新手互動教學：第一次只播 3 個必要重點，之後可由「怎麼玩？」重開 ──
 const TUTORIAL_STEPS = [
   { target: 'tut-goal', title: '先看下一步', text: '你的目標是先蓋滿 4 間家屋。這裡會直接告訴你缺什麼、現在最適合做什麼。' },
@@ -623,6 +729,7 @@ function startGame() {
 // ── turn flow ──────────────────────────────────────────
 function startPlayerTurn(idx) {
   ui.modal = null;
+  ui.inspectCard = null; // 換回合清掉手牌檢視狀態
   ui.lastDrawnCard = null;
   ui.pendingAdvance = false;
   if (ui.net) {
@@ -700,7 +807,7 @@ function diceRoll() {
     }
   }, 90);
 }
-function diceDone() { ui.modal = null; render(); maybeStartTutorial(); }
+function diceDone() { ui.modal = null; render(); maybeStartTutorial(); maybeTriggerQuiz(); }
 
 // 電腦回合：一次做一步，間隔播放讓真人看得到過程
 let botGuard = 0;
@@ -1071,16 +1178,21 @@ function renderBoard() {
 
       <div class="bv-hand">
         ${ui.lastDrawnCard ? `<div class="draw-reveal"><span class="draw-reveal-label">你抽到的卡</span>${cardThumb(ui.lastDrawnCard)}<b>${ui.lastDrawnCard.name}</b></div>` : ''}
-        ${rawInHand.map(c => `
-          <div class="hand-card">
+        ${rawInHand.map((c, i) => `
+          <div class="hand-card${ui.inspectCard === 'raw-' + i ? ' is-inspected' : ''}" onclick="handRawTap(${i})">
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>原料卡・湊對換工藝</span></div>
           </div>`).join('')}
-          ${cultureInHand.map(c => `
-          <div class="hand-card culture${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? ' disabled' : ''}" ${p.actionPoints < 1 || p.culturePlayedThisTurn >= 1 ? '' : `onclick="actionPlayCulture('${c.id}')"`}>
+          ${cultureInHand.map(c => {
+            const blocked = p.actionPoints < 1 || p.culturePlayedThisTurn >= 1;
+            const inspected = ui.inspectCard === 'cul-' + c.id;
+            const hint = p.actionPoints < 1 ? '行動點數不足' : p.culturePlayedThisTurn >= 1 ? '本回合已使用文化卡' : (inspected ? '再點一次打出' : '點擊擲出');
+            return `
+          <div class="hand-card culture${blocked ? ' disabled' : ''}${inspected ? ' is-inspected' : ''}" onclick="handCultureTap('${c.id}')">
             ${cardThumb(c)}
-            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${p.actionPoints < 1 ? '行動點數不足' : p.culturePlayedThisTurn >= 1 ? '本回合已使用文化卡' : '點擊擲出'}</em></div>
-          </div>`).join('')}
+            <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${hint}</em></div>
+          </div>`;
+          }).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? `
           <div class="empty-hand-state">
             <div class="empty-hand-decks">
@@ -1240,6 +1352,7 @@ function renderModal() {
   const m = ui.modal;
   let inner = '';
   if (m.type === 'dice') inner = renderDice(m);
+  else if (m.type === 'quiz') inner = renderQuiz(m);
   else if (m.type === 'chooseTarget') inner = renderChooseTarget(m);
   else if (m.type === 'forceSwapPick') inner = renderForceSwapPick(m);
   else if (m.type === 'passOverlay') inner = passInner(m.toIdx, 'passOverlayContinue');
@@ -2096,6 +2209,8 @@ Object.assign(window, {
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
   homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
+  handRawTap, handCultureTap,
+  quizPick, quizClose, maybeTriggerQuiz,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
   netRpsPick, netTradeRespond
 });
