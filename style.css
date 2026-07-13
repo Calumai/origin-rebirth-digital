@@ -3361,6 +3361,26 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
   .quiz-opt { padding: 11px 6px; font-size: 0.92em; }
 }
 
+/* ── 點文化卡＝先跳完整卡面（效果/分數都看得到），再問要不要打出 ── */
+/* JJ 反映桌機點下去會直接出牌，來不及看效果分數；改成一律先彈窗確認，不分桌機/觸控 */
+.culture-confirm { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.culture-confirm-kind {
+  display: inline-block;
+  margin: -4px auto 10px;
+  padding: 5px 20px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6a3f8c, #9457b8);
+  color: #f4e9ff;
+  font-size: 1em;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  box-shadow: 0 4px 14px rgba(106, 63, 140, 0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.culture-confirm .card-thumb { width: 160px; margin-bottom: 10px; }
+.culture-confirm-name { font-size: 1.25em; margin-bottom: 4px; }
+.culture-confirm-effect { color: var(--accent-dark); font-weight: 700; margin-bottom: 4px; }
+.culture-confirm-score { color: var(--gold); font-weight: 800; font-size: 1.05em; margin-bottom: 6px; }
+
 /* 觸控兩段式手牌：第一次點＝浮出說明（.is-inspected），再點同一張＝打出 */
 .bv-hand .hand-card.is-inspected {
   transform: translateY(-14px) scale(1.05);
