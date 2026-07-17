@@ -79,17 +79,26 @@ export const CARDS = {
     fullOwnBuildingSet: 5,
     fullCraftSet: 2,
     fullFoodSet: 3,
-    ownTribeDollBothGenders: 5
+    ownTribeDollBothGenders: 5,
+    supportScoreCap: 5
   },
 
   // ── 公共事件卡（每輪翻一張，效果持續到下一張翻開；順序由 seed 決定）──
   events: [
-    { id: 'harvest',    name: '豐收季',   icon: '🌾', desc: '本回合第一次拿素材時，額外獲得 1 枚本族盛產素材。' },
-    { id: 'festival',   name: '文化祭典', icon: '🎉', desc: '本回合每打出一張文化卡，額外獲得 1 分。' },
-    { id: 'roadblock',  name: '山路封閉', icon: '⛰️', desc: '本回合不能交易（購卡、偷襲、建築互換仍可）。' },
-    { id: 'craftrace',  name: '工藝競賽', icon: '🏆', desc: '本回合第一位完成工藝的玩家獲得 2 分。' },
-    { id: 'reinforce',  name: '家屋加固', icon: '🛠️', desc: '本回合蓋家屋所需行動點 -1（最低 1 點）。' },
-    { id: 'nightgather', name: '夜間集會', icon: '🔥', desc: '本回合第一次與其他玩家互動成功時，抽 1 張文化卡。' }
+    { id: 'harvest',         name: '豐收季',     category: '資源', desc: '本輪第一次拿素材時，額外獲得 1 枚本族盛產素材。' },
+    { id: 'festival',        name: '文化祭典',   category: '文化', desc: '本輪每打出一張文化卡，額外獲得 1 分。' },
+    { id: 'roadblock',       name: '山路封閉',   category: '環境', desc: '本輪不能交易，互助分享與共學交流仍可進行。' },
+    { id: 'craftrace',       name: '工藝競賽',   category: '工藝', desc: '本輪第一位完成工藝的玩家獲得 2 分。' },
+    { id: 'reinforce',       name: '家屋加固',   category: '建造', desc: '本輪蓋家屋所需行動點減少 1 點。' },
+    { id: 'nightgather',     name: '夜間集會',   category: '交流', desc: '本輪第一次與其他玩家互動成功時，抽 1 張文化卡。' },
+    { id: 'marketday',       name: '交流市集',   category: '交流', desc: '本輪交易或玩家購卡成功時，雙方第一次各獲得 1 互助分。' },
+    { id: 'mutualaid',       name: '互助工班',   category: '互助', desc: '本輪互助分享的發起者額外獲得 1 互助分。' },
+    { id: 'sharedstories',   name: '共學之夜',   category: '共學', desc: '本輪每位玩家第一次共學交流，退回 1 行動點。' },
+    { id: 'clearweather',    name: '天候放晴',   category: '氣候', desc: '本輪擲出 1 至 2 點時，也能取得 3 行動點。' },
+    { id: 'rainwatch',       name: '雨勢觀察',   category: '氣候', desc: '本輪第一次抽原料卡時，額外獲得 1 枚目前最少的素材。' },
+    { id: 'materiallab',     name: '材料試驗',   category: 'STEAM', desc: '本輪每位玩家第一次抽原料卡不花行動點。' },
+    { id: 'craftmentor',     name: '工藝共學',   category: '共學', desc: '本輪每位玩家第一次完成工藝時，再抽 1 張文化卡。' },
+    { id: 'communityrepair', name: '聚落修繕',   category: '建造', desc: '本輪每位玩家第一次完成家屋時，額外獲得 1 分。' }
   ],
 
   // ── 秘密目標（開局每人 1 張，只有自己看得到；完成 +5 分）──

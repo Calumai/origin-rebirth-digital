@@ -5,6 +5,9 @@
   "type": "module",
   "description": "《原地重生・返璞歸真》數位化 — 台灣原住民桌遊數位版",
   "scripts": {
+    "start": "node serve.js",
+    "check": "node --check app.js && node --check audio.js && node --check serve.js && node --check steam-lessons.js",
+    "test": "npm run check && node steam-lessons.test.js && node game-engine/interaction.test.js && node game-engine/simulate.js 100",
     "simulate": "node game-engine/simulate.js 100"
   }
 }

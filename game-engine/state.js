@@ -79,7 +79,10 @@ function initGame(playerCount, seed, chosenTribeIds) {
       objective: null,
       progress: { deals: 0, partners: [] }, // deals=交易/購卡次數；partners=互動過的不同玩家 idx
       bonusScore: 0,
-      _tookMat: false, _interacted: false
+      supportScore: 0,
+      _tookMat: false, _interacted: false, _sharedThisTurn: false,
+      _sharedLearningThisTurn: false, _materialLabUsed: false,
+      _rainWatchUsed: false, _craftMentorUsed: false, _communityRepairUsed: false
     };
   });
 

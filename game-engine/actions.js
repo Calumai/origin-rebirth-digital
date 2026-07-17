@@ -15,16 +15,39 @@ function flipNextEvent(state) {
 }
 function eventIs(state, id) { return state.currentEvent && state.currentEvent.id === id; }
 
-// A20：記錄一次「與其他玩家互動成功」→ 更新秘密目標進度，並觸發「夜間集會」事件
-// isDeal=true 代表交易或玩家購卡（部落商人目標計數）
-function recordInteraction(state, p, targetIdx, isDeal) {
+function awardSupport(state, p, amount, reason) {
+  const cap = CARDS.bonuses.supportScoreCap || 5;
+  const before = p.supportScore || 0;
+  p.supportScore = Math.min(cap, before + amount);
+  const gained = p.supportScore - before;
+  if (gained > 0) log(state, `${p.tribeName} ${reason}，互助 +${gained} 分（${p.supportScore}/${cap}）`);
+  return gained;
+}
+
+function rememberPartner(p, targetIdx, isDeal) {
   p.progress = p.progress || { deals: 0, partners: [] };
   if (isDeal) p.progress.deals += 1;
   if (targetIdx != null && targetIdx !== p.idx && !p.progress.partners.includes(targetIdx)) p.progress.partners.push(targetIdx);
+}
+
+// A20：記錄一次「與其他玩家互動成功」→ 更新秘密目標進度，並觸發「夜間集會」事件
+// isDeal=true 代表交易或玩家購卡（部落商人目標計數）
+function recordInteraction(state, p, targetIdx, isDeal, mutual = false) {
+  rememberPartner(p, targetIdx, isDeal);
+  if (mutual) rememberPartner(P(state, targetIdx), p.idx, isDeal);
   if (eventIs(state, 'nightgather') && !p._interacted) {
     p._interacted = true;
     const c = drawCulture(state, p);
     if (c) log(state, `${p.tribeName} 夜間集會：互動成功，抽 1 張文化卡`);
+  }
+}
+
+function rewardMarketInteraction(state, p, t) {
+  if (!eventIs(state, 'marketday')) return;
+  for (const participant of [p, t]) {
+    if (participant._marketRewardRound === state.turn) continue;
+    participant._marketRewardRound = state.turn;
+    awardSupport(state, participant, 1, '交流市集');
   }
 }
 
@@ -53,11 +76,18 @@ function resolveDuel(state, a, rng) {
 function rollTurnDice(state, playerIdx, rng, die) {
   const d = die !== undefined ? die : Math.floor(rng() * 6) + 1;
   // A19：上限由 4 砍到 3，避免骰高點一回合做太多事（1-2 點→2、3-6 點→3；期望值 2.67）
-  const ap = d <= 2 ? 2 : 3;
+  const ap = d <= 2 && !eventIs(state, 'clearweather') ? 2 : 3;
   const p = state.players[playerIdx];
   p.actionPoints = ap;
   p.turnStartAP = ap;
-  p._tookMat = false; p._interacted = false; // A20：每回合開始重置事件暫存旗標
+  p._tookMat = false;
+  p._interacted = false;
+  p._sharedThisTurn = false;
+  p._sharedLearningThisTurn = false;
+  p._materialLabUsed = false;
+  p._rainWatchUsed = false;
+  p._craftMentorUsed = false;
+  p._communityRepairUsed = false;
   state.log.push(`[T${state.turn}] ${p.tribeName} 擲骰 ${d} 點 → 本回合 ${ap} 行動點`);
   return { die: d, ap };
 }
@@ -182,16 +212,31 @@ const ACTIONS = {
     for (const m of a.give) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     for (const m of a.get)  { t.materials[m]--; p.materials[m] = (p.materials[m] || 0) + 1; }
     log(state, a.forced ? `${p.tribeName} 猜拳勝，強制與 ${t.tribeName} 成交` : `${p.tribeName} ⇄ ${t.tribeName} 交易成立`);
-    recordInteraction(state, p, a.target, true);
+    recordInteraction(state, p, a.target, true, true);
+    rewardMarketInteraction(state, p, t);
   },
 
   // 1 點：抽原料卡
   DRAW_MATERIAL_CARD(state, a) {
     const p = P(state, a.player);
-    requireActionPoints(p, 1);
-    p.actionPoints -= 1;
+    const freeStudy = eventIs(state, 'materiallab') && !p._materialLabUsed;
+    const cost = freeStudy ? 0 : 1;
+    requireActionPoints(p, Math.max(1, cost));
+    p.actionPoints -= cost;
+    if (freeStudy) {
+      p._materialLabUsed = true;
+      log(state, `${p.tribeName} 材料試驗：本次抽牌不花行動點`);
+    }
     const c = drawRaw(state, p);
     log(state, `${p.tribeName} 抽原料卡${c ? '' : '（牌庫已空）'}`);
+    if (eventIs(state, 'rainwatch') && !p._rainWatchUsed) {
+      p._rainWatchUsed = true;
+      const least = CARDS.materials.slice().sort((x, y) => (p.materials[x] || 0) - (p.materials[y] || 0))[0];
+      if (least) {
+        p.materials[least] = (p.materials[least] || 0) + 1;
+        log(state, `${p.tribeName} 雨勢觀察：額外獲得 1 ${least}`);
+      }
+    }
   },
 
   // 1 點：抽文化卡
@@ -222,6 +267,11 @@ const ACTIONS = {
       state.craftRaceClaimed = true;
       p.bonusScore = (p.bonusScore || 0) + 2;
       log(state, `${p.tribeName} 工藝競賽：搶先完成工藝，+2 分`);
+    }
+    if (c && eventIs(state, 'craftmentor') && !p._craftMentorUsed) {
+      p._craftMentorUsed = true;
+      const culture = drawCulture(state, p);
+      if (culture) log(state, `${p.tribeName} 工藝共學：再抽 1 張文化卡`);
     }
   },
 
@@ -276,6 +326,11 @@ const ACTIONS = {
     for (const m of four) p.materials[m]--;
     const c = drawBuilding(state, p);
     log(state, `${p.tribeName} 換抽建築卡「${c ? c.name : '（庫空）'}」`);
+    if (c && eventIs(state, 'communityrepair') && !p._communityRepairUsed) {
+      p._communityRepairUsed = true;
+      p.bonusScore = (p.bonusScore || 0) + 1;
+      log(state, `${p.tribeName} 聚落修繕：完成家屋 +1 分`);
+    }
   },
 
   // 2 點：用 2 素材向玩家購買原料卡或服飾卡（對方強制指定素材）
@@ -286,13 +341,15 @@ const ACTIONS = {
     const pay = a.pay; // 對方指定 2 素材
     if (!Array.isArray(pay) || pay.length !== 2) throw new Error('需支付 2 枚素材');
     for (const m of pay) if ((p.materials[m] || 0) < 1) throw new Error(`購買素材不足: ${m}`);
-    requireActionPoints(p, 2);
-    p.actionPoints -= 2;
+    const cost = eventIs(state, 'marketday') ? 1 : 2;
+    requireActionPoints(p, cost);
+    p.actionPoints -= cost;
     for (const m of pay) { p.materials[m]--; t.materials[m] = (t.materials[m] || 0) + 1; }
     const card = t.hand.splice(ci, 1)[0];
     if (card.kind === 'clothing') p.clothing.push(card); else p.hand.push(card);
     log(state, `${p.tribeName} 向 ${t.tribeName} 購得「${card.name}」`);
-    recordInteraction(state, p, a.target, true);
+    recordInteraction(state, p, a.target, true, true);
+    rewardMarketInteraction(state, p, t);
   },
 
   // 2 點：建築卡互換（猜拳）
@@ -330,6 +387,43 @@ const ACTIONS = {
     p.hand.push(theirs); t.hand.push(mine);
     log(state, `${p.tribeName} 以「${mine.name}」強制換得 ${t.tribeName} 的「${theirs.name}」`);
     recordInteraction(state, p, a.target, false);
+  },
+
+  // 1 點：把一枚有餘裕的素材送給另一位玩家，發起者取得有上限的互助分。
+  SHARE_MATERIAL(state, a) {
+    const p = P(state, a.player), t = P(state, a.target);
+    if (!t || a.player === a.target) throw new Error('請選擇其他玩家');
+    if (p._sharedThisTurn) throw new Error('每回合最多互助分享 1 次');
+    if (!CARDS.materials.includes(a.material)) throw new Error('未知素材');
+    if ((p.materials[a.material] || 0) < 2) throw new Error('需保留 1 枚自用，持有至少 2 枚才能分享');
+    requireActionPoints(p, 1);
+    p.actionPoints -= 1;
+    p._sharedThisTurn = true;
+    p.materials[a.material] -= 1;
+    t.materials[a.material] = (t.materials[a.material] || 0) + 1;
+    log(state, `${p.tribeName} 分享 1 ${a.material} 給 ${t.tribeName}`);
+    awardSupport(state, p, 1, '完成互助分享');
+    if (eventIs(state, 'mutualaid')) awardSupport(state, p, 1, '互助工班加成');
+    recordInteraction(state, p, a.target, false, true);
+  },
+
+  // 1 點：雙方各抽一張文化卡。固定抽牌順序，單機與連線 lockstep 都可重現。
+  SHARED_LEARNING(state, a) {
+    const p = P(state, a.player), t = P(state, a.target);
+    if (!t || a.player === a.target) throw new Error('請選擇其他玩家');
+    if (p._sharedLearningThisTurn) throw new Error('每回合最多共學交流 1 次');
+    if (state.cultureDeck.length < 2) throw new Error('文化牌庫至少需要 2 張卡');
+    requireActionPoints(p, 1);
+    p.actionPoints -= 1;
+    p._sharedLearningThisTurn = true;
+    const mine = drawCulture(state, p);
+    const theirs = drawCulture(state, t);
+    log(state, `${p.tribeName} 與 ${t.tribeName} 共學交流，雙方各抽 1 張文化卡`);
+    if (eventIs(state, 'sharedstories')) {
+      p.actionPoints += 1;
+      log(state, `${p.tribeName} 共學之夜：退回 1 行動點`);
+    }
+    if (mine || theirs) recordInteraction(state, p, a.target, false, true);
   },
 
   END_TURN(state, a) {

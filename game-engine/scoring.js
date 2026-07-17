@@ -53,13 +53,16 @@ function scorePlayer(p) {
   if (ownDoll) bonus += CARDS.bonuses.ownTribeDollBothGenders;
   detail.bonus = bonus;
 
+  // 正向互助行動獨立計分，設上限避免贈送素材取代核心建造循環。
+  detail.support = Math.min(p.supportScore || 0, CARDS.bonuses.supportScoreCap || 5);
+
   // A20：秘密目標（完成 +5）與事件加分（文化祭典 +1／張、工藝競賽 +2）
   const obj = objectiveProgress(p);
   detail.objectiveDone = obj.done;
   detail.objective = obj.done ? CARDS.objectiveBonus : 0;
   detail.eventBonus = p.bonusScore || 0;
 
-  detail.total = detail.buildings + detail.culture + detail.crafts + detail.clothing + bonus + detail.objective + detail.eventBonus;
+  detail.total = detail.buildings + detail.culture + detail.crafts + detail.clothing + bonus + detail.support + detail.objective + detail.eventBonus;
   return detail;
 }
 
