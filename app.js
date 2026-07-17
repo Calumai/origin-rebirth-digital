@@ -2,6 +2,7 @@ import { initGame, mulberry32, shuffle, CARDS } from './game-engine/state.js';
 import { applyAction, resolveRPSMoves, rollTurnDice, flipNextEvent } from './game-engine/actions.js';
 import { finalScores, objectiveProgress } from './game-engine/scoring.js';
 import { chooseAction, respondTrade } from './game-engine/bot.js';
+import { GRADE_BANDS, LESSON_THEMES, generateLessonPlan } from './steam-lessons.js';
 
 const EFFECT_LABEL = {
   extra_action: '本回合 +1 行動點',
@@ -11,6 +12,40 @@ const EFFECT_LABEL = {
   defend_raid: '防禦偷襲（留在手上可自動擋下）',
   gain_2_any: '獲得任意 2 枚素材'
 };
+
+const EVENT_GLYPHS = {
+  harvest: '收',
+  festival: '祭',
+  roadblock: '路',
+  craftrace: '工',
+  reinforce: '屋',
+  nightgather: '會',
+  marketday: '市',
+  mutualaid: '助',
+  sharedstories: '學',
+  clearweather: '晴',
+  rainwatch: '雨',
+  materiallab: '材',
+  craftmentor: '傳',
+  communityrepair: '修'
+};
+
+const OBJECTIVE_GLYPHS = {
+  obj_house: '屋',
+  obj_culture: '文',
+  obj_craft: '工',
+  obj_trade: '交',
+  obj_collector: '藏',
+  obj_social: '合'
+};
+
+function tribeGameCopy(tribe) {
+  const missing = CARDS.materials.find(material => !tribe.produces.includes(material));
+  return {
+    resources: tribe.produces.join('、'),
+    summary: `起始資源強項為${tribe.produces.join('、')}，需要透過交易或行動補足${missing || '其他素材'}。`
+  };
+}
 
 let G = null;
 let rng = null;
@@ -28,6 +63,7 @@ let ui = {
   inspectCard: null, // 觸控裝置兩段式手牌：第一次點看說明，再點確認打出（'raw-i' / 'cul-id'）
   tutorial: null,
   homeSelectedTribe: 0, // 首頁族群 carousel 目前反白的是哪一張（純瀏覽用，不影響實際選族群——那在設定畫面走 A14 流程）
+  education: { bandId: 'elementary_3_4', themeId: 'random', seed: null, plan: null },
   net: null,      // 連線對戰進行中：{ role, myIdx, players }；null＝單機
   netLobby: null, // 連線大廳表單狀態
   netRps: null    // 連線猜拳互動暫存
@@ -37,7 +73,6 @@ function isBot(idx) { return !!ui.isBot[idx]; }
 // 觸控裝置（無 hover）手牌走兩段式：第一次點浮出說明，再點同一張才打出；滑鼠裝置維持 hover 看說明＋單擊打出
 const TOUCH_INSPECT = matchMedia('(hover: none)').matches;
 function handRawTap(i) {
-  if (!TOUCH_INSPECT) return; // 桌機 hover 已顯示說明，原料卡點擊無動作
   const key = 'raw-' + i;
   ui.inspectCard = ui.inspectCard === key ? null : key;
   render();
@@ -72,15 +107,18 @@ function confirmPlayCulture(cardId) { ui.modal = null; actionPlayCulture(cardId)
 function toggleHud() { ui.hudCollapsed = !ui.hudCollapsed; render(); }
 function closeHud() { if (!ui.hudCollapsed) { ui.hudCollapsed = true; render(); } }
 function continueTurn() { if (!ui.pendingAdvance) return; ui.pendingAdvance = false; ui.lastDrawnCard = null; finishTurnAndAdvance(); }
-// 抽到的卡：中央彈出亮相 → 自動淡出（掛 toast-layer，不佔手牌區、不擋操作；JJ：別一直擋在那）
+// 抽到的卡：中央放大亮相（含效果說明）→ 自動淡出（掛 body，不佔手牌區、不擋操作；JJ：別一直擋在那）
+// JJ 反映看不到抽到的卡、換手太快嚇到——這裡把卡片放大、加上效果文字，
+// 換手前的等待時間（doAction 裡的 delay）要跟這個動畫總長對齊，不然畫面會在動畫播一半時被切掉。
 function popDrawnCard(card) {
   if (!card) return;
+  const desc = card.kind === 'culture' ? (EFFECT_LABEL[card.effect] || '') : '原料卡・湊對換工藝';
   const el = document.createElement('div');
   el.className = 'draw-pop';
-  el.innerHTML = `<span>你抽到的卡</span><img src="${card.img || ''}" alt=""><b>${esc(card.name || '')}</b>`;
+  el.innerHTML = `<span>你抽到的卡</span><img src="${card.img || ''}" alt=""><b>${esc(card.name || '')}</b>${desc ? `<em>${esc(desc)}</em>` : ''}`;
   // 直接掛 body：toast-layer 有 transform，會把 fixed 子元素的定位基準劫走導致不置中
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1800); // 與 CSS 動畫總長一致
+  setTimeout(() => el.remove(), 2200); // 與 CSS 動畫總長一致
 }
 
 // ── 浮動提示（對戰動態）───────────────────────────────
@@ -120,6 +158,7 @@ function flashLog(before) {
   for (let i = before; i < G.log.length; i++) {
     const line = G.log[i].replace(/^\[T\d+\]\s*/, '');
     bubbleForLog(line); // 情境對話泡泡
+    soundForLog(line);  // 互動音效層
     showToast(line);
   }
 }
@@ -152,6 +191,8 @@ function bubbleForLog(line) {
   if (m = line.match(/^(.+?) 換抽建築卡/)) { showBubble(idxOf(m[1]), '蓋好囉！'); return; }
   if (m = line.match(/^(.+?) 以「.+?」強制換得/)) { showBubble(idxOf(m[1]), '這張歸我！'); return; }
   if (m = line.match(/^(.+?) 配對原料換得工藝/)) { showBubble(idxOf(m[1]), '手藝不錯吧！'); return; }
+  if (m = line.match(/^(.+?) 分享 1 (.+?) 給 (.+?)$/)) { showBubble(idxOf(m[1]), '這份素材給你'); showBubble(idxOf(m[3]), '我會好好運用'); return; }
+  if (m = line.match(/^(.+?) 與 (.+?) 共學交流/)) { showBubble(idxOf(m[1]), '一起看看新線索'); showBubble(idxOf(m[2]), '好，一起研究'); return; }
 }
 function prefersReducedMotion() {
   return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -307,10 +348,10 @@ function myPlayer() { return (ui.net && G) ? G.players[ui.net.myIdx] : (G && G.p
 function eventBanner() {
   const e = G && G.currentEvent;
   if (!e) return '';
-  return `<div class="event-banner" title="${e.desc}">
-    <span class="event-icon">${e.icon || '🎴'}</span>
-    <span class="event-text"><b>${e.name}</b><small>${e.desc}</small></span>
-    <span class="event-dur">持續至下一輪</span>
+  return `<div class="event-banner" title="${e.desc}" role="status">
+    <span class="event-icon" aria-hidden="true">${EVENT_GLYPHS[e.id] || '事'}</span>
+    <span class="event-text"><b><i>${e.category || '事件'}</i>${e.name}</b><small>${e.desc}</small></span>
+    <span class="event-dur">${G.eventIndex + 1}/${G.eventDeck.length} · 本輪</span>
   </div>`;
 }
 
@@ -323,7 +364,7 @@ function objectivePanel() {
   const pr = objectiveProgress(me);
   const pct = pr.target ? Math.min(100, Math.round(pr.cur / pr.target * 100)) : 0;
   return `<details class="objective-panel${pr.done ? ' done' : ''}" open>
-    <summary><span class="obj-icon">${def.icon || '🎯'}</span><span>秘密目標：${def.name}</span>${pr.done ? '<b class="obj-check">✓+5</b>' : ''}</summary>
+    <summary><span class="obj-icon" aria-hidden="true">${OBJECTIVE_GLYPHS[def.id] || '目'}</span><span>秘密目標：${def.name}</span>${pr.done ? '<b class="obj-check">✓+5</b>' : ''}</summary>
     <div class="obj-body">
       <div class="obj-desc">${def.desc}</div>
       <div class="obj-progress"><div class="obj-bar" style="width:${pct}%"></div></div>
@@ -343,30 +384,109 @@ function endReasonLabel(reason) {
 
 // ── render ──────────────────────────────────────────
 let lastRenderedScreen = null;
+let lastRenderedModalOpen = false;
+let modalReturnFocus = null;
+
+function focusDescriptor(element) {
+  if (!(element instanceof HTMLElement)) return null;
+  return {
+    id: element.id || '',
+    ariaLabel: element.getAttribute('aria-label') || '',
+    text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120)
+  };
+}
+
+function restoreModalFocus(descriptor) {
+  if (!descriptor) return;
+  const candidates = Array.from(document.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])'));
+  const normalized = element => (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const target = (descriptor.id && document.getElementById(descriptor.id))
+    || (descriptor.ariaLabel && candidates.find(element => element.getAttribute('aria-label') === descriptor.ariaLabel))
+    || (descriptor.text && candidates.find(element => normalized(element) === descriptor.text));
+  target?.focus({ preventScroll: true });
+}
+
 function render() {
   const app = document.getElementById('app');
+  const screenChanged = ui.screen !== lastRenderedScreen;
+  const modalOpen = !!ui.modal;
+  const shouldRestoreModalFocus = !modalOpen && lastRenderedModalOpen;
+  if (modalOpen && !lastRenderedModalOpen) {
+    modalReturnFocus = screenChanged ? null : focusDescriptor(document.activeElement);
+  }
   let html = '';
   if (ui.screen === 'home') html = renderHome();
   else if (ui.screen === 'story') html = renderStory();
+  else if (ui.screen === 'education') html = renderEducation();
   else if (ui.screen === 'setup') html = renderSetup();
   else if (ui.screen === 'netLobby') html = renderNetLobby();
   else if (ui.screen === 'board') html = `<div class="table-surface">${renderBoard()}</div>`;
   else if (ui.screen === 'end') html = renderEnd();
   html += renderModal();
   app.innerHTML = html;
+  // 換頁後一律從頂端開始，避免手機版沿用上一頁的捲動位置。
+  // 同一畫面的狀態重繪（抽牌、開啟視窗等）不重設位置。
+  if (screenChanged) window.scrollTo(0, 0);
   // 切換畫面時才播進場動畫；同畫面的重繪（如出牌後更新）不重播，避免每次操作都閃一輪
-  if (ui.screen !== lastRenderedScreen) {
+  if (screenChanged) {
     const first = app.firstElementChild;
     if (first) {
       first.classList.add('screen-enter');
       // 編排播完就移除，讓 idle 動畫（選中卡浮動等）接手，也避免殘留 class 蓋掉後續狀態
       setTimeout(() => first.classList.remove('screen-enter'), 1050);
     }
+    syncMusicScene(); // 依畫面切換配樂場景（主選單／選族／對局／結算）
     lastRenderedScreen = ui.screen;
   }
   positionTutorial();
   triggerRPSShake();
-  if (ui.modal) requestAnimationFrame(() => document.querySelector('.modal')?.focus({ preventScroll: true }));
+  if (ui.modal) {
+    requestAnimationFrame(() => document.querySelector('.modal')?.focus({ preventScroll: true }));
+  } else if (shouldRestoreModalFocus) {
+    const descriptor = modalReturnFocus;
+    requestAnimationFrame(() => restoreModalFocus(descriptor));
+    modalReturnFocus = null;
+  }
+  lastRenderedModalOpen = modalOpen;
+}
+
+// 依目前畫面把配樂切到對應場景（主選單→選族→對局→結算）。
+// 結算再依「本族家屋棟數為主、總分為輔」判斷真人是勝／平／負，播不同尾樂。
+function syncMusicScene() {
+  const S = window.Sound;
+  if (!S || !S.scene) return;
+  const scr = ui.screen;
+  if (scr === 'home' || scr === 'story' || scr === 'education') { S.scene('menu'); return; }
+  if (scr === 'setup' || scr === 'netLobby') { S.scene('setup'); return; }
+  if (scr === 'board') { S.scene('board'); return; }
+  if (scr === 'end') {
+    let outcome = 'victory';
+    try {
+      const scores = finalScores(G);
+      const best = scores.slice().sort(rankCmp)[0];
+      const winners = scores.filter(s => s.buildingCount === best.buildingCount && s.total === best.total);
+      const humanIdx = ui.net ? ui.net.myIdx : 0;
+      const humanWon = winners.some(w => w.player === humanIdx);
+      if (humanWon && winners.length > 1) outcome = 'tie';
+      else if (humanWon) outcome = 'victory';
+      else outcome = 'defeat';
+    } catch (e) {}
+    S.scene(outcome);
+    return;
+  }
+}
+
+// 依新增的 log 字串觸發互動音效層（電腦／真人／連線都會經過 flashLog）
+function soundForLog(line) {
+  const S = window.Sound;
+  if (!S || !S.cue) return;
+  if (/偷襲 .+ 猜拳(勝|敗)|偷襲 .+ 被防禦/.test(line)) { S.cue('raid'); return; }
+  if (/⇄ .+ 交易成立|猜拳勝，強制與 .+ 成交/.test(line)) { S.cue('trade'); return; }
+  if (/向 .+ 購得/.test(line)) { S.cue('buy'); return; }
+  if (/換抽建築卡/.test(line)) { S.cue('buildDone'); return; }
+  if (/配對原料換得工藝/.test(line)) { S.cue('craft'); return; }
+  // 文化卡打出：「族名 擲出「卡名」」結尾（防禦偷襲的擲出後面還有字，不會誤觸）
+  if (/擲出「.+」$/.test(line)) { S.cue('culture'); return; }
 }
 
 // 猜拳結果揭曉時，讓輸家在對戰列的頭像震動一下（跟 .rps-stamp 印章搭配的動態回饋）
@@ -383,7 +503,7 @@ function triggerRPSShake() {
 }
 
 // ── A22 緊急狀況：文化問答 PK（時不時跳出，答對得素材、答錯對手搶答）──
-// 題庫全部由 cards.js 既有卡片資料動態生成（傳說/工藝/食物歸屬），內容保證正確。
+// 題庫由既有卡片資料動態生成（傳說/工藝/食物的卡牌標籤），尚未完成外部來源與文化顧問審校。
 // 族語單詞題：LANG_QUIZ 留空待 JJ 提供正式族語內容後填入（不自行杜撰族語）。
 // 觸發用 Math.random（UI 層），不碰遊戲 rng → lockstep/simulate 完全不受影響；連線 v1 不觸發（TODO 需同步協定）。
 const LANG_QUIZ = []; // TODO 格式：{ q: '「◯◯」是哪一族的族語？', answer: '邵族', img: null }
@@ -454,8 +574,9 @@ function renderQuiz(m) {
   const q = m.q;
   const answered = m.picked != null;
   return `<div class="quiz-card">
-    <div class="quiz-banner">⚡ 緊急狀況！</div>
-    <p class="quiz-intro">部落遇到狀況，考驗你的文化知識——答對得素材，答錯對手搶答！</p>
+    <div class="quiz-banner"><span class="quiz-banner-glyph" aria-hidden="true">警</span> 緊急狀況！</div>
+    <p class="quiz-intro">確認你對本局卡牌標籤的記憶。答對得素材，答錯由對手搶答。</p>
+    <p class="quiz-review-note">題庫原型：目前只測試卡牌內的族別標籤，不等同完整文化知識。正式商用前須逐題補上來源與文化顧問審閱。</p>
     ${q.img ? `<img class="quiz-img" src="${q.img}" alt="">` : ''}
     <h3 class="quiz-q">${esc(q.q)}</h3>
     <div class="quiz-options">
@@ -470,7 +591,7 @@ function renderQuiz(m) {
 const TUTORIAL_STEPS = [
   { target: 'tut-goal', title: '先看下一步', text: '你的目標是先蓋滿 4 間家屋。這裡會直接告訴你缺什麼、現在最適合做什麼。' },
   { target: 'tut-actions', title: '選一個行動', text: '打開行動區後，優先做發亮的建議。不知道選什麼，就先拿素材。' },
-  { target: 'tut-buildings', title: '完成家屋拼圖', text: '每蓋一間就補上一塊；集滿 4 塊，聚落完成並進入最後結算。' }
+  { target: 'tut-buildings', title: '完成家屋進度', text: '每蓋一間就點亮一張完整家屋卡；完成 4 間後，聚落完成並進入最後結算。' }
 ];
 function maybeStartTutorial() {
   let seen = false;
@@ -542,7 +663,7 @@ function passInner(toIdx, continueFn) {
 }
 
 // ── home / story ──────────────────────────────────────────
-// 首頁族群 carousel：純瀏覽/預覽用，實際選族群在設定畫面（A14），不從這裡帶值
+// 首頁族群選取：桌機是 carousel，手機是「主卡＋縮圖列」；選取狀態存 ui.homeSelectedTribe，返回首頁保留
 function homeCarouselPrev() {
   const n = Object.keys(CARDS.tribes).length;
   homeCarouselSelect(((ui.homeSelectedTribe ?? 0) - 1 + n) % n);
@@ -553,21 +674,39 @@ function homeCarouselNext() {
 }
 function homeCarouselSelect(i) {
   ui.homeSelectedTribe = i;
-  // 直接改 class 不整頁重繪，讓卡片的 CSS transition 有機會播放（重繪會瞬間跳格）
   document.querySelectorAll('.ps5-home .tribe-card').forEach((c, idx) => {
-    c.classList.toggle('selected', idx === i);
-    c.setAttribute('aria-pressed', idx === i ? 'true' : 'false');
+    const on = idx === i;
+    c.classList.toggle('selected', on);
+    c.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
-  const entry = Object.entries(CARDS.tribes)[i];
-  if (!entry) return;
-  const [id, t] = entry;
-  const title = document.getElementById('home-selection-title');
-  const detail = document.getElementById('home-selection-detail');
-  const start = document.getElementById('home-start-btn');
-  if (title) title.textContent = `選擇 ${t.name}`;
-  if (detail) detail.textContent = `盛產：${t.produces.join('、')}｜勝利：先完成 4 間家屋`;
-  if (start) { start.textContent = `以 ${t.name} 開始`; start.setAttribute('onclick', `homeStartWithTribe(${i})`); }
+  updateHomeStage(i);
 }
+
+function updateHomeStage(i) {
+  const entry = Object.entries(CARDS.tribes)[i];
+  const home = document.querySelector('.ps5-home');
+  if (!entry || !home) return;
+  const [id, t] = entry;
+  const copy = tribeGameCopy(t);
+  home.dataset.selectedTribe = id;
+  const img = home.querySelector('.tribe-stage-img');
+  if (img) { img.src = t.img; img.alt = `${t.name}遊戲卡牌`; }
+  const name = home.querySelector('#home-tribe-name');
+  if (name) name.textContent = t.name;
+  const prod = home.querySelector('#home-tribe-resources');
+  if (prod) prod.textContent = copy.resources;
+  const summary = home.querySelector('#home-tribe-summary');
+  if (summary) summary.textContent = copy.summary;
+}
+
+function homeStart() {
+  const i = ui.homeSelectedTribe ?? 0;
+  const id = Object.keys(CARDS.tribes)[i];
+  ui.setup.tribes[0] = id;
+  window.Sound?.tribe(id);
+  startGame();
+}
+function homeContinue() { homeStartWithTribe(ui.homeSelectedTribe ?? 0); }
 function comingSoonToast() { showToast('敬請期待，此功能尚未推出'); }
 // 手機版主選單抽屜開合（桌機用不到，側欄常駐）
 function toggleHomeNav() {
@@ -577,109 +716,359 @@ function toggleHomeNav() {
   const btn = home.querySelector('.ps5-nav-toggle');
   if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
-// 首頁點族群卡＝選好我方族群直接進設定（填名字/對手數）後開始，A14 的選族群流程收斂到這一步
+// 桌機：選族群後進設定畫面（填名字/對手數），維持既有 onboarding 流程不變
 function homeStartWithTribe(i) {
   const id = Object.keys(CARDS.tribes)[i];
   ui.homeSelectedTribe = i;
   ui.setup.tribes[0] = id;
+  window.Sound?.tribe(id); // 通用選擇確認音，不對族群做音色詮釋
   gotoSetup();
 }
 
 function renderHome() {
   const tribeEntries = Object.entries(CARDS.tribes);
   const selIdx = ui.homeSelectedTribe ?? 0;
+  const [selId, sel] = tribeEntries[selIdx] || tribeEntries[0];
+  const selectedCopy = tribeGameCopy(sel);
   return `
-    <main class="ps5-home">
+    <main class="ps5-home remaster-home" data-selected-tribe="${selId}">
       <div class="ps5-bg"></div>
-      <div class="ps5-embers"></div>
-      <div class="ps5-embers ps5-embers-2"></div>
       <div class="ps5-vignette"></div>
-      <div class="ps5-focus-glow"></div>
 
-      <button class="ps5-nav-toggle" onclick="toggleHomeNav()" aria-label="開啟主選單" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-      <div class="ps5-nav-scrim" onclick="toggleHomeNav()" aria-hidden="true"></div>
-
-      <aside class="ps5-sidebar" aria-label="主選單">
-        <button class="side-item active" onclick="gotoHome()">
-          <span class="side-icon" aria-hidden="true">⌂</span>
-          <span class="side-text"><b>首頁</b><small>HOME</small></span>
+      <header class="game-nav">
+        <button class="game-brand" onclick="gotoHome()" aria-label="返回遊戲首頁">
+          <span class="game-brand-mark" aria-hidden="true">原</span>
+          <span><b>原地重生</b><small>返璞歸真</small></span>
         </button>
-        <button class="side-item" onclick="gotoStory()">
-          <span class="side-icon" aria-hidden="true">▣</span>
-          <span class="side-text"><b>故事</b><small>STORY</small></span>
-        </button>
-        <button class="side-item" onclick="gotoNetLobby()">
-          <span class="side-icon" aria-hidden="true">⇄</span>
-          <span class="side-text"><b>連線對戰</b><small>ONLINE</small></span>
-        </button>
-      </aside>
-
-      <header class="ps5-topbar">
-        <button onclick="gotoStory()">遊戲介紹</button>
-        <button onclick="gotoNetLobby()">連線對戰</button>
+        <nav aria-label="主要導覽">
+          <button onclick="gotoStory()">玩法與文化</button>
+          <button onclick="gotoEducation()">STEAM 教育</button>
+          <button onclick="gotoNetLobby()">線上對戰</button>
+        </nav>
+        <button class="nav-primary" onclick="homeContinue()">開始旅程</button>
       </header>
 
-      <section class="ps5-content">
-        <div class="game-title-block">
-          <h1>原地重生・返璞歸真</h1>
-          <p>蒐集素材、完成工藝、建造家屋，在事件與交易中搶先完成聚落。</p>
+      <section class="ps5-content home-layout">
+        <div class="home-copy">
+          <p class="home-kicker">文化策略桌遊數位版</p>
+          <h1><span>原地重生</span><em>返璞歸真</em></h1>
+          <p class="home-summary">蒐集素材，完成工藝，建造家屋。每一次選擇，都讓聚落更接近完成。</p>
+          <div class="home-actions">
+            <button class="home-primary" onclick="homeContinue()">開始旅程</button>
+            <button class="home-secondary" onclick="gotoStory()">查看玩法</button>
+            <button class="home-secondary home-education" onclick="gotoEducation()">產生 STEAM 教案</button>
+          </div>
+          <dl class="home-facts" aria-label="遊戲資訊">
+            <div><dt>2-4</dt><dd>玩家</dd></div>
+            <div><dt>約 15-20</dt><dd>分鐘</dd></div>
+            <div><dt>4</dt><dd>間家屋完成目標</dd></div>
+          </dl>
         </div>
 
-        <section class="tribe-carousel" aria-label="族群卡選擇">
-          <button class="carousel-arrow left" onclick="homeCarouselPrev()" aria-label="上一張">‹</button>
-          ${tribeEntries.map(([id, t], i) => `
-            <button class="tribe-card${i === selIdx ? ' selected' : ''}" onclick="homeCarouselSelect(${i})" aria-pressed="${i === selIdx}" title="預覽 ${t.name}">
-              <img src="${t.img}" alt="${t.name}">
-              <div class="tribe-name">${t.name}</div>
-            </button>`).join('')}
-          <button class="carousel-arrow right" onclick="homeCarouselNext()" aria-label="下一張">›</button>
-        </section>
-        <section class="ps5-actions" aria-live="polite">
-          <div class="home-selection-copy"><b id="home-selection-title">選擇 ${tribeEntries[selIdx][1].name}</b><span id="home-selection-detail">盛產：${tribeEntries[selIdx][1].produces.join('、')}｜勝利：先完成 4 間家屋</span></div>
-          <div class="ps5-actions-row"><button id="home-start-btn" class="start-btn" onclick="homeStartWithTribe(${selIdx})">以 ${tribeEntries[selIdx][1].name} 開始</button><button class="intro-btn" onclick="gotoStory()">先看玩法</button></div>
-        </section>
+        <div class="home-tribe-console">
+          <header class="tribe-console-heading">
+            <div>
+              <span>選擇起始族群</span>
+              <h2 id="home-tribe-name">${sel.name}</h2>
+            </div>
+            <p>族群不是角色職業。這裡只呈現已寫入規則的遊戲資源差異。</p>
+          </header>
+
+          <div class="tribe-stage" aria-live="polite">
+            <div class="tribe-stage-media">
+              <img class="tribe-stage-img" src="${sel.img}" alt="${sel.name}遊戲卡牌">
+            </div>
+            <div class="tribe-stage-info">
+              <span class="tribe-stage-label">遊戲資源強項</span>
+              <b id="home-tribe-resources">${selectedCopy.resources}</b>
+              <p id="home-tribe-summary">${selectedCopy.summary}</p>
+            </div>
+          </div>
+
+          <section class="tribe-carousel" role="group" aria-label="選擇起始族群">
+            ${tribeEntries.map(([id, t], i) => `
+              <button type="button" class="tribe-card${i === selIdx ? ' selected' : ''}" aria-pressed="${i === selIdx ? 'true' : 'false'}" aria-label="選擇 ${t.name}" onclick="homeCarouselSelect(${i})">
+                <img src="${t.img}" alt="">
+                <span class="tribe-name">${t.name}</span>
+              </button>`).join('')}
+          </section>
+        </div>
       </section>
 
-      <footer class="ps5-hints">
-        <span>選擇族群，開始重建家屋並完成文化任務</span>
+      <footer class="home-integrity">
+        <span>文化內容原型</span>
+        <p>正式商用前，族名、服飾、故事、聲音與授權須由各族文化顧問逐項審校。</p>
       </footer>
     </main>`;
 }
 function renderStory() {
   return `
-    <section class="end-screen">
-      <div class="setup-panel story-panel">
-        <div class="story-kicker">30 秒看懂玩法</div>
-        <h2>重建聚落，搶先完成家屋</h2>
-        <p class="story-lead">每回合擲骰取得行動點，在事件與玩家互動中收集四種素材。<b>先完成本族 4 間家屋的人取得勝利優勢。</b></p>
-        <div class="story-loop" aria-label="三步核心玩法">
-          <article><span>1</span><div><b>蒐集素材</b><small>取得木頭、竹子、茅草與石頭；缺少的素材可交換或交易。</small></div></article>
-          <article><span>2</span><div><b>做出選擇</b><small>蓋屋最快，工藝與文化卡能加分，偷襲與交易可以改變局勢。</small></div></article>
-          <article><span>3</span><div><b>完成家屋</b><small>每蓋一間補上一塊拼圖；集滿 4 塊，聚落完成並進入結算。</small></div></article>
-        </div>
-        <div class="story-tribe-row">
-          ${Object.entries(CARDS.tribes).map(([id, t]) => `
-            <div class="story-tribe-card">
-              <img src="${t.img}" alt="${t.name}">
-              <div class="story-tribe-name">${t.name}</div>
-              <div class="story-tribe-produces">盛產：${t.produces.join('、')}</div>
-            </div>`).join('')}
-        </div>
+    <section class="story-screen">
+      <header class="story-topbar">
+        <button class="story-back" onclick="gotoHome()" aria-label="返回首頁">返回</button>
+        <span>玩法與文化</span>
+        <button class="story-start" onclick="gotoSetup()">設定對局</button>
+      </header>
+
+      <main class="story-shell">
+        <section class="story-hero">
+          <p class="story-kicker">核心循環</p>
+          <h1>重建家屋，是這場遊戲的唯一主線</h1>
+          <p class="story-lead">擲骰取得行動點，蒐集四種素材，在事件、交易與文化卡之間做選擇。先完成 4 間本族家屋，就能掌握勝局。</p>
+          <div class="story-stats" aria-label="遊戲資訊">
+            <div><b>2-4</b><span>玩家</span></div>
+            <div><b>約 15-20</b><span>分鐘</span></div>
+            <div><b>4</b><span>間家屋</span></div>
+          </div>
+        </section>
+
+        <section class="story-loop" aria-label="核心玩法">
+          <article class="story-loop-primary">
+            <div class="story-materials" aria-hidden="true">
+              ${CARDS.materials.map(material => `<img src="${CARDS.materialImages[material]}" alt="">`).join('')}
+            </div>
+            <div><b>蒐集素材</b><small>木頭、竹子、茅草與石頭構成每一次建造。缺少的部分可用交易與行動補足。</small></div>
+          </article>
+          <article class="story-loop-choice">
+            <img src="${CARDS.cardBacks.culture}" alt="文化卡卡背">
+            <div><b>做出選擇</b><small>蓋屋最快，工藝與文化卡提供加速與平手分數，玩家互動則能改變局勢。</small></div>
+          </article>
+          <article class="story-loop-house">
+            <img src="${CARDS.buildingImages.thao}" alt="遊戲中的家屋圖像">
+            <div><b>完成家屋</b><small>每蓋一間，聚落就前進一步。完成 4 間本族家屋後進入結算。</small></div>
+          </article>
+        </section>
+
+        <section class="culture-context">
+          <div class="culture-context-copy">
+            <h3>文化不是裝飾，也不是同一套符號</h3>
+            <p>目前原型使用四個可玩族群與既有卡牌資料。正式商用前，每個族群的名稱、服飾、故事、聲音、圖紋、來源與授權，都必須分開審校。</p>
+            <ul>
+              <li>不自行杜撰族語或把不同族群混成單一風格</li>
+              <li>文化卡補上來源、審閱者與延伸閱讀</li>
+              <li>教育版本保留脈絡，不只做族名配對題</li>
+            </ul>
+          </div>
+          <div class="story-tribe-row" aria-label="目前可玩族群">
+            ${Object.entries(CARDS.tribes).map(([id, t]) => `
+              <article class="story-tribe-card">
+                <img src="${t.img}" alt="${t.name}遊戲卡牌">
+                <div><b>${t.name}</b><span>遊戲資源：${t.produces.join('、')}</span></div>
+              </article>`).join('')}
+          </div>
+        </section>
+
         <details class="story-lore">
-          <summary>閱讀世界觀與文化內容</summary>
-          <p>跟姊姊回到 300 年前的臺灣之後，我們化身成為各部落的領袖。戰爭結束時，我們獲得一個深埋地底的盒子——這一次，我們一定要找到回到現代的方法。</p>
-          <p>遊戲中會遇到臺灣 16 族的傳說故事文化卡。每張卡牌都帶來不同效果，也承載一段流傳於部落的故事。</p>
+          <summary>閱讀虛構世界觀設定</summary>
+          <p>玩家與姊姊回到 300 年前的臺灣，嘗試在完成聚落與尋找神秘盒子的過程中回到現代。這是遊戲的虛構敘事，不應被當成任何族群的真實歷史。</p>
+          <p>遊戲目前包含臺灣 16 族的傳說題材文化卡。卡名來自既有資料，但正式出版前仍需逐卡確認內容、來源、審閱與授權。</p>
         </details>
-        <div class="center"><button class="primary-start-button" onclick="gotoSetup()">開始遊戲</button></div>
-        <div class="center" style="margin-top:8px;"><button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button></div>
-      </div>
+
+        <footer class="story-actions">
+          <button class="primary-start-button" onclick="gotoSetup()">設定對局</button>
+          <button class="secondary-lore-button" onclick="gotoEducation()">開啟 STEAM 教學任務台</button>
+          <button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button>
+        </footer>
+      </main>
     </section>`;
+}
+
+// ── STEAM 教學任務台 ─────────────────────────────────────
+function newEducationSeed() {
+  try {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return values[0] >>> 0;
+  } catch (e) {
+    return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+  }
+}
+function lessonAnchorForSeed(seed) {
+  const tribes = Object.entries(CARDS.tribes);
+  const tribeIndex = (seed >>> 0) % tribes.length;
+  const materialIndex = Math.floor((seed >>> 0) / tribes.length) % CARDS.materials.length;
+  const [tribeId, tribe] = tribes[tribeIndex];
+  const materialName = CARDS.materials[materialIndex];
+  return {
+    tribeId,
+    tribeName: tribe.name,
+    buildingImage: CARDS.buildingImages[tribeId],
+    materialName,
+    materialImage: CARDS.materialImages[materialName]
+  };
+}
+function ensureEducationPlan(seed) {
+  const education = ui.education;
+  if (seed != null) education.seed = Number(seed) >>> 0;
+  if (education.seed == null) education.seed = newEducationSeed();
+  if (!education.plan || seed != null) {
+    education.plan = generateLessonPlan({
+      bandId: education.bandId,
+      themeId: education.themeId,
+      seed: education.seed,
+      anchor: lessonAnchorForSeed(education.seed)
+    });
+  }
+  return education.plan;
+}
+function educationRegenerate() {
+  ui.education.plan = null;
+  ensureEducationPlan(newEducationSeed());
+  render();
+}
+function educationSetBand(bandId) {
+  if (!GRADE_BANDS.some(band => band.id === bandId)) return;
+  ui.education.bandId = bandId;
+  educationRegenerate();
+}
+function educationSetTheme(themeId) {
+  if (themeId !== 'random' && !LESSON_THEMES.some(theme => theme.id === themeId)) return;
+  ui.education.themeId = themeId;
+  educationRegenerate();
+}
+function educationPrint() { window.print(); }
+function educationStartGame() {
+  const tribeId = ui.education.plan?.anchor?.tribeId;
+  const idx = Object.keys(CARDS.tribes).indexOf(tribeId);
+  if (idx >= 0) {
+    ui.homeSelectedTribe = idx;
+    ui.setup.tribes[0] = tribeId;
+  }
+  gotoSetup();
+}
+function renderEducation() {
+  const plan = ensureEducationPlan();
+  const education = ui.education;
+  const statusLabel = {
+    official: '官方氣候資料',
+    'game-artifact': '遊戲卡牌原型',
+    'student-hypothesis': '學生假設',
+    'review-required': '文化顧問待審校'
+  };
+  const steamLabels = { S: 'Science 科學', T: 'Technology 科技', E: 'Engineering 工程', A: 'Arts 表達', M: 'Mathematics 數學' };
+  return `
+    <main class="education-screen">
+      <header class="education-topbar">
+        <button class="story-back" onclick="gotoHome()" aria-label="返回首頁">返回</button>
+        <div class="education-brand"><span>STEAM 教育</span><b>教學任務台</b></div>
+        <div class="education-top-actions">
+          <button onclick="educationPrint()">列印教案</button>
+          <button class="story-start" onclick="educationStartGame()">帶入遊戲</button>
+        </div>
+      </header>
+
+      <section class="education-hero">
+        <div>
+          <p class="story-kicker">PLAY TO LEARN</p>
+          <h1>把一場遊戲，轉成一個能查證、能動手、能討論的問題</h1>
+          <p>每次隨機搭配一張建築遊戲卡、一種素材與氣候任務。卡面只作為觀察起點，特定族群文化內容必須另經審校。</p>
+        </div>
+        <dl>
+          <div><dt>5</dt><dd>學習程度</dd></div>
+          <div><dt>5</dt><dd>STEAM 主題</dd></div>
+          <div><dt>3</dt><dd>證據層級</dd></div>
+        </dl>
+      </section>
+
+      <div class="education-workspace">
+        <aside class="education-controls" aria-label="教案產生設定">
+          <div class="education-control-head">
+            <span>任務設定</span>
+            <small>選擇程度與主題</small>
+          </div>
+          <fieldset>
+            <legend>學習程度</legend>
+            <div class="grade-band-list">
+              ${GRADE_BANDS.map(band => `<button class="grade-band-button${education.bandId === band.id ? ' is-active' : ''}" aria-pressed="${education.bandId === band.id}" onclick="educationSetBand('${band.id}')"><b>${band.label}</b><small>${band.minutes} 分鐘 · ${band.groupSize}</small></button>`).join('')}
+            </div>
+          </fieldset>
+          <label class="education-theme-field">
+            <span>教案主題</span>
+            <select onchange="educationSetTheme(this.value)">
+              <option value="random"${education.themeId === 'random' ? ' selected' : ''}>隨機主題</option>
+              ${LESSON_THEMES.map(theme => `<option value="${theme.id}"${education.themeId === theme.id ? ' selected' : ''}>${theme.title}</option>`).join('')}
+            </select>
+          </label>
+          <button class="education-generate" onclick="educationRegenerate()"><span>重新生成</span><b>換一份教案</b></button>
+          <div class="education-seed"><span>教案編號</span><code>${plan.id}</code><small>Seed ${plan.seed}，相同設定可重現</small></div>
+          <div class="education-control-note"><b>文化安全閘門</b><p>現階段不會自動生成「某族因某氣候使用某材料」之類的文化事實句。</p></div>
+        </aside>
+
+        <article class="lesson-plan" id="lesson-plan">
+          <header class="lesson-header">
+            <div class="lesson-eyebrow"><span>${plan.band.label}</span><span>${plan.theme.title}</span><span>${plan.band.minutes} 分鐘</span></div>
+            <h2>${plan.bigQuestion}</h2>
+            <p>${plan.climateFrame}</p>
+            <dl class="lesson-meta">
+              <div><dt>分組</dt><dd>${plan.band.groupSize}</dd></div>
+              <div><dt>焦點</dt><dd>${plan.theme.focus}</dd></div>
+              <div><dt>評量</dt><dd>${plan.assessment.type}</dd></div>
+            </dl>
+          </header>
+
+          <section class="lesson-anchor-section">
+            <div class="lesson-section-heading"><span>01</span><div><b>本次遊戲觀察物</b><small>不是文化史料，先看見，再提出問題</small></div></div>
+            <div class="lesson-anchors">
+              <article class="lesson-anchor-card building-anchor">
+                <img src="${plan.anchor.buildingImage}" alt="${plan.anchor.tribeName}建築遊戲卡">
+                <div><span>建築遊戲卡</span><b>${plan.anchor.tribeName}</b><small>${statusLabel['game-artifact']}</small></div>
+              </article>
+              <article class="lesson-anchor-card material-anchor">
+                <img src="${plan.anchor.materialImage}" alt="${plan.anchor.materialName}遊戲素材卡">
+                <div><span>素材遊戲卡</span><b>${plan.anchor.materialName}</b><small>${statusLabel['game-artifact']}</small></div>
+              </article>
+              <div class="lesson-anchor-prompt"><span>模型測試</span><b>${plan.test}</b></div>
+            </div>
+          </section>
+
+          <section class="lesson-goals-section">
+            <div class="lesson-section-heading"><span>02</span><div><b>學習目標與 STEAM 任務</b><small>${plan.band.stageNote}</small></div></div>
+            <div class="lesson-goal-grid">
+              <ol>${plan.learningGoals.map(goal => `<li>${goal}</li>`).join('')}</ol>
+              <div class="steam-grid">${Object.entries(plan.steam).map(([key, value]) => `<article><span>${key}</span><div><b>${steamLabels[key]}</b><p>${value}</p></div></article>`).join('')}</div>
+            </div>
+          </section>
+
+          <section class="lesson-timeline-section">
+            <div class="lesson-section-heading"><span>03</span><div><b>教學流程</b><small>活動合計 ${plan.band.minutes} 分鐘</small></div></div>
+            <ol class="lesson-timeline">
+              ${plan.sequence.map((step, i) => `<li><div class="lesson-time"><b>${step.minutes}</b><small>分鐘</small></div><div class="lesson-step"><span>STEP ${String(i + 1).padStart(2, '0')}</span><h3>${step.title}</h3><p><b>教師：</b>${step.teacherAction}</p><p><b>學生：</b>${step.studentAction}</p><small>留下證據：${step.evidence}</small></div></li>`).join('')}
+            </ol>
+          </section>
+
+          <section class="lesson-kit-section">
+            <div class="lesson-section-heading"><span>04</span><div><b>材料、角色與評量</b><small>可直接轉成備課清單</small></div></div>
+            <div class="lesson-kit-grid">
+              <article><h3>材料</h3><ul>${plan.materials.map(item => `<li>${item}</li>`).join('')}</ul></article>
+              <article><h3>小組角色</h3><ul>${plan.roles.map(role => `<li>${role}</li>`).join('')}</ul></article>
+              <article><h3>評量規準</h3><ul>${plan.assessment.criteria.map(item => `<li>${item}</li>`).join('')}</ul></article>
+              <article><h3>差異化</h3><p><b>支持：</b>${plan.differentiation.support}</p><p><b>延伸：</b>${plan.differentiation.extension}</p></article>
+            </div>
+          </section>
+
+          <section class="lesson-evidence-section">
+            <div class="lesson-section-heading"><span>05</span><div><b>看見、推測、來源證實</b><small>模型結果不能直接代表族群真實知識</small></div></div>
+            <div class="evidence-ledger">
+              ${plan.evidenceLedger.map(item => `<article data-status="${item.status}"><span>${statusLabel[item.status] || item.label}</span><h3>${item.label}</h3><p>${item.text}</p></article>`).join('')}
+            </div>
+            <details class="culture-safety-panel" open>
+              <summary>文化安全檢查清單</summary>
+              <ul>${plan.cultureSafety.map(item => `<li>${item}</li>`).join('')}</ul>
+            </details>
+          </section>
+
+          <footer class="lesson-sources">
+            <div><b>課程與資料來源</b><p>連結僅支援氣候情境與課程設計。特定族群文化主張仍須逐項審校。</p></div>
+            <ul>${plan.sources.map(source => `<li><span>${source.kind}</span><a href="${source.url}" target="_blank" rel="noopener noreferrer">${source.label}</a></li>`).join('')}</ul>
+          </footer>
+        </article>
+      </div>
+    </main>`;
 }
 function leaveNet() { if (ui.net || Net.peer) { Net.reset(); ui.net = null; ui.netLobby = null; ui.netRps = null; } }
 function gotoSetup() { leaveNet(); ui.screen = 'setup'; render(); }
 function gotoStory() { ui.screen = 'story'; render(); }
+function gotoEducation() { leaveNet(); ui.screen = 'education'; ensureEducationPlan(); render(); }
 function gotoHome() { leaveNet(); ui.screen = 'home'; render(); }
 
 // ── setup / draw ──────────────────────────────────────────
@@ -688,48 +1077,70 @@ function renderSetup() {
   const s = ui.setup;
   const allPicked = Array.from({ length: s.count }).every((_, i) => s.bots[i] || s.tribes[i]);
   return `
-    <section class="setup-screen">
+    <main class="setup-screen">
       <div class="setup-panel">
-        <button class="setup-back" onclick="gotoHome()" aria-label="返回首頁">‹ 返回</button>
-        <h2>設定玩家</h2>
-        <p class="setup-meta"><span>約 15–20 分鐘</span><span>2–4 人</span><span>先蓋滿 4 間家屋獲勝</span></p>
-        <label class="name-field">
-          <span class="name-field-label">你的名字 <small>可留白</small></span>
-          <input type="text" value="${esc(s.names[0] || '')}" placeholder="輸入你的名字" maxlength="12" oninput="setName(0, this.value)">
-        </label>
-        <div class="setup-section-label">選擇玩家人數</div>
-        <div class="player-count-row">
-          ${[2, 3, 4].map(n => `<button class="option-button${s.count === n ? ' is-active' : ''}" onclick="setCount(${n})">${n} 人</button>`).join('')}
-        </div>
-        ${Array.from({ length: s.count }).map((_, i) => `
-          <div class="player-row">
-            <span class="player-tag">P${i + 1}</span>
-            ${i === 0
-              ? `<span class="player-tag-fixed">你${s.names[0] ? '（' + esc(s.names[0]) + '）' : ''}，選擇族群</span>`
-              : `<span class="player-tag-fixed">電腦自動操作</span>`}
+        <header class="setup-header">
+          <button class="setup-back" onclick="gotoHome()" aria-label="返回首頁">返回</button>
+          <div>
+            <p class="setup-kicker">建立對局</p>
+            <h1>選擇這一局的旅程</h1>
+            <p>先設定名字、對手數量與起始族群。族群選擇只套用既有遊戲資源規則。</p>
           </div>
-          ${s.bots[i] ? '' : `
+        </header>
+
+        <div class="setup-grid">
+          <section class="setup-config" aria-label="玩家設定">
+            <label class="name-field">
+              <span class="name-field-label">你的名字 <small>可留白</small></span>
+              <input type="text" value="${esc(s.names[0] || '')}" placeholder="輸入你的名字" maxlength="12" oninput="setName(0, this.value)">
+            </label>
+            <div class="setup-section-label">這一局有幾位玩家</div>
+            <div class="player-count-row" role="group" aria-label="玩家人數">
+              ${[2, 3, 4].map(n => `<button class="option-button${s.count === n ? ' is-active' : ''}" aria-pressed="${s.count === n}" onclick="setCount(${n})">${n} 人</button>`).join('')}
+            </div>
+            <div class="setup-meta" aria-label="對局資訊">
+              <span><b>約 15-20</b> 分鐘</span>
+              <span><b>${s.count - 1}</b> 位電腦對手</span>
+              <span><b>4</b> 間家屋獲勝</span>
+            </div>
+          </section>
+
+          <section class="setup-roster" aria-label="選擇起始族群">
+            <div class="player-row player-row-human">
+              <span class="player-tag">你</span>
+              <span class="player-tag-fixed">${s.names[0] ? esc(s.names[0]) + '，' : ''}選擇起始族群</span>
+            </div>
           <div class="tribe-pick-row">
             ${Object.entries(CARDS.tribes).map(([id, t]) => {
-              const takenByOther = s.tribes.some((x, j) => x === id && j !== i && j < s.count);
-              const selected = s.tribes[i] === id;
-              return `<button class="tribe-pick${selected ? ' is-active' : ''}" ${takenByOther ? 'disabled' : ''} onclick="pickTribe(${i}, '${id}')" title="${t.name}">
-                <img src="${t.img}" alt="${t.name}"><span>${t.name}</span>
+              const selected = s.tribes[0] === id;
+              return `<button class="tribe-pick${selected ? ' is-active' : ''}" aria-pressed="${selected}" onclick="pickTribe(0, '${id}')" title="選擇 ${t.name}">
+                <img src="${t.img}" alt="${t.name}遊戲卡牌">
+                <span>${t.name}</span>
+                <small>${t.produces.join('、')}</small>
               </button>`;
             }).join('')}
-          </div>`}
-        `).join('')}
-        <div class="center"><button class="primary-start-button" ${allPicked ? '' : 'disabled'} onclick="startGame()">開始遊戲</button></div>
-        ${allPicked ? '' : '<p class="muted center" style="color:#f7ddb0">請先選擇你的族群</p>'}
+          </div>
+          <div class="bot-roster" aria-label="電腦玩家">
+            ${Array.from({ length: s.count - 1 }).map((_, i) => `<span><b>電腦 ${i + 1}</b><small>開局後自動分配未選族群</small></span>`).join('')}
+          </div>
+          </section>
+        </div>
+
+        <footer class="setup-footer">
+          <p>${allPicked ? '設定完成，可以進入對局。' : '請先選擇你的起始族群。'}</p>
+          <button class="primary-start-button" ${allPicked ? '' : 'disabled'} onclick="startGame()">開始遊戲</button>
+        </footer>
       </div>
-    </section>`;
+    </main>`;
 }
 function setCount(n) { ui.setup.count = n; render(); }
 function setName(i, val) { ui.setup.names[i] = val; }
 function pickTribe(i, tribeId) {
   const s = ui.setup;
   if (s.tribes.some((x, j) => x === tribeId && j !== i && j < s.count)) return; // 已被其他玩家選走
-  s.tribes[i] = s.tribes[i] === tribeId ? null : tribeId; // 再點一次取消選擇
+  const selecting = s.tribes[i] !== tribeId;
+  s.tribes[i] = selecting ? tribeId : null; // 再點一次取消選擇
+  if (selecting) window.Sound?.tribe(tribeId); // 通用選擇確認音
   render();
 }
 function startGame() {
@@ -764,22 +1175,11 @@ function startPlayerTurn(idx) {
     return;
   }
   if (isBot(idx)) {
-    // 電腦也「看得到」擲骰動畫，不再靜默（A11）
+    // 電腦與真人共用同一套擲骰時序，避免兩套動畫逐漸失去同步。
     ui.screen = 'board';
-    ui.modal = { type: 'dice', phase: 'rolling', face: 0, bot: true };
-    render();
-    let ticks = 0;
-    const t = setInterval(() => {
-      ui.modal.face = Math.floor(Math.random() * 6);
-      render();
-      if (++ticks >= 8) {
-        clearInterval(t);
-        const { die, ap } = rollTurnDice(G, idx, rng);
-        ui.modal = { type: 'dice', phase: 'result', die, ap, bot: true };
-        render();
-        setTimeout(() => { ui.modal = null; render(); setTimeout(runBotStep, 450); }, 950);
-      }
-    }, 90);
+    const m = { type: 'dice', phase: 'ready', face: 1, bot: true };
+    ui.modal = m;
+    beginDiceSequence(m, idx);
     return;
   }
   // A16：只有一位真人，不再走「請把電腦交給下一位」交接畫面，直接進擲骰（A11）
@@ -792,44 +1192,94 @@ const DIE_PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5
 function dieCube(n, extraClass) {
   const active = new Set(DIE_PIPS[n] || []);
   const cells = Array.from({ length: 9 }, (_, i) => `<span class="pip${active.has(i + 1) ? ' on' : ''}"></span>`).join('');
-  return `<div class="die-cube${extraClass ? ' ' + extraClass : ''}">${cells}</div>`;
+  const phase = extraClass || 'ready';
+  return `<div class="dice-stage is-${phase}" aria-hidden="true">
+    <span class="dice-shadow"></span>
+    <div class="dice-motion"><div class="die-cube" data-face="${n}">${cells}</div></div>
+    <span class="dice-impact-ring"></span>
+  </div>`;
 }
 function renderDice(m) {
   const who = m.bot ? `${currentPlayer().tribeName} ${nickname(G.currentPlayer)}（電腦） ` : '';
   if (m.phase === 'ready') return `<h3 class="center">回合開始，先擲骰子！</h3>
-    <div class="center dice-face">${dieCube(1)}</div>
+    <div class="center dice-face">${dieCube(1, 'ready')}</div>
     <p class="center muted">骰子點數會變成你這回合能做幾件事（行動點）</p>
-    <div class="center"><button class="cta cta-primary" onclick="diceRoll()">擲骰子</button></div>`;
+    <div class="center"><button class="cta cta-primary dice-roll-button" onclick="diceRoll()">擲骰子</button></div>`;
+  if (m.phase === 'launch') return `<h3 class="center" aria-live="polite" aria-atomic="true">${who}骰子離手</h3>
+    <div class="center dice-face">${dieCube(m.face || 1, 'launch')}</div>
+    <p class="center muted">正在計算本回合行動點</p>`;
   if (m.phase === 'rolling') return `<h3 class="center">${who}擲骰中…</h3>
-    <div class="center dice-face">${dieCube(m.face + 1, 'dice-rolling')}</div>`;
+    <div class="center dice-face">${dieCube(m.face || 1, 'rolling')}</div>`;
   return `<h3 class="center">${who}骰到 ${m.die} 點！</h3>
-    <div class="center dice-face">${dieCube(m.die)}</div>
+    <div class="center dice-face">${dieCube(m.die, 'result')}</div>
     <p class="center dice-ap-line">骰子 <b>${m.die}</b> 點　→　這回合可以做 <b>${m.ap}</b> 件事</p>
     <div class="center ap-pips ap-pips-lg">${apPips(m.ap, m.ap)}</div>
-    ${m.ap === 4 ? '<p class="center muted">手氣真好！</p>' : m.ap === 2 ? '<p class="center muted">將就一下…</p>' : ''}
+    ${G.currentEvent?.id === 'clearweather' && m.die <= 2 ? '<p class="center muted">天候放晴：低點數也提升為 3 行動點</p>' : m.ap === 2 ? '<p class="center muted">行動較少，先鎖定最重要的一步。</p>' : ''}
     ${m.bot ? '' : `<p class="center muted">即將進入行動階段，也可以直接按下方按鈕。</p>
-    <div class="center"><button class="cta cta-primary" onclick="diceDone()">立即行動</button></div>`}`;
+    <div class="center"><button class="cta cta-primary dice-continue-button" onclick="diceDone()">立即行動</button></div>`}`;
+}
+function setDiceVisualFace(n) {
+  const cube = document.querySelector('.dice-stage .die-cube');
+  if (!cube) return;
+  const active = new Set(DIE_PIPS[n] || []);
+  cube.dataset.face = String(n);
+  cube.querySelectorAll('.pip').forEach((pip, i) => pip.classList.toggle('on', active.has(i + 1)));
+}
+function finishDiceSequence(m, playerIdx) {
+  if (ui.modal !== m || m._settled) return;
+  m._settled = true;
+  if (m._faceTimer) clearInterval(m._faceTimer);
+  const { die, ap } = rollTurnDice(G, playerIdx, rng);
+  m.phase = 'result';
+  m.die = die;
+  m.ap = ap;
+  m.face = die;
+  window.Sound?.sfx('dice');
+  render();
+  if (ui.net && !m.bot) Net.send({ t: 'dice' });
+  if (m.bot) {
+    setTimeout(() => {
+      if (ui.modal !== m || m.phase !== 'result') return;
+      ui.modal = null;
+      render();
+      setTimeout(runBotStep, 450);
+    }, prefersReducedMotion() ? 120 : 900);
+  } else if (!ui.net) {
+    setTimeout(() => {
+      if (ui.modal === m && m.phase === 'result') diceDone();
+    }, prefersReducedMotion() ? 320 : 1500);
+  }
+}
+function beginDiceSequence(m, playerIdx) {
+  if (!m || m.type !== 'dice' || m._running || m.phase !== 'ready') return;
+  m._running = true;
+  m.phase = 'launch';
+  m.face = Math.floor(Math.random() * 6) + 1;
+  render();
+  if (prefersReducedMotion()) {
+    requestAnimationFrame(() => finishDiceSequence(m, playerIdx));
+    return;
+  }
+  setTimeout(() => {
+    if (ui.modal !== m || m._settled) return;
+    m.phase = 'rolling';
+    m.face = Math.floor(Math.random() * 6) + 1;
+    render();
+    m._faceTimer = setInterval(() => {
+      if (ui.modal !== m || m.phase !== 'rolling') {
+        clearInterval(m._faceTimer);
+        return;
+      }
+      m.face = Math.floor(Math.random() * 6) + 1;
+      setDiceVisualFace(m.face);
+    }, 95);
+  }, 180);
+  setTimeout(() => finishDiceSequence(m, playerIdx), 920);
 }
 function diceRoll() {
   const m = ui.modal;
-  m.phase = 'rolling';
-  let ticks = 0;
-  const t = setInterval(() => {
-    if (ui.modal !== m) { clearInterval(t); return; } // 防競態：modal 已關或換人就停，避免誤對他人擲骰
-    m.face = Math.floor(Math.random() * 6); // 動畫用亂數，不影響正式判定
-    render();
-    if (++ticks >= 10) {
-      clearInterval(t);
-      const { die, ap } = rollTurnDice(G, G.currentPlayer, rng);
-      m.phase = 'result'; m.die = die; m.ap = ap;
-      window.Sound?.sfx('dice');
-      render();
-      if (ui.net) Net.send({ t: 'dice' }); // 通知對方套用同一次擲骰（他用自己的 rng 消耗一次，結果一致）
-      if (!ui.net) setTimeout(() => {
-        if (ui.modal === m && m.phase === 'result') diceDone();
-      }, 1400);
-    }
-  }, 90);
+  if (!m || m.type !== 'dice' || m.phase !== 'ready') return;
+  beginDiceSequence(m, G.currentPlayer);
 }
 function diceDone() { ui.modal = null; render(); maybeStartTutorial(); maybeTriggerQuiz(); }
 
@@ -867,15 +1317,17 @@ function finishTurnAndAdvance() {
   if (G.endTriggeredBy && G.currentPlayer === G.players.length - 1) {
     G.phase = 'ended';
     ui.screen = 'end';
-    window.Sound?.sfx('victory');
-    render();
+    render(); // 結算音樂由 syncMusicScene 依勝/平/負決定
     return;
   }
+  // 回合結束鐘聲：只在真人結束自己回合時響一下，避免電腦連續回合狂敲
+  if (!isBot(G.currentPlayer) && (!ui.net || G.currentPlayer === ui.net.myIdx)) window.Sound?.turnBell();
   G.currentPlayer = (G.currentPlayer + 1) % G.players.length;
   if (G.currentPlayer === 0) {
     G.turn++;
     flipNextEvent(G); // A20：新一輪翻下一張公共事件（seed 決定順序，連線兩端一致）
     revealedEvent = G.currentEvent;
+    window.Sound?.event(G.currentEvent.id); // 每張事件卡有專屬音效
   }
 
   if (!G.rawDeck.length && !G.cultureDeck.length && !G.buildingDeck.length && !G.endTriggeredBy) {
@@ -887,11 +1339,11 @@ function finishTurnAndAdvance() {
     if (!anyPair) { G.endTriggeredBy = 'decks_exhausted'; G.phase = 'ended'; }
   }
 
-  if (G.phase === 'ended') { ui.screen = 'end'; window.Sound?.sfx('victory'); render(); return; }
+  if (G.phase === 'ended') { ui.screen = 'end'; render(); return; }
   startPlayerTurn(G.currentPlayer);
   if (revealedEvent) setTimeout(() => {
     if (ui.screen !== 'board') return;
-    showImpact(`${revealedEvent.icon || ''} ${revealedEvent.name}`, `第 ${G.turn + 1} 輪公共事件`);
+    showImpact(revealedEvent.name, `第 ${G.turn + 1} 輪公共事件`);
     window.Sound?.sfx('toast');
   }, 80);
 }
@@ -918,7 +1370,9 @@ function doAction(action, fromRemote) {
       RAID: `${who} 發動偷襲，戰場有變化`,
       SWAP_BUILDING: `${who} 完成建築互換`,
       PLAY_CULTURE: `${who} 打出了一張文化卡`,
-      PLAY_RAW_PAIR: `${who} 完成了一件工藝`
+      PLAY_RAW_PAIR: `${who} 完成了一件工藝`,
+      SHARE_MATERIAL: `${who} 完成互助分享`,
+      SHARED_LEARNING: `${who} 發起共學交流`
     }[action.type];
     if (feedback) showToast(feedback);
   } catch (e) {
@@ -935,16 +1389,20 @@ function doAction(action, fromRemote) {
   try { animateGains(action, matBefore, buildingsBefore); }
   catch (e) { console.warn('animateGains 失敗（已忽略）：', e); }
   // JJ 要求「回合自動結束」：行動點用完就「立刻」換手，不再停下等玩家按繼續。
-  // （原本抽牌當最後一動會設 ui.pendingAdvance 停住等「看完卡牌，繼續回合」，JJ 覺得多一步、要拿掉。）
+  // （原本抽牌當最後一動會設 ui.pendingAdvance 停住等「看完卡牌，繼續回合」，JJ 覺得多一步、要拿掉；
+  //   但拿掉之後換手太快，JJ 反映看不到剛抽的卡、切畫面會嚇到——問題不是「要不要停下讓玩家按繼續」，
+  //   是延遲時間比動畫時間短，換手畫面在 popDrawnCard 的 1800ms 動畫播完前就蓋上來了。
+  //   這裡只調整自動換手前的等待時間，不加任何手動按鈕/額外步驟。）
   try {
     if (currentPlayer().actionPoints <= 0) {
       const isFinalDraw = action.type === 'DRAW_MATERIAL_CARD' || action.type === 'DRAW_CULTURE_CARD';
-      if (isFinalDraw) {
-        const actorIdx = action.player;
-        setTimeout(() => {
-          if (ui.screen === 'board' && G.phase === 'playing' && G.currentPlayer === actorIdx && currentPlayer().actionPoints <= 0) finishTurnAndAdvance();
-        }, 700);
-      } else finishTurnAndAdvance();
+      // 抽卡亮相動畫（popDrawnCard）總長 2200ms，換手延遲要蓋過它，不然畫面會在卡片動畫播到一半時被切換蓋掉；
+      // 其他動作也有 toast 提示，給稍短但足夠看清楚發生什麼事的緩衝，一律自動繼續、不需要玩家手動按繼續。
+      const delay = isFinalDraw ? 2300 : 1000;
+      const actorIdx = action.player;
+      setTimeout(() => {
+        if (ui.screen === 'board' && G.phase === 'playing' && G.currentPlayer === actorIdx && currentPlayer().actionPoints <= 0) finishTurnAndAdvance();
+      }, delay);
     }
   }
   catch (e) { console.warn('自動換手失敗：', e); }
@@ -1095,12 +1553,16 @@ function renderBoard() {
   const pairs = availablePairs(p);
   const cultureInHand = p.hand.filter(c => c.kind === 'culture');
   const rawInHand = p.hand.filter(c => c.kind === 'raw');
+  const canShare = p.actionPoints >= 1 && !p._sharedThisTurn && CARDS.materials.some(m => (p.materials[m] || 0) >= 2);
+  const canLearnTogether = p.actionPoints >= 1 && !p._sharedLearningThisTurn && G.cultureDeck.length >= 2;
+  const playerBuyCost = G.currentEvent?.id === 'marketday' ? 1 : 2;
+  const rawDrawCost = G.currentEvent?.id === 'materiallab' && !p._materialLabUsed ? 0 : 1;
 
   return `
     <div class="board-viewport">
       <div class="bv-header">
         <div class="row between">
-          <h1>原地重生・返璞歸真</h1>
+          <h1>原地重生 <span>返璞歸真</span></h1>
           <div class="row">
             <button class="tutorial-open-btn icon-round" onclick="startTutorial()" title="怎麼玩？" aria-label="怎麼玩？">?</button>
             <div class="chip">第 ${G.turn + 1} 輪</div>
@@ -1115,7 +1577,7 @@ function renderBoard() {
         <div class="row between">
           <div>${tribeBadge(p.tribe)} ${nickname(p.idx)}</div>
         </div>
-        <h3>戰場・公共牌庫</h3>
+        <h3>對局資訊</h3>
         <div class="row">
           <span class="chip"><img class="card-back-sm" src="${CARDS.cardBacks.building}" alt="">本族可蓋家屋 ${G.buildingDeck.filter(b => b.tribe === p.tribe).length}</span>
           <span class="chip deck-craft"><img class="card-back-sm" src="${CARDS.cardBacks.craft}" alt="">工藝 ${G.craftPool.length}</span>
@@ -1145,16 +1607,16 @@ function renderBoard() {
         <div class="row center">${buildingsOtherArea(p)}</div>
         ${(() => { // 公共牌庫實體化上桌：點牌堆直接抽（填補中央空曠，也解「抽牌入口藏在收合選單」的動線）
           const can = p.actionPoints >= 1;
-          const stack = (cls, back, label, n, fn) => {
+          const stack = (cls, back, label, n, fn, cost = 1) => {
             const ok = can && n > 0;
             const why = n <= 0 ? '牌庫已空' : '行動點數不足';
-            return `<button class="table-deck ${cls}${ok ? '' : ' is-locked'}" ${ok ? `onclick="${fn}()"` : 'disabled'} aria-label="${label}，剩 ${n} 張">
+            return `<button class="table-deck ${cls}${ok ? '' : ' is-locked'}" onclick="${fn}()" title="${ok ? '點擊抽卡' : why}" aria-label="${label}，剩 ${n} 張，${ok ? '可以抽卡' : why}">
               <span class="table-deck-stack"><img src="${back}" alt="${label}"><i class="table-deck-count">${n}</i></span>
-              <span class="table-deck-label"><b>${label}</b><small>${ok ? '花 1 行動點抽 1 張' : why}</small></span>
+              <span class="table-deck-label"><b>${label}</b><small>${ok ? (cost === 0 ? '材料試驗：本次免費' : `花 ${cost} 行動點抽 1 張`) : why}</small></span>
             </button>`;
           };
           return `<div class="table-decks">
-            ${stack('deck-raw', CARDS.cardBacks.raw, '原料牌庫', G.rawDeck.length, 'actionDrawMaterial')}
+            ${stack('deck-raw', CARDS.cardBacks.raw, '原料牌庫', G.rawDeck.length, 'actionDrawMaterial', rawDrawCost)}
             ${stack('deck-culture', CARDS.cardBacks.culture, '文化牌庫', G.cultureDeck.length, 'actionDrawCulture')}
           </div>`;
         })()}
@@ -1184,16 +1646,20 @@ function renderBoard() {
           ${(() => { const bc = G.currentEvent?.id === 'reinforce' ? 1 : 2; return actionButton(`${canBuyBuilding(p) ? '建議：' : ''}蓋家屋${bc < 2 ? '（事件減免）' : ''}`, 'actionBuyBuilding()', String(bc), p.actionPoints < bc || !canBuyBuilding(p), p.actionPoints < bc ? `需要 ${bc} 點行動點` : '需要 4 種素材各 1', canBuyBuilding(p) ? 'action-suggest' : ''); })()}
 
           <div class="action-group-label">賺加分</div>
-          ${actionButton('抽原料卡（湊對做工藝用）', 'actionDrawMaterial()', '1', p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
+          ${actionButton(`抽原料卡${rawDrawCost === 0 ? '（材料試驗免費）' : '（湊對做工藝用）'}`, 'actionDrawMaterial()', String(rawDrawCost), p.actionPoints < 1 || !G.rawDeck.length, p.actionPoints < 1 ? '行動點數不足' : '原料牌庫已空')}
           ${pairs.map(pr => actionButton(`湊對換工藝「${pr.name}」`, `actionPlayRawPair('${pr.craftId}')`, '1', p.actionPoints < 1, '行動點數不足')).join('')}
           ${actionButton('抽文化卡', 'actionDrawCulture()', '1', p.actionPoints < 1 || !G.cultureDeck.length, p.actionPoints < 1 ? '行動點數不足' : '文化牌庫已空')}
 
+          <div class="action-group-label">玩家互助</div>
+          ${actionButton(`互助分享素材${G.currentEvent?.id === 'mutualaid' ? '（事件加成）' : ''}`, 'actionShareMaterial()', '1', !canShare || !others.length, p._sharedThisTurn ? '本回合已分享過' : (p.actionPoints < 1 ? '行動點數不足' : '需要至少一種素材持有 2 枚'))}
+          ${actionButton(`共學交流${G.currentEvent?.id === 'sharedstories' ? '（首次退回 1 點）' : ''}`, 'actionSharedLearning()', '1', !canLearnTogether || !others.length, p._sharedLearningThisTurn ? '本回合已共學過' : (G.cultureDeck.length < 2 ? '文化牌庫至少需要 2 張' : '行動點數不足'))}
+
           <details class="advanced-actions">
-            <summary>玩家互動與進階行動 <span>5 種</span></summary>
-            <p>想干擾對手或補關鍵卡牌時再展開。</p>
+            <summary>競爭與進階行動 <span>5 種</span></summary>
+            <p>想改變對手節奏或補關鍵卡牌時再展開。</p>
             ${actionButton('偷襲（猜拳）', 'actionRaid()', '1', p.actionPoints < 1 || !others.length, p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家')}
             ${actionButton('交易', 'actionTrade()', '1', p.actionPoints < 1 || !others.length || G.currentEvent?.id === 'roadblock', G.currentEvent?.id === 'roadblock' ? '山路封閉：本回合不能交易' : (p.actionPoints < 1 ? '行動點數不足' : '沒有其他玩家'))}
-            ${actionButton('向玩家購卡', 'actionBuyFromPlayer()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '選擇玩家與要購買的卡牌')}
+            ${actionButton(`向玩家購卡${playerBuyCost === 1 ? '（市集減免）' : ''}`, 'actionBuyFromPlayer()', String(playerBuyCost), p.actionPoints < playerBuyCost || !others.length, p.actionPoints < playerBuyCost ? `需要 ${playerBuyCost} 點行動點` : '選擇玩家與要購買的卡牌')}
             ${actionButton('建築互換猜拳', 'actionSwapBuilding()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
             ${actionButton('強制換原料卡', 'actionForceSwapRaw()', '2', p.actionPoints < 2 || !others.length, p.actionPoints < 2 ? '需要 2 點行動點' : '沒有其他玩家')}
           </details>
@@ -1204,19 +1670,19 @@ function renderBoard() {
 
       <div class="bv-hand">
         ${rawInHand.map((c, i) => `
-          <div class="hand-card${ui.inspectCard === 'raw-' + i ? ' is-inspected' : ''}" onclick="handRawTap(${i})">
+          <button type="button" class="hand-card${ui.inspectCard === 'raw-' + i ? ' is-inspected' : ''}" aria-label="查看原料卡 ${c.name}" onclick="handRawTap(${i})">
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>原料卡・湊對換工藝</span></div>
-          </div>`).join('')}
+          </button>`).join('')}
           ${cultureInHand.map(c => {
             const blocked = p.actionPoints < 1 || p.culturePlayedThisTurn >= 1;
             const inspected = ui.inspectCard === 'cul-' + c.id;
             const hint = p.actionPoints < 1 ? '行動點數不足' : p.culturePlayedThisTurn >= 1 ? '本回合已使用文化卡' : (inspected ? '再點一次打出' : '點擊擲出');
             return `
-          <div class="hand-card culture${blocked ? ' disabled' : ''}${inspected ? ' is-inspected' : ''}" onclick="handCultureTap('${c.id}')">
+          <button type="button" class="hand-card culture${blocked ? ' disabled' : ''}${inspected ? ' is-inspected' : ''}" aria-label="${blocked ? hint : `打出文化卡 ${c.name}`}" onclick="handCultureTap('${c.id}')">
             ${cardThumb(c)}
             <div class="hand-card-info"><b>${c.name}</b><span>${EFFECT_LABEL[c.effect] || ''}</span><em>${hint}</em></div>
-          </div>`;
+          </button>`;
           }).join('')}
         ${(!rawInHand.length && !cultureInHand.length) ? `
           <div class="empty-hand-state">
@@ -1226,7 +1692,7 @@ function renderBoard() {
               ${p.actionPoints >= 1 && G.cultureDeck.length ? `<button class="empty-deck culture-deck" onclick="actionDrawCulture()" title="花 1 行動點抽 1 張文化卡"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張・點擊抽</span></button>`
                 : `<div class="empty-deck culture-deck is-locked"><img src="${CARDS.cardBacks.culture}" alt="文化牌庫"><b>文化牌庫</b><span>${G.cultureDeck.length} 張</span></div>`}
             </div>
-            <div class="empty-hand-copy"><strong>你的手牌區</strong><span>目前沒有手牌 — 直接點牌庫抽 1 張，或<button class="link-open-hud" onclick="toggleHud()">開啟行動選單</button></span></div>
+            <div class="empty-hand-copy"><strong>你的手牌區</strong><span>目前沒有手牌。直接點牌庫抽 1 張，或<button class="link-open-hud" onclick="toggleHud()">開啟行動選單</button></span></div>
           </div>` : ''}
       </div>
 
@@ -1303,10 +1769,10 @@ function renderEnd() {
   const winners = scores.filter(s => s.buildingCount === best.buildingCount && s.total === best.total);
   const isWin = s => winners.some(w => w.player === s.player);
   return `
-    <section class="end-screen">
+    <main class="end-screen">
       <div class="setup-panel">
         <div class="end-kicker">聚落建造完成</div>
-        <h2>${winners.length > 1 ? '並列勝利！' : `${winners[0].tribe}勝利！`}</h2>
+        <h1>${winners.length > 1 ? '並列勝利！' : `${winners[0].tribe}勝利！`}</h1>
         <p class="center muted" style="color:rgba(248,230,190,0.75);">結束原因：${endReasonLabel(G.endTriggeredBy)}｜共 ${G.turn + 1} 輪</p>
         <p class="center muted" style="color:rgba(248,230,190,0.6);font-size:0.85em;">勝負以「本族家屋棟數」決定，平手才比總分</p>
         <div class="winner-banner">
@@ -1319,9 +1785,9 @@ function renderEnd() {
         </div>
         <div class="end-score-scroll" tabindex="0" aria-label="完整計分表，可左右滑動查看">
         <table class="score-table">
-          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>事件</th><th>目標</th><th>總分</th></tr>
+          <tr><th>族群</th><th>家屋棟數</th><th>建築分</th><th>文化</th><th>工藝</th><th>服飾</th><th>獎勵</th><th>互助</th><th>事件</th><th>目標</th><th>總分</th></tr>
           ${scores.slice().sort(rankCmp).map(s => `<tr class="${isWin(s) ? 'is-winner' : ''}">
-            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.eventBonus || 0}</td><td>${s.objective ? '+5' : '0'}</td><td>${s.total}</td>
+            <td>${s.tribe} ${nickname(s.player)}</td><td><b>${s.buildingCount}/${goal}</b></td><td>${s.buildings}</td><td>${s.culture}</td><td>${s.crafts}</td><td>${s.clothing}</td><td>${s.bonus}</td><td>${s.support || 0}</td><td>${s.eventBonus || 0}</td><td>${s.objective ? '+5' : '0'}</td><td>${s.total}</td>
           </tr>`).join('')}
         </table>
         </div>
@@ -1333,7 +1799,7 @@ function renderEnd() {
             const pr = objectiveProgress(pl);
             return `<div class="end-obj-row${s.objectiveDone ? ' done' : ''}">
               <span class="end-obj-who">${s.tribe} ${nickname(s.player)}</span>
-              <span class="end-obj-name">${def ? (def.icon + ' ' + def.name) : '—'}</span>
+              <span class="end-obj-name">${def ? ((OBJECTIVE_GLYPHS[def.id] || '目') + ' ' + def.name) : '未揭曉'}</span>
               <span class="end-obj-prog">${pr.cur}/${pr.target}</span>
               <span class="end-obj-mark">${s.objectiveDone ? '✓ 達成 +5' : '未達成'}</span>
             </div>`;
@@ -1344,7 +1810,7 @@ function renderEnd() {
           <button class="secondary-lore-button" onclick="gotoHome()">返回首頁</button>
         </div>
       </div>
-    </section>`;
+    </main>`;
 }
 function replayGame() {
   G = null;
@@ -1361,11 +1827,11 @@ function closeModal() { ui.modal = null; render(); }
 function closeBtn(label) { return `<div class="row" style="margin-top:12px;"><button onclick="closeModal()">${label || '取消'}</button></div>`; }
 function modalLabel(type) {
   return ({
-    dice: '回合擲骰', chooseTarget: '選擇對象', forceSwapPick: '選擇交換家屋', passOverlay: '玩家交接',
+    dice: '回合擲骰', quiz: '卡牌標籤問答', chooseTarget: '選擇對象', forceSwapPick: '選擇交換家屋', passOverlay: '玩家交接',
     rps: '猜拳對決', materialPicker: '選擇素材', takeMode: '選擇素材取得方式', exchangePickGive: '選擇交出素材',
     exchangePickGet: '選擇取得素材', buyBuildingPicker: '建造家屋', tradeOffer: '提出交易', tradeRespond: '回應交易',
     tradeRejected: '交易結果', buyFromPlayerPick: '向玩家購買', buyFromPlayerDemand: '選擇支付素材', netRps: '連線猜拳',
-    tradeRespondNet: '回應連線交易', netWaiting: '等待其他玩家', netLost: '連線中斷', cultureConfirm: '文化卡效果與分數'
+    tradeRespondNet: '回應連線交易', shareMaterial: '互助分享素材', netWaiting: '等待其他玩家', netLost: '連線中斷', cultureConfirm: '文化卡效果與分數'
   })[type] || '遊戲操作';
 }
 function modalCanDismiss(type) {
@@ -1387,6 +1853,7 @@ function renderModal() {
   else if (m.type === 'takeMode') inner = renderTakeMode();
   else if (m.type === 'exchangePickGive') inner = renderExchangeGive(m);
   else if (m.type === 'exchangePickGet') inner = renderExchangeGet();
+  else if (m.type === 'shareMaterial') inner = renderShareMaterial(m);
   else if (m.type === 'buyBuildingPicker') inner = renderBuyBuildingPicker(m);
   else if (m.type === 'tradeOffer') inner = renderTradeOffer(m);
   else if (m.type === 'tradeRespond') inner = renderTradeRespond(m);
@@ -1541,6 +2008,38 @@ function exchangeGetPick(get) {
   doAction({ type: 'TAKE_MATERIALS', player: G.currentPlayer, mode: 'exchange', give, get });
 }
 
+// 正向互動：分享素材與共學交流
+function actionShareMaterial() {
+  chooseTargetModal('互助分享：選擇要幫助的玩家', (targetIdx) => {
+    const p = currentPlayer();
+    const options = CARDS.materials.filter(m => (p.materials[m] || 0) >= 2);
+    ui.modal = { type: 'shareMaterial', target: targetIdx, options };
+    render();
+  }, pl => {
+    const missing = CARDS.materials.filter(m => (pl.materials[m] || 0) === 0);
+    return `${pl.tribeName} ${nickname(pl.idx)}${missing.length ? `（缺 ${missing.join('、')}）` : '（素材皆有）'}`;
+  });
+}
+function renderShareMaterial(m) {
+  const t = G.players[m.target];
+  const options = m.options.map(material => {
+    const needed = (t.materials[material] || 0) === 0;
+    return `<button class="share-material-option${needed ? ' is-needed' : ''}" onclick="shareMaterialPick('${material}')">${matIcon(material)}<span><b>${material}</b><small>${needed ? `${t.tribeName}目前缺少` : `你有 ${currentPlayer().materials[material]} 枚`}</small></span></button>`;
+  }).join('');
+  return `<h3>分享一枚素材給 ${t.tribeName}</h3>
+    <p class="muted">你會保留至少 1 枚自用，完成分享可獲得互助分，整局最多計 5 分。</p>
+    <div class="share-material-grid">${options}</div>${closeBtn()}`;
+}
+function shareMaterialPick(material) {
+  const target = ui.modal.target;
+  doAction({ type: 'SHARE_MATERIAL', player: G.currentPlayer, target, material });
+}
+function actionSharedLearning() {
+  chooseTargetModal('共學交流：選擇一起抽卡的玩家', (targetIdx) => {
+    doAction({ type: 'SHARED_LEARNING', player: G.currentPlayer, target: targetIdx });
+  }, pl => `${pl.tribeName} ${nickname(pl.idx)}（雙方各抽 1 張文化卡）`);
+}
+
 // RAID / SWAP_BUILDING
 function actionRaid() {
   if (ui.net) { const target = (ui.net.myIdx + 1) % G.players.length; netRPS('raid', target, (win) => doAction({ type: 'RAID', player: G.currentPlayer, target, result: win })); return; }
@@ -1584,10 +2083,10 @@ function renderForceSwapPick(m) {
   const p = currentPlayer();
   const t = G.players[m.target];
   const mine = p.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
-    .map(x => `<div class="hand-card${m.myHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickMine(${x.idx})">${cardThumb(x.c)}<div>${x.c.name}</div></div>`).join('');
+    .map(x => `<button type="button" class="hand-card${m.myHandIdx === x.idx ? ' selected' : ''}" aria-pressed="${m.myHandIdx === x.idx}" aria-label="選擇自己的${esc(x.c.name)}" onclick="forceSwapPickMine(${x.idx})">${cardThumb(x.c)}<span>${esc(x.c.name)}</span></button>`).join('');
   // rules-spec A12：對方原料卡蓋牌盲選，不公開內容（只以卡背＋編號呈現）
   const theirs = t.hand.map((c, idx) => ({ c, idx })).filter(x => x.c.kind === 'raw')
-    .map((x, i) => `<div class="hand-card back${m.theirHandIdx === x.idx ? ' selected' : ''}" onclick="forceSwapPickTheirs(${x.idx})"><img class="card-thumb" src="${CARDS.cardBacks.raw}" alt="原料卡"><div>原料卡 ${i + 1}</div></div>`).join('');
+    .map((x, i) => `<button type="button" class="hand-card back${m.theirHandIdx === x.idx ? ' selected' : ''}" aria-pressed="${m.theirHandIdx === x.idx}" aria-label="選擇對方第 ${i + 1} 張蓋牌原料卡" onclick="forceSwapPickTheirs(${x.idx})"><img class="card-thumb" src="${CARDS.cardBacks.raw}" alt=""><span>原料卡 ${i + 1}</span></button>`).join('');
   return `<h3>強制交換原料卡</h3>
     <p>選擇你要<b>給出</b>的原料卡：</p><div class="row">${mine}</div>
     <p>選擇要向 ${t.tribeName} <b>換得</b>的原料卡（對方蓋牌，翻牌後才知道是什麼）：</p><div class="row">${theirs}</div>
@@ -1615,8 +2114,8 @@ function renderTradeOffer(m) {
   const giveOptions = CARDS.materials.filter(x => (p.materials[x] || 0) >= 1);
   const giveChips = giveOptions.map(x => `<button ${m.give.length >= 2 ? 'disabled' : ''} onclick="tradeAddGive('${x}')">${matIcon(x)} ${x}</button>`).join('');
   const getChips = CARDS.materials.map(x => `<button ${m.get.length >= 2 ? 'disabled' : ''} onclick="tradeAddGet('${x}')">${matIcon(x)} ${x}</button>`).join('');
-  const giveChosen = m.give.map((x, i) => `<button onclick="tradeRemoveGive(${i})">${x} ✕</button>`).join(' ') || '（無）';
-  const getChosen = m.get.map((x, i) => `<button onclick="tradeRemoveGet(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  const giveChosen = m.give.map((x, i) => `<button aria-label="移除付出的${x}" onclick="tradeRemoveGive(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  const getChosen = m.get.map((x, i) => `<button aria-label="移除想取得的${x}" onclick="tradeRemoveGet(${i})">${x} ✕</button>`).join(' ') || '（無）';
   return `<h3>向 ${t.tribeName} ${nickname(m.target)} 提議交易</h3>
     <p>你要給對方（最多 2 枚）：</p><div class="row">${giveChips}</div><p>已選：${giveChosen}</p>
     <p>你要向對方換（最多 2 枚，對方是否持有將由對方確認）：</p><div class="row">${getChips}</div><p>已選：${getChosen}</p>
@@ -1699,7 +2198,7 @@ function renderTradeRejected(m) {
   const canForce = m.get.length > 0 && Object.entries(cnt).every(([x, n]) => (t.materials[x] || 0) >= n);
   return `<h3>${t.tribeName} ${nickname(m.target)} 拒絕了交易！</h3>
     ${canForce
-      ? `<p>不甘心嗎？可以發起猜拳搶——<b>贏了就強制成交</b>。</p>
+      ? `<p>不甘心嗎？可以發起猜拳搶，<b>贏了就強制成交</b>。</p>
          <div class="row"><button onclick="tradeGiveUp()">算了</button>
          <button class="primary" onclick="tradeChallengeRPS()">剪刀石頭布！</button></div>`
       : `<p>但對方沒有你要換的素材，無法強制成交。</p>
@@ -1766,7 +2265,7 @@ function buyFromPlayerPickCard(i) {
 }
 function renderBuyFromPlayerDemand(m) {
   const chips = CARDS.materials.map(x => `<button ${m.pay.length >= 2 ? 'disabled' : ''} onclick="buyFromPlayerAddPay('${x}')">${matIcon(x)} ${x}</button>`).join('');
-  const chosen = m.pay.map((x, i) => `<button onclick="buyFromPlayerRemovePay(${i})">${x} ✕</button>`).join(' ') || '（無）';
+  const chosen = m.pay.map((x, i) => `<button aria-label="移除支付的${x}" onclick="buyFromPlayerRemovePay(${i})">${x} ✕</button>`).join(' ') || '（無）';
   return `<h3>要求買方支付（最多 2 枚）</h3><p>你要賣：${m.card.name}</p><div class="row">${chips}</div><p>已選：${chosen}</p>
     <button class="primary" onclick="buyFromPlayerSubmitDemand()">送出要求</button>`;
 }
@@ -1817,25 +2316,37 @@ function actionPlayCulture(cardId) {
   const card = p.hand.find(c => c.kind === 'culture' && c.id === cardId);
   if (!card) return;
   if (card.effect === 'steal_2') {
-    chooseTargetModal(`擲出「${card.name}」— 選擇偷取對象`, (targetIdx) => {
+    chooseTargetModal(`擲出「${card.name}」：選擇偷取對象`, (targetIdx) => {
       doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId, target: targetIdx });
     });
   } else if (card.effect === 'gain_2_any') {
-    materialPickerModal(`擲出「${card.name}」— 選擇獲得的素材`, 2, (picks) => {
+    materialPickerModal(`擲出「${card.name}」：選擇獲得的素材`, 2, (picks) => {
       doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId, gain: picks });
     });
   } else {
     doAction({ type: 'PLAY_CULTURE', player: G.currentPlayer, cardId });
   }
 }
+function drawBlockedReason(kind) {
+  const p = currentPlayer();
+  const isRaw = kind === 'raw';
+  const deckCount = isRaw ? G.rawDeck.length : G.cultureDeck.length;
+  const label = isRaw ? '原料牌庫' : '文化牌庫';
+  if (!p || isBot(p.idx)) return '現在不是你的操作時間。';
+  if (deckCount <= 0) return `${label}已空，不能再抽。`;
+  if (p.actionPoints < 1) return `行動點數不足：抽${isRaw ? '原料' : '文化'}卡需要 1 點行動點。`;
+  return '';
+}
 function actionDrawMaterial() {
-  const actor = currentPlayer();
+  const blocked = drawBlockedReason('raw');
+  if (blocked) { showActionError(blocked); return; }
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_MATERIAL_CARD', player: G.currentPlayer });
   // 亮相只走中央彈出（popDrawnCard），不再疊加牌庫→手牌的飛行動畫（JJ：視覺擋來擋去）
 }
 function actionDrawCulture() {
-  const actor = currentPlayer();
+  const blocked = drawBlockedReason('culture');
+  if (blocked) { showActionError(blocked); return; }
   window.Sound?.sfx('draw');
   doAction({ type: 'DRAW_CULTURE_CARD', player: G.currentPlayer });
   // 同上：只走中央彈出
@@ -2154,7 +2665,7 @@ function renderNetLobby() {
   const tribes = Object.entries(CARDS.tribes);
   const picker = `
     <div class="net-tribe-row">
-      ${tribes.map(([id, t]) => `<button class="tribe-pick${L.tribe === id ? ' is-active' : ''}" onclick="netSetTribe('${id}')" title="${t.name}"><img src="${t.img}" alt="${t.name}"><span>${t.name}</span></button>`).join('')}
+      ${tribes.map(([id, t]) => `<button class="tribe-pick${L.tribe === id ? ' is-active' : ''}" aria-pressed="${L.tribe === id}" onclick="netSetTribe('${id}')" title="${t.name}"><img src="${t.img}" alt="${t.name}"><span>${t.name}</span></button>`).join('')}
     </div>`;
   let body;
   if (L.status === 'waiting') {
@@ -2188,12 +2699,12 @@ function renderNetLobby() {
         <input type="text" value="${esc(L.name)}" placeholder="輸入你的名字" maxlength="12" oninput="netSetName(this.value)">
       </label>
       <div class="net-section-label">遊戲人數</div>
-      <div class="net-player-count">${[2,3,4].map(n => `<button class="option-button${(L.count || 2) === n ? ' is-active' : ''}" onclick="netSetCount(${n})">${n} 人</button>`).join('')}</div>
+      <div class="net-player-count" role="group" aria-label="連線玩家人數">${[2,3,4].map(n => `<button class="option-button${(L.count || 2) === n ? ' is-active' : ''}" aria-pressed="${(L.count || 2) === n}" onclick="netSetCount(${n})">${n} 人</button>`).join('')}</div>
       <div class="net-section-label">選擇你的族群</div>
       ${picker}
       <div class="net-actions">
         <div class="net-join-box">
-          <input class="room-code-input" type="text" value="${esc(L.codeInput)}" placeholder="房號" maxlength="5" oninput="netSetCode(this.value)">
+          <input class="room-code-input" type="text" value="${esc(L.codeInput)}" placeholder="房號" aria-label="五碼房號" maxlength="5" oninput="netSetCode(this.value)">
           <button class="${L.invited ? 'primary-start-button' : 'secondary-lore-button'}" onclick="netJoinRoom()">加入房間</button>
         </div>
         <div class="net-or">或</div>
@@ -2204,19 +2715,21 @@ function renderNetLobby() {
       </div>`;
   }
   return `
-    <section class="setup-screen">
+    <main class="setup-screen">
       <div class="setup-panel net-lobby-panel">
-        <h2>連線對戰</h2>
+        <h1>連線對戰</h1>
         ${body}
         <div class="center" style="margin-top:16px;"><button class="secondary-lore-button" onclick="netCancel()">返回首頁</button></div>
       </div>
-    </section>`;
+    </main>`;
 }
 
 Object.assign(window, {
-  gotoSetup, gotoStory, gotoHome, diceRoll, diceDone,
+  gotoSetup, gotoStory, gotoEducation, gotoHome, homeContinue, replayGame, diceRoll, diceDone,
+  educationRegenerate, educationSetBand, educationSetTheme, educationPrint, educationStartGame,
   setCount, setName, pickTribe, startGame,
   actionTakeMaterialsPrompt, takeSimple, takeExchangeStart, exchangeGivePick, exchangeGetPick, closeModal,
+  actionShareMaterial, shareMaterialPick, actionSharedLearning,
   actionRaid, actionSwapBuilding, actionForceSwapRaw, pickTarget, passOverlayContinue,
   forceSwapPickMine, forceSwapPickTheirs, forceSwapConfirm,
   rpsPick, rpsRevealDefenderReady, rpsAfterTie, rpsRevealAttackerReady, rpsFinish,
@@ -2230,7 +2743,7 @@ Object.assign(window, {
   toggleHud, closeHud,
   continueTurn,
   startTutorial, tutorialNext, tutorialPrev, closeTutorial,
-  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStartWithTribe, comingSoonToast, toggleHomeNav,
+  homeCarouselPrev, homeCarouselNext, homeCarouselSelect, homeStart, homeStartWithTribe, comingSoonToast, toggleHomeNav,
   handRawTap, handCultureTap, confirmPlayCulture,
   quizPick, quizClose, maybeTriggerQuiz,
   gotoNetLobby, netCancel, netSetName, netSetTribe, netSetCode, netSetCount, netCreateRoom, netJoinRoom, netCopyInvite,
@@ -2253,7 +2766,25 @@ Object.assign(window, {
 render();
 
 document.addEventListener('keydown', event => {
-  if (event.key !== 'Escape') return;
-  if (ui.modal && modalCanDismiss(ui.modal.type)) { event.preventDefault(); closeModal(); return; }
-  if (!ui.hudCollapsed && !ui.modal) closeHud();
+  if (event.key === 'Tab' && ui.modal) {
+    const modal = document.querySelector('.modal');
+    if (!modal) return;
+    const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
+      .filter(element => !element.hasAttribute('hidden') && element.offsetParent !== null);
+    if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === modal)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return;
+  }
+  if (event.key === 'Escape') {
+    if (ui.modal && modalCanDismiss(ui.modal.type)) { event.preventDefault(); closeModal(); return; }
+    if (!ui.hudCollapsed && !ui.modal) closeHud();
+  }
 });

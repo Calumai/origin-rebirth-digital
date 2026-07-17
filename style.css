@@ -1661,12 +1661,19 @@ input[type=text] {
     box-shadow: 18px 0 46px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(12px);
     transform: translateX(-104%);
-    transition: transform 0.32s cubic-bezier(.22, .7, .24, 1);
+    /* 關閉時用 visibility:hidden 把抽屜移出鍵盤 Tab 焦點順序（此規則僅在 ≤820px，桌機側欄常駐不受影響）；
+       visibility 延遲 0.32s 切換，讓滑出動畫先播完再離開焦點 */
+    visibility: hidden;
+    transition: transform 0.32s cubic-bezier(.22, .7, .24, 1), visibility 0s linear 0.32s;
     /* 蓋掉桌機進場動畫 ps5SlideRight（both 會把抽屜停在全開）*/
     animation: none !important;
     z-index: 21;
   }
-  .ps5-home.nav-open .ps5-sidebar { transform: translateX(0); }
+  .ps5-home.nav-open .ps5-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.32s cubic-bezier(.22, .7, .24, 1), visibility 0s;
+  }
   .ps5-home .side-item { width: 100%; }
 
   /* 漢堡鈕（左上） */
@@ -1846,6 +1853,155 @@ input[type=text] {
   .game-impact, .action-denied, .net-waiting, .rps-reveal-side,
   .draw-flight, .coin-flight, .tutorial-highlight { animation: none !important; transition: none !important; }
   .audio-toggle::after { transition: none; }
+}
+
+/* ── 手機首頁選角閉環（主卡＋縮圖列＋固定 CTA）──
+   桌機沿用既有 carousel，以下三個元件僅手機顯示；族群卡改語意化 <button> 的通用重置。 */
+.ps5-home .home-lead,
+.ps5-home .tribe-stage,
+.ps5-home .home-cta-bar { display: none; }
+.ps5-home .tribe-card {
+  font-family: inherit;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 820px) {
+  /* 動態視窗高度，避免行動瀏覽器工具列伸縮造成 100vh 溢出 */
+  .ps5-home { min-height: 100vh; min-height: 100dvh; }
+  /* 依規劃：第一屏只完成選角，設定／操作說明收進選單抽屜，頂部佔位列在手機隱藏 */
+  .ps5-home .ps5-topbar { display: none; }
+  .ps5-home .ps5-content {
+    min-height: auto;
+    justify-content: flex-start;
+    /* 頂部避開狀態列與 topbar；底部保留固定 CTA 高度＋安全區，最後元素不被遮住 */
+    padding: calc(76px + env(safe-area-inset-top)) 20px calc(164px + env(safe-area-inset-bottom));
+    gap: 0;
+  }
+
+  .ps5-home .home-lead {
+    display: block;
+    text-align: center;
+    margin: 6px 0 14px;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    color: rgba(255, 229, 170, 0.82);
+  }
+
+  /* 主卡：一次只突出一個族群 */
+  .ps5-home .tribe-stage {
+    display: block;
+    position: relative;
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto 18px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 214, 130, 0.28);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+    background: rgba(20, 17, 14, 0.6);
+  }
+  /* 主卡高度依視窗夾住，避免在矮螢幕把縮圖列擠到固定 CTA 後方（首屏即完成選角） */
+  .ps5-home .tribe-stage-media { width: 100%; height: clamp(180px, 34vh, 300px); background: #12100d; }
+  .ps5-home .tribe-stage-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ps5-home .tribe-stage-info {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 16px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
+  }
+  .ps5-home .tribe-stage-name {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    color: #fff2cf;
+    text-shadow: 0 4px 14px rgba(0, 0, 0, 0.9);
+  }
+  .ps5-home .tribe-stage-produces {
+    margin-top: 4px;
+    font-size: 14px;
+    color: rgba(255, 236, 200, 0.88);
+  }
+
+  /* 縮圖列：橫向四張，可點可左右捲；覆蓋既有 ≤820 的 2 欄 grid */
+  .ps5-home .tribe-carousel {
+    width: 100%;
+    display: flex;
+    grid-template-columns: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 2px;
+    margin: 0;
+  }
+  .ps5-home .carousel-arrow { display: none; }
+  .ps5-home .tribe-card,
+  .ps5-home .tribe-card:hover,
+  .ps5-home .tribe-card.selected {
+    flex: 0 0 auto;
+    width: 74px;
+    min-width: 74px;
+    min-height: 74px;
+    aspect-ratio: 1;
+    transform: none;
+    opacity: 1;
+    filter: none;
+    animation: none;
+    border-radius: 12px;
+  }
+  .ps5-home .tribe-card::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent 55%); }
+  .ps5-home .tribe-card .tribe-name {
+    bottom: 4px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+  .ps5-home .tribe-card.selected {
+    border-color: #ffcf7a;
+    box-shadow: 0 0 0 2px rgba(255, 207, 122, 0.55), 0 0 22px rgba(255, 196, 82, 0.4);
+  }
+
+  /* 固定操作區：主 CTA 一鍵開局＋次要「了解這個族群」 */
+  .ps5-home .home-cta-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(12, 10, 8, 0.97) 62%, rgba(12, 10, 8, 0));
+  }
+  .ps5-home.nav-open .home-cta-bar { display: none; } /* 選單抽屜開啟時讓出畫面 */
+  .ps5-home .home-cta-primary {
+    width: min(420px, 100%);
+    min-height: 56px;
+    border: none;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    color: #2a1c08;
+    background: linear-gradient(135deg, #ffd98a, #f0a94b);
+    box-shadow: 0 10px 26px rgba(240, 169, 75, 0.4);
+  }
+  .ps5-home .home-cta-secondary {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #f7ddb0;
+    background: transparent;
+    border: 1px solid rgba(255, 218, 128, 0.5);
+  }
+
+  .ps5-home .ps5-hints { display: none; }
 }
 
 /* ── 對戰桌牌桌墊 ── */
@@ -2294,12 +2450,30 @@ input[type=text] {
 .story-tribe { text-align: center; }
 .story-tribe img { width: 110px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
 
-/* ── 擲骰子（純 CSS 立體骰，取代 emoji） ── */
-.dice-face { margin: 14px 0; }
-.die-cube {
-  width: 88px;
-  height: 88px;
+/* ── 擲骰子：出手、翻滾、落定三段回饋 ── */
+.dice-face { margin: 8px 0 12px; }
+.dice-stage {
+  --dice-size: 92px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: min(240px, 100%);
+  height: 140px;
   margin: 0 auto;
+  perspective: 700px;
+  contain: layout paint;
+}
+.dice-motion {
+  position: relative;
+  z-index: 2;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.die-cube {
+  width: var(--dice-size, 88px);
+  height: var(--dice-size, 88px);
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
@@ -2309,17 +2483,77 @@ input[type=text] {
   border: 2px solid var(--accent-dark);
   border-radius: 16px;
   box-shadow: var(--shadow-lg), inset 0 0 0 2px rgba(255,255,255,0.6);
+  backface-visibility: hidden;
 }
 .die-cube .pip { border-radius: 50%; }
 .die-cube .pip.on {
   background: radial-gradient(circle at 35% 30%, #6b4a24, var(--ink));
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
 }
-.die-cube.dice-rolling { animation: dice-shake 0.15s infinite; }
-@keyframes dice-shake {
-  0%   { transform: rotate(-8deg) scale(1.05); }
-  50%  { transform: rotate(8deg)  scale(0.95); }
-  100% { transform: rotate(-8deg) scale(1.05); }
+.dice-shadow {
+  position: absolute;
+  z-index: 1;
+  bottom: 14px;
+  width: 74px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.46);
+  filter: blur(2px);
+  transform-origin: center;
+}
+.dice-impact-ring {
+  position: absolute;
+  z-index: 0;
+  bottom: 11px;
+  width: 78px;
+  height: 24px;
+  border: 1px solid rgba(216, 146, 70, 0.72);
+  border-radius: 50%;
+  opacity: 0;
+}
+.dice-stage.is-ready .dice-motion { transform: translateY(3px) rotateZ(-3deg); }
+.dice-stage.is-launch .dice-motion { animation: dice-launch 180ms cubic-bezier(.2, .7, .3, 1) both; }
+.dice-stage.is-launch .dice-shadow { animation: dice-shadow-launch 180ms ease-out both; }
+.dice-stage.is-rolling .dice-motion { animation: dice-tumble 740ms cubic-bezier(.3, .05, .2, 1) both; }
+.dice-stage.is-rolling .dice-shadow { animation: dice-shadow-roll 740ms ease-in-out both; }
+.dice-stage.is-result .dice-motion { animation: dice-settle 480ms cubic-bezier(.18, .85, .32, 1.25) both; }
+.dice-stage.is-result .dice-impact-ring { animation: dice-impact 420ms ease-out both; }
+.dice-stage.is-result .dice-shadow { animation: dice-shadow-settle 480ms ease-out both; }
+@keyframes dice-launch {
+  from { transform: translate3d(0, 18px, 0) rotateX(0) rotateZ(0); }
+  to { transform: translate3d(-8px, -34px, 0) rotateX(-38deg) rotateZ(-12deg); }
+}
+@keyframes dice-tumble {
+  0% { transform: translate3d(-8px, -34px, 0) rotateX(-38deg) rotateY(24deg) rotateZ(-12deg); }
+  38% { transform: translate3d(16px, -54px, 0) rotateX(250deg) rotateY(190deg) rotateZ(90deg); }
+  72% { transform: translate3d(-10px, -18px, 0) rotateX(510deg) rotateY(460deg) rotateZ(210deg); }
+  100% { transform: translate3d(0, 10px, 0) rotateX(720deg) rotateY(720deg) rotateZ(360deg); }
+}
+@keyframes dice-settle {
+  0% { transform: translateY(10px) scale(.9, 1.08); }
+  38% { transform: translateY(-10px) scale(1.04, .96); }
+  70% { transform: translateY(3px) scale(.98, 1.02); }
+  100% { transform: none; }
+}
+@keyframes dice-impact {
+  0% { opacity: .72; transform: scale(.4); }
+  100% { opacity: 0; transform: scale(1.72); }
+}
+@keyframes dice-shadow-launch {
+  from { opacity: .72; transform: scale(1); }
+  to { opacity: .28; transform: scale(.54); }
+}
+@keyframes dice-shadow-roll {
+  0%, 100% { opacity: .34; transform: scale(.62); }
+  38% { opacity: .16; transform: scale(.38); }
+  72% { opacity: .48; transform: scale(.82); }
+}
+@keyframes dice-shadow-settle {
+  0% { opacity: .75; transform: scale(1.2); }
+  100% { opacity: .5; transform: scale(1); }
+}
+@media (max-width: 480px) {
+  .dice-stage { --dice-size: 76px; height: 116px; perspective: 560px; }
 }
 
 /* ── 猜拳圖示 ── */
@@ -3414,22 +3648,24 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 16px 14px;
-  border: 2px solid #ffe08a;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 20px 26px 22px;
+  border: 3px solid #ffe08a;
+  border-radius: 18px;
   background: linear-gradient(160deg, #4b351b, #181421);
-  box-shadow: 0 0 28px rgba(255, 210, 108, 0.5), 0 16px 40px rgba(0, 0, 0, 0.6);
-  animation: drawPop 1.7s cubic-bezier(.2, .8, .3, 1) both;
+  box-shadow: 0 0 40px rgba(255, 210, 108, 0.55), 0 20px 50px rgba(0, 0, 0, 0.65);
+  animation: drawPop 2.2s cubic-bezier(.2, .8, .3, 1) both;
 }
-.draw-pop span { color: #ffe9ac; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; }
-.draw-pop img { width: 150px; border-radius: 8px; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45); }
-.draw-pop b { color: #fff1cd; font-size: 15px; }
+.draw-pop span { color: #ffe9ac; font-size: 13px; font-weight: 900; letter-spacing: 0.08em; }
+/* 放大卡面，JJ 反映之前太小、換手又快，根本看不清楚抽到什麼 */
+.draw-pop img { width: 240px; border-radius: 10px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); }
+.draw-pop b { color: #fff1cd; font-size: 19px; }
+.draw-pop em { color: #ffd98a; font-size: 13px; font-style: normal; opacity: 0.9; }
 @keyframes drawPop {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-  10%  { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
-  16%  { transform: translate(-50%, -50%) scale(1); }
-  78%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  8%   { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  14%  { transform: translate(-50%, -50%) scale(1); }
+  84%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -46%) scale(0.85); }
 }
 

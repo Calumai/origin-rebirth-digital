@@ -46,7 +46,27 @@ function chooseAction(state, idx, rng) {
     }
   }
 
-  // 4. 偶爾偷襲素材最多的人
+  // 4. 正向玩家互動：幫助缺少素材的對手，共學則優先找尚未交流過的玩家。
+  const eventId = state.currentEvent && state.currentEvent.id;
+  if (p.actionPoints >= 1 && !p._sharedThisTurn) {
+    const shareChance = eventId === 'mutualaid' || eventId === 'nightgather' ? 0.7 : 0.22;
+    if (rng() < shareChance) {
+      const material = CARDS.materials.find(m => (p.materials[m] || 0) >= 3 && others.some(t => (t.materials[m] || 0) === 0));
+      const target = material && others.find(t => (t.materials[material] || 0) === 0);
+      if (material && target) return { type: 'SHARE_MATERIAL', player: idx, target: target.idx, material };
+    }
+  }
+
+  if (p.actionPoints >= 1 && !p._sharedLearningThisTurn && state.cultureDeck.length >= 2) {
+    const learnChance = eventId === 'sharedstories' || eventId === 'nightgather' ? 0.65 : 0.14;
+    if (rng() < learnChance) {
+      const known = new Set((p.progress && p.progress.partners) || []);
+      const target = others.find(t => !known.has(t.idx)) || others[Math.floor(rng() * others.length)];
+      if (target) return { type: 'SHARED_LEARNING', player: idx, target: target.idx };
+    }
+  }
+
+  // 5. 偶爾偷襲素材最多的人
   if (p.actionPoints >= 1 && rng() < 0.15) {
     const t = others.sort((x, y) =>
       Object.values(y.materials).reduce((s, n) => s + n, 0) -
@@ -55,7 +75,7 @@ function chooseAction(state, idx, rng) {
       return { type: 'RAID', player: idx, target: t.idx };
   }
 
-  // 5. 抽卡（原料:文化 = 2:1）
+  // 6. 抽卡（原料:文化 = 2:1）
   if (p.actionPoints >= 1) {
     if (state.rawDeck.length && (rng() < 0.67 || !state.cultureDeck.length))
       return { type: 'DRAW_MATERIAL_CARD', player: idx };
@@ -63,7 +83,7 @@ function chooseAction(state, idx, rng) {
       return { type: 'DRAW_CULTURE_CARD', player: idx };
   }
 
-  // 6. 沒牌可抽、又買不了建築 → 整回合拿素材（缺什麼換什麼），推進買建築
+  // 7. 沒牌可抽、又買不了建築 → 整回合拿素材（缺什麼換什麼），推進買建築
   if (atTurnStart) {
     const missing = CARDS.materials.find(m => (p.materials[m] || 0) === 0);
     if (missing) {

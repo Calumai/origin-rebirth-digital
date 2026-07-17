@@ -58,7 +58,7 @@ function runGame(seed, playerCount, verbose = false) {
       const p = state.players[s.player];
       const obj = objectiveProgress(p);
       const objDef = CARDS.objectives.find(o => o.id === p.objective);
-      console.log(`  ${s.tribe.padEnd(6)} 建築${s.buildings} 文化${s.culture} 工藝${s.crafts} 服飾${s.clothing} 獎勵${s.bonus} 事件${s.eventBonus} 目標[${objDef ? objDef.name : '?'} ${obj.cur}/${obj.target}${s.objectiveDone ? '✓+5' : ''}] → 總分 ${s.total}`);
+      console.log(`  ${s.tribe.padEnd(6)} 建築${s.buildings} 文化${s.culture} 工藝${s.crafts} 服飾${s.clothing} 獎勵${s.bonus} 互助${s.support} 事件${s.eventBonus} 目標[${objDef ? objDef.name : '?'} ${obj.cur}/${obj.target}${s.objectiveDone ? '✓+5' : ''}] → 總分 ${s.total}`);
     }
   }
   return { state, scores };
