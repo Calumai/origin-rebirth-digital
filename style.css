@@ -3756,3 +3756,23 @@ button.empty-deck img { box-shadow: 0 0 0 1px rgba(255, 211, 116, 0.5), 0 6px 14
 }
 .bld-remain { font-size: 0.72em; opacity: 0.85; }
 .bld-remain.done { color: #b9e89a; }
+
+/* ══ A24 Step 1：拿掉左欄與中央家屋的「面板方框感」，讓它們直接坐在木桌上 ══
+   JJ：區塊太多太碎，想要更整合一體的畫面。第一步先處理最大的兩塊——
+   左側資源欄、中央家屋區——不再是各自獨立的深色卡片，改成直接融入桌面。
+   桌面本身已有夠深的暗色遮罩（.table-surface），拿掉方框後文字仍可讀。
+   內部的按鈕／卡片／素材幣本身有自己的陰影邊框，維持「桌上物件」的實體感。 */
+.bv-resources {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.bv-buildings {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.bv-buildings::before { display: none !important; } /* 拿掉「中央牌桌」除錯標籤，那本身就在暗示這是個 UI 面板而非桌面 */
+/* 拿掉方框後用文字陰影補足可讀性，而不是用背景色塊 */
+.bv-resources h3 { text-shadow: 0 1px 5px rgba(0,0,0,0.9); }
+.bv-resources .chip { background: rgba(0,0,0,0.32) !important; }
